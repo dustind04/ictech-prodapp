@@ -1,26 +1,37 @@
-config.ini
-dotstar.so
-.ftpconfig
-assets/
+# Persistent data — never commit the SQLite database
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
 *.pyc
-*.DS_Store
-static/serveit.py
-mictray/dist/*
-dist/*
-mictray/build/*
-build/*
-!build/*.png
-.eggs/*
-static/gifs/*
-*.mp4
-*.gif
-static/backgrounds/*
-node_modules/*
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Node (left from earlier micboard build attempts; we don't use Node)
+node_modules/
 package-lock.json
-DCIDMap.xml
-.python-version
-static/data2.json
-*.map
-static/fonts/*
-static/*.js*
-config/*
+
+# Webpack outputs left from earlier micboard build attempts
+/static/about.js
+/static/about.js.map
+/static/app.js
+/static/app.js.map
+/static/venue.js
+/static/venue.js.map
+/static/web.js
+/static/web.js.map
+/static/fonts/
+
+# Docker
+.docker/
+
+# Editor
+.vscode/
+.idea/
+*.swp

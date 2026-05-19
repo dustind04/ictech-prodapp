@@ -1,11 +1,10 @@
-version: '2'
-
 services:
-  # -------- Micboard -----------
-  micboard:
-    image: micboard
-    container_name: micboard
+  ictech:
+    build: .
+    image: ictech:local
+    container_name: ictech
     ports:
       - '8058:8058'
     volumes:
-      - ./config:/root/.local/share/micboard
+      - ./data:/data
+    restart: unless-stopped
