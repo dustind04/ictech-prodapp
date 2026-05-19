@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}People — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">People</h1>
+    <p class="page-lead">Singers, speakers, and anyone else who appears on stage.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<section class="form-card">
+  <h2>Add a person</h2>
+  <form method="post" action="{{ url_for('admin_people_create') }}">
+    <div class="form-row">
+      <label>
+        Display name
+        <input name="display_name" required placeholder="Sarah Knecht">
+      </label>
+      <label>
+        Nickname <span class="hint">(shown on the wall)</span>
+        <input name="nickname" placeholder="Sarah">
+      </label>
+    </div>
+    <label>
+      Photo URL <span class="hint">(optional)</span>
+      <input name="photo_url" type="url" placeholder="https://...">
+    </label>
+    <button type="submit" class="btn-primary">Add person</button>
+  </form>
+</section>
+
+<section>
+  <h2>Current people <span class="muted">({{ people|length }})</span></h2>
+  {% if people %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Display name</th><th>Nickname</th><th>Photo</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in people %}
+          <tr>
+            <td>{{ p.display_name }}</td>
+            <td>{{ p.nickname or '—' }}</td>
+            <td>{% if p.photo_url %}<a href="{{ p.photo_url }}" target="_blank">link</a>{% else %}—{% endif %}</td>
+            <td class="actions"><a href="{{ url_for('admin_people_edit', person_id=p.id) }}">Edit</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No people yet. Add one above to get started.</p>
+  {% endif %}
+</section>
+{% endblock %}

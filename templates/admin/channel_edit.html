@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ channel.label }} — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Edit channel</h1>
+    <p class="page-lead">{{ channel.label }}</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_channels') }}">← Channels</a>
+</div>
+
+<section class="form-card">
+  <form method="post" action="{{ url_for('admin_channels_update', channel_id=channel.id) }}">
+    <div class="form-row">
+      <label>
+        Label
+        <input name="label" required value="{{ channel.label }}">
+      </label>
+      <label>
+        Kind
+        <select name="kind" required>
+          {% for k in kinds %}
+            <option value="{{ k }}" {{ 'selected' if channel.kind == k }}>{{ k }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>
+        Capsule
+        <input name="capsule" value="{{ channel.capsule or '' }}">
+      </label>
+      <label>
+        Frequency (MHz)
+        <input name="frequency_mhz" type="number" step="0.001"
+               value="{{ channel.frequency_mhz if channel.frequency_mhz is not none else '' }}">
+      </label>
+    </div>
+
+    <h3 class="subhead">Network info</h3>
+    <div class="form-row">
+      <label>
+        Shure receiver type
+        <select name="shure_type">
+          <option value="">—</option>
+          {% for t in shure_types %}
+            <option value="{{ t }}" {{ 'selected' if channel.shure_type == t }}>{{ shure_type_labels[t] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Receiver IP
+        <input name="shure_ip" value="{{ channel.shure_ip or '' }}">
+      </label>
+      <label>
+        Channel on receiver
+        <input name="shure_channel" type="number" min="1" max="8"
+               value="{{ channel.shure_channel if channel.shure_channel is not none else '' }}">
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Save</button>
+      <button type="submit" name="action" value="archive" class="btn-danger"
+              onclick="return confirm('Archive {{ channel.label }}? Slots using this channel will be cleared.')">
+        Archive
+      </button>
+    </div>
+  </form>
+</section>
+{% endblock %}

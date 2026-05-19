@@ -1,16 +1,115 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>icTech Services — Wall Display</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-  <main>
-    <h1><span class="ic">ic</span>Tech Services</h1>
-    <p class="placeholder">Wall display lands in the next commit. App skeleton boots.</p>
-    <p class="placeholder small">Live data preview: <a href="/api/state">/api/state</a></p>
-  </main>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Wall display — icTech Services{% endblock %}
+{% block body_class %}wall-body{% endblock %}
+{% block main_class %}wall-main{% endblock %}
+
+{# The wall display hides the chrome so the TV shows nothing but slots. #}
+{% block chrome %}{% endblock %}
+
+{% block content %}
+<div class="wall-header">
+  <div class="wall-brand">
+    <span class="ic">ic</span><span class="tech">Tech</span> <span class="suffix">Services</span>
+  </div>
+  <div class="wall-meta" id="wall-meta">—</div>
+</div>
+
+<div class="slot-grid" id="slot-grid">
+  {# Slots are rendered client-side after the first /api/state call so the
+     wall view reflects fresh data within 2s of any admin edit. We render
+     a skeleton here so the page isn't blank during the first paint. #}
+  {% for i in range(1, 11) %}
+    <div class="slot skeleton" data-slot-id="{{ i }}">
+      <div class="slot-num">{{ '%02d' % i }}</div>
+      <div class="slot-photo"></div>
+      <div class="slot-name">—</div>
+      <div class="slot-channel">—</div>
+      <div class="slot-iem">&nbsp;</div>
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+  // Update wall meta (date/time) every second
+  function tickClock() {
+    const el = document.getElementById('wall-meta');
+    if (!el) return;
+    const d = new Date();
+    const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
+    const date    = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    const time    = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    el.textContent = `${weekday}, ${date} · ${time}`;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // Pull /api/state and re-render the grid every 2 seconds.
+  // Vanilla fetch + DOM manipulation; no framework needed for 10 cards.
+  async function refresh() {
+    try {
+      const res = await fetch('/api/state', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      render(data.slots || []);
+    } catch (err) {
+      // network blip; the next tick will retry
+    }
+  }
+
+  function initials(name) {
+    if (!name) return '';
+    return name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  function render(slots) {
+    const grid = document.getElementById('slot-grid');
+    if (!grid) return;
+    for (const slot of slots) {
+      const el = grid.querySelector(`.slot[data-slot-id="${slot.bank_order}"]`);
+      if (!el) continue;
+      el.classList.remove('skeleton');
+      el.classList.toggle('empty', !slot.person_id);
+      el.classList.toggle('paired', slot.kind === 'paired');
+      el.classList.toggle('mic-only', slot.kind === 'mic_only');
+
+      const photo = el.querySelector('.slot-photo');
+      const name  = el.querySelector('.slot-name');
+      const ch    = el.querySelector('.slot-channel');
+      const iem   = el.querySelector('.slot-iem');
+
+      if (slot.person_id) {
+        const displayName = slot.person_nickname || slot.person_name;
+        name.textContent = displayName;
+        if (slot.photo_url) {
+          photo.style.backgroundImage = `url('${slot.photo_url}')`;
+          photo.textContent = '';
+        } else {
+          photo.style.backgroundImage = '';
+          photo.textContent = initials(displayName);
+        }
+      } else {
+        name.textContent = 'Empty';
+        photo.style.backgroundImage = '';
+        photo.textContent = '';
+      }
+
+      // Mic line: "Red HH · Ch 27" — or just label, or just channel, or em-dash
+      const micParts = [];
+      if (slot.mic_capsule) micParts.push(slot.mic_capsule);
+      else if (slot.mic_label) micParts.push(slot.mic_label);
+      if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
+      ch.textContent = micParts.length ? micParts.join(' · ') : '—';
+
+      // IEM line: only meaningful for paired slots
+      if (slot.kind === 'paired') {
+        iem.textContent = slot.iem_label || 'IEM —';
+      } else {
+        iem.textContent = '';
+      }
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+{% endblock %}

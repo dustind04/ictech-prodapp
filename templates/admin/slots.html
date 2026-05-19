@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Slots — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Slot assignments</h1>
+    <p class="page-lead">10 physical positions in the charger bank. Slots 1–6 are paired (vocalist handheld + IEM). Slots 7–10 are belt-pack mics only.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<div class="slot-edit-grid">
+  {% for slot in slots %}
+    <form class="slot-edit {{ 'paired' if slot.kind == 'paired' else 'mic-only' }}"
+          method="post" action="{{ url_for('admin_slots_update', slot_id=slot.slot_id) }}">
+      <div class="slot-edit-header">
+        <span class="slot-edit-num">Slot {{ '%02d' % slot.bank_order }}</span>
+        <span class="badge badge-{{ slot.kind }}">{{ 'paired' if slot.kind == 'paired' else 'mic-only' }}</span>
+      </div>
+      <label>
+        Person
+        <select name="person_id">
+          <option value="">— Empty —</option>
+          {% for p in people %}
+            <option value="{{ p.id }}" {{ 'selected' if slot.person_id == p.id }}>
+              {{ p.nickname or p.display_name }}{% if p.nickname and p.nickname != p.display_name %} ({{ p.display_name }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Mic channel
+        <select name="mic_channel_id">
+          <option value="">— None —</option>
+          {% if slot.kind == 'paired' %}
+            {% for c in handhelds %}
+              <option value="{{ c.id }}" {{ 'selected' if slot.mic_channel_id == c.id }}>{{ c.label }}</option>
+            {% endfor %}
+          {% else %}
+            {% for c in beltpacks %}
+              <option value="{{ c.id }}" {{ 'selected' if slot.mic_channel_id == c.id }}>{{ c.label }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </label>
+      {% if slot.kind == 'paired' %}
+        <label>
+          IEM channel
+          <select name="iem_channel_id">
+            <option value="">— None —</option>
+            {% for c in iems %}
+              <option value="{{ c.id }}" {{ 'selected' if slot.iem_channel_id == c.id }}>{{ c.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
+      <button type="submit" class="btn-primary btn-small">Save</button>
+    </form>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Channels — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Channels</h1>
+    <p class="page-lead">Wireless inputs the system knows about. Each is a handheld, belt-pack, or IEM pack.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<section class="form-card">
+  <h2>Add a channel</h2>
+  <form method="post" action="{{ url_for('admin_channels_create') }}">
+    <div class="form-row">
+      <label>
+        Label
+        <input name="label" required placeholder="Red HH">
+      </label>
+      <label>
+        Kind
+        <select name="kind" required>
+          {% for k in kinds %}
+            <option value="{{ k }}">{{ k }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>
+        Capsule / description
+        <input name="capsule" placeholder="Red HH, Headset, Lav...">
+      </label>
+      <label>
+        Frequency (MHz) <span class="hint">(optional)</span>
+        <input name="frequency_mhz" type="number" step="0.001" placeholder="566.125">
+      </label>
+    </div>
+
+    <h3 class="subhead">Network info <span class="hint">(needed for live monitoring; can be left blank)</span></h3>
+    <div class="form-row">
+      <label>
+        Shure receiver type
+        <select name="shure_type">
+          <option value="">—</option>
+          {% for t in shure_types %}
+            <option value="{{ t }}">{{ shure_type_labels[t] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Receiver IP
+        <input name="shure_ip" placeholder="10.0.1.50">
+      </label>
+      <label>
+        Channel on receiver
+        <input name="shure_channel" type="number" min="1" max="8" placeholder="1">
+      </label>
+    </div>
+    <button type="submit" class="btn-primary">Add channel</button>
+  </form>
+</section>
+
+<section>
+  <h2>Current channels <span class="muted">({{ channels|length }})</span></h2>
+  {% if channels %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Label</th><th>Kind</th><th>Capsule</th>
+          <th>Receiver</th><th>Channel</th><th>Freq.</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in channels %}
+          <tr>
+            <td>{{ c.label }}</td>
+            <td><span class="badge badge-{{ c.kind }}">{{ c.kind }}</span></td>
+            <td>{{ c.capsule or '—' }}</td>
+            <td>
+              {% if c.shure_ip %}
+                <span class="muted">{{ shure_type_labels.get(c.shure_type, c.shure_type or '—') }}</span><br>
+                <code>{{ c.shure_ip }}</code>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ c.shure_channel or '—' }}</td>
+            <td>{{ '%.3f' % c.frequency_mhz if c.frequency_mhz else '—' }}</td>
+            <td class="actions"><a href="{{ url_for('admin_channels_edit', channel_id=c.id) }}">Edit</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No channels yet. Add one above.</p>
+  {% endif %}
+</section>
+{% endblock %}

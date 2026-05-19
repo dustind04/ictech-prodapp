@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ person.display_name }} — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Edit person</h1>
+    <p class="page-lead">{{ person.display_name }}</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_people') }}">← People</a>
+</div>
+
+<section class="form-card">
+  <form method="post" action="{{ url_for('admin_people_update', person_id=person.id) }}">
+    <div class="form-row">
+      <label>
+        Display name
+        <input name="display_name" required value="{{ person.display_name }}">
+      </label>
+      <label>
+        Nickname
+        <input name="nickname" value="{{ person.nickname or '' }}">
+      </label>
+    </div>
+    <label>
+      Photo URL
+      <input name="photo_url" type="url" value="{{ person.photo_url or '' }}">
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Save</button>
+      <button type="submit" name="action" value="archive" class="btn-danger"
+              onclick="return confirm('Archive {{ person.display_name }}? Their slot assignments will be cleared.')">
+        Archive
+      </button>
+    </div>
+  </form>
+</section>
+{% endblock %}

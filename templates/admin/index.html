@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Admin — icTech Services{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Admin</h1>
+<p class="page-lead">Manage the people, channels, and slot assignments that drive the wall display.</p>
+
+<div class="card-grid">
+  <a class="card" href="{{ url_for('admin_people') }}">
+    <div class="card-num">{{ counts.people }}</div>
+    <div class="card-label">People</div>
+    <div class="card-hint">Singers, hosts, speakers</div>
+  </a>
+  <a class="card" href="{{ url_for('admin_channels') }}">
+    <div class="card-num">{{ counts.channels }}</div>
+    <div class="card-label">Channels</div>
+    <div class="card-hint">Handhelds, belt-packs, IEMs</div>
+  </a>
+  <a class="card" href="{{ url_for('admin_slots') }}">
+    <div class="card-num">{{ counts.assigned_slots }} / 10</div>
+    <div class="card-label">Slots assigned</div>
+    <div class="card-hint">Sunday rack layout</div>
+  </a>
+</div>
+{% endblock %}
