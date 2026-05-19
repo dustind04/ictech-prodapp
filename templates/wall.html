@@ -25,6 +25,7 @@
       <div class="slot-name">—</div>
       <div class="slot-position">&nbsp;</div>
       <div class="slot-channel">—</div>
+      <div class="slot-mymix">&nbsp;</div>
       <div class="slot-iem">&nbsp;</div>
     </div>
   {% endfor %}
@@ -77,6 +78,7 @@
       const name  = el.querySelector('.slot-name');
       const pos   = el.querySelector('.slot-position');
       const ch    = el.querySelector('.slot-channel');
+      const mymix = el.querySelector('.slot-mymix');
       const iem   = el.querySelector('.slot-iem');
 
       if (slot.person_id) {
@@ -105,6 +107,11 @@
       if (slot.mic_label) micParts.push(slot.mic_label);
       if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       ch.textContent = micParts.length ? micParts.join(' · ') : '—';
+
+      // MyMix line: the personal-monitor channel label for this person's
+      // voice/instrument feed. Critical for the backstage manager who's
+      // troubleshooting "I can't hear myself".
+      mymix.textContent = slot.mymix_channel ? `MyMix: ${slot.mymix_channel}` : '';
 
       // IEM line: only meaningful for paired slots
       if (slot.kind === 'paired') {

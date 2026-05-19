@@ -159,7 +159,8 @@ _SLOT_QUERY = """
       ic.shure_ip      AS iem_shure_ip,
       ic.shure_type    AS iem_shure_type,
       s.position_id    AS position_id,
-      pos.label        AS position_label
+      pos.label        AS position_label,
+      s.mymix_channel  AS mymix_channel
     FROM slot s
     LEFT JOIN person  p   ON p.id = s.person_id
     LEFT JOIN channel mc  ON mc.id = s.mic_channel_id
@@ -472,6 +473,7 @@ def register_admin_routes(app: Flask) -> None:
         mic_id      = _none_if_blank(request.form.get("mic_channel_id"))
         iem_id      = _none_if_blank(request.form.get("iem_channel_id"))
         position_id = _none_if_blank(request.form.get("position_id"))
+        mymix_channel = (request.form.get("mymix_channel") or "").strip() or None
 
         # mic_only slots can't have an IEM regardless of what was posted
         if slot["kind"] == "mic_only":
@@ -480,9 +482,10 @@ def register_admin_routes(app: Flask) -> None:
         db.execute(
             """UPDATE slot SET
                  person_id=?, mic_channel_id=?, iem_channel_id=?, position_id=?,
+                 mymix_channel=?,
                  updated_at=datetime('now')
                WHERE id=?""",
-            (person_id, mic_id, iem_id, position_id, slot_id),
+            (person_id, mic_id, iem_id, position_id, mymix_channel, slot_id),
         )
         db.commit()
         flash(f"Slot {slot_id} updated.", "success")

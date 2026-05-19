@@ -53,6 +53,10 @@
           {% endif %}
         </select>
       </label>
+      <label>
+        MyMix channel <span class="hint">(e.g. Vox 1)</span>
+        <input name="mymix_channel" value="{{ slot.mymix_channel or '' }}" placeholder="Vox 1">
+      </label>
       {% if slot.kind == 'paired' %}
         <label>
           IEM channel

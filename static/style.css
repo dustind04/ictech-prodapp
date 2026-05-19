@@ -498,6 +498,20 @@ input:focus, select:focus {
   margin-bottom: 4px;
   font-variant-numeric: tabular-nums;
 }
+.slot-mymix {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #aaa;
+  margin-bottom: 4px;
+  min-height: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.slot-mymix:empty { min-height: 0; margin-bottom: 0; }
+.slot.empty .slot-mymix { color: transparent; }
 .slot-iem {
   font-size: 12px;
   font-weight: 600;
@@ -510,6 +524,7 @@ input:focus, select:focus {
 .slot.skeleton .slot-name,
 .slot.skeleton .slot-position,
 .slot.skeleton .slot-channel,
+.slot.skeleton .slot-mymix,
 .slot.skeleton .slot-iem { opacity: 0.3; }
 
 /* Responsive: stack at narrower widths for admin previewing */
