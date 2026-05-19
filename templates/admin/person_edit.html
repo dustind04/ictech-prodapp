@@ -11,7 +11,7 @@
 </div>
 
 <section class="form-card">
-  <form method="post" action="{{ url_for('admin_people_update', person_id=person.id) }}">
+  <form method="post" action="{{ url_for('admin_people_update', person_id=person.id) }}" enctype="multipart/form-data">
     <div class="form-row">
       <label>
         Display name
@@ -22,10 +22,33 @@
         <input name="nickname" value="{{ person.nickname or '' }}">
       </label>
     </div>
-    <label>
-      Photo URL
-      <input name="photo_url" type="url" value="{{ person.photo_url or '' }}">
-    </label>
+
+    <div class="photo-edit">
+      <div class="photo-preview">
+        {% if person.photo_url %}
+          <img src="{{ person.photo_url }}" alt="">
+        {% else %}
+          <div class="photo-preview-empty">No photo</div>
+        {% endif %}
+      </div>
+      <div class="photo-edit-fields">
+        <label>
+          Replace photo <span class="hint">(JPG, PNG, WebP — max 8MB)</span>
+          <input name="photo_file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+        </label>
+        <label>
+          Photo URL
+          <input name="photo_url" type="url" value="{{ person.photo_url or '' }}">
+        </label>
+        {% if person.photo_url %}
+          <button type="submit" name="action" value="remove_photo" class="btn-secondary btn-small"
+                  onclick="return confirm('Remove photo?')">
+            Remove photo
+          </button>
+        {% endif %}
+      </div>
+    </div>
+
     <div class="form-actions">
       <button type="submit" class="btn-primary">Save</button>
       <button type="submit" name="action" value="archive" class="btn-danger"

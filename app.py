@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from pathlib import Path
 
 from flask import (
@@ -29,8 +30,10 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     url_for,
 )
+from werkzeug.utils import secure_filename
 
 from db import get_db, init_db
 
@@ -54,6 +57,20 @@ SHURE_TYPE_LABELS = {
     "uhfr": "UHF-R",
 }
 
+# ---------------------------------------------------------------
+# Photo upload constraints.
+#   - Accepted MIME-mapped extensions only; we trust the browser
+#     extension after stripping with secure_filename but cross-check
+#     against the bytes' content-type Werkzeug parsed from the upload.
+#   - 8 MB cap. Big enough for a high-res phone photo, small enough
+#     that a misuse attempt can't fill the disk.
+# ---------------------------------------------------------------
+ALLOWED_PHOTO_EXTS = {"jpg", "jpeg", "png", "webp", "gif"}
+ALLOWED_PHOTO_MIMES = {
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+}
+MAX_PHOTO_BYTES = 8 * 1024 * 1024  # 8 MB
+
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -64,11 +81,22 @@ def create_app() -> Flask:
     # this can come from env or default to a fixed string.
     app.config["SECRET_KEY"] = os.environ.get("ICTECH_SECRET", "ictech-dev-secret")
 
+    # Photo storage: defaults to a sibling of the DB. Both live under /data
+    # in production so the persistent volume covers both.
+    db_dir = Path(app.config["DATABASE_PATH"]).parent
+    app.config["PHOTO_DIR"] = os.environ.get(
+        "ICTECH_PHOTO_DIR", str(db_dir / "photos")
+    )
+    Path(app.config["PHOTO_DIR"]).mkdir(parents=True, exist_ok=True)
+    # Werkzeug enforces this for us; requests larger than this 413 automatically.
+    app.config["MAX_CONTENT_LENGTH"] = MAX_PHOTO_BYTES
+
     init_db(app.config["DATABASE_PATH"])
 
     register_display_routes(app)
     register_api_routes(app)
     register_admin_routes(app)
+    register_photo_routes(app)
     register_teardown(app)
     return app
 
@@ -175,7 +203,10 @@ def register_admin_routes(app: Flask) -> None:
             flash("Name is required.", "error")
             return redirect(url_for("admin_people"))
         nickname = (request.form.get("nickname") or "").strip() or None
-        photo_url = (request.form.get("photo_url") or "").strip() or None
+        # Photo: file upload takes priority over URL field
+        photo_url = _resolve_photo_input(app, current_filename=None)
+        if photo_url is None:
+            photo_url = (request.form.get("photo_url") or "").strip() or None
         db.execute(
             "INSERT INTO person (display_name, nickname, photo_url) VALUES (?, ?, ?)",
             (name, nickname, photo_url),
@@ -195,7 +226,7 @@ def register_admin_routes(app: Flask) -> None:
     @app.route("/admin/people/<int:person_id>", methods=["POST"])
     def admin_people_update(person_id):
         db = get_db(db_path)
-        person = db.execute("SELECT id FROM person WHERE id=?", (person_id,)).fetchone()
+        person = db.execute("SELECT * FROM person WHERE id=?", (person_id,)).fetchone()
         if not person:
             abort(404)
         action = request.form.get("action", "update")
@@ -207,13 +238,37 @@ def register_admin_routes(app: Flask) -> None:
             db.commit()
             flash("Archived.", "success")
             return redirect(url_for("admin_people"))
+        if action == "remove_photo":
+            _delete_managed_photo(app, person["photo_url"])
+            db.execute(
+                "UPDATE person SET photo_url=NULL, updated_at=datetime('now') WHERE id=?",
+                (person_id,),
+            )
+            db.commit()
+            flash("Photo removed.", "success")
+            return redirect(url_for("admin_people_edit", person_id=person_id))
         # Otherwise normal update
         name = (request.form.get("display_name") or "").strip()
         if not name:
             flash("Name is required.", "error")
             return redirect(url_for("admin_people_edit", person_id=person_id))
         nickname = (request.form.get("nickname") or "").strip() or None
-        photo_url = (request.form.get("photo_url") or "").strip() or None
+        # Determine photo: a new upload wins; otherwise keep the URL field's value
+        # (which the template pre-fills with the existing value).
+        current_managed_url = person["photo_url"] if _is_managed_photo(person["photo_url"]) else None
+        current_managed_filename = (
+            current_managed_url[len(_MANAGED_PHOTO_PREFIX):] if current_managed_url else None
+        )
+        uploaded = _resolve_photo_input(app, current_filename=current_managed_filename)
+        if uploaded is not None:
+            photo_url = uploaded
+        else:
+            posted_url = (request.form.get("photo_url") or "").strip() or None
+            # If the user is *changing* away from a managed photo to a different URL
+            # (or clearing it), clean up the old file.
+            if current_managed_url and posted_url != person["photo_url"]:
+                _delete_managed_photo(app, person["photo_url"])
+            photo_url = posted_url
         db.execute(
             """UPDATE person SET display_name=?, nickname=?, photo_url=?,
                                   updated_at=datetime('now') WHERE id=?""",
@@ -370,6 +425,24 @@ def register_admin_routes(app: Flask) -> None:
 
 
 # =============================================================
+# Photo routes — serve uploaded files from disk
+# =============================================================
+def register_photo_routes(app: Flask) -> None:
+    @app.route("/photos/<path:filename>")
+    def serve_photo(filename):
+        """Serve an uploaded person photo. send_from_directory enforces
+        path safety (rejects ../ traversal). We additionally check the
+        filename is one of ours."""
+        if not _is_safe_managed_filename(filename):
+            abort(404)
+        return send_from_directory(
+            app.config["PHOTO_DIR"],
+            filename,
+            max_age=3600,  # 1h cache; we rotate names on replacement so this is safe
+        )
+
+
+# =============================================================
 # Helpers
 # =============================================================
 def _channel_form_values(form, label: str, kind: str) -> dict:
@@ -398,6 +471,100 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
         "capsule": _opt_str("capsule"),
         "frequency_mhz": _opt_float("frequency_mhz"),
     }
+
+
+# -------- Photo upload helpers --------
+#
+# Storage convention: managed photo URLs always look like
+#   /photos/<random-hex>.<ext>
+# This lets us distinguish them from externally-pasted URLs (which start
+# with http:// or https:// or a custom CDN path). When a person's
+# photo_url has the /photos/ prefix we own the underlying file and are
+# responsible for cleaning it up on replacement or removal.
+
+_MANAGED_PHOTO_PREFIX = "/photos/"
+
+
+def _is_managed_photo(photo_url: str | None) -> bool:
+    return bool(photo_url) and photo_url.startswith(_MANAGED_PHOTO_PREFIX)
+
+
+def _is_safe_managed_filename(filename: str) -> bool:
+    """Defense in depth: only serve files that look like ones we wrote.
+    Format: <40-hex-chars>.<ext>"""
+    if "/" in filename or "\\" in filename or ".." in filename:
+        return False
+    name, _, ext = filename.rpartition(".")
+    if not name or not ext:
+        return False
+    if ext.lower() not in ALLOWED_PHOTO_EXTS:
+        return False
+    if len(name) < 16 or not all(c in "0123456789abcdef" for c in name):
+        return False
+    return True
+
+
+def _resolve_photo_input(app: Flask, current_filename: str | None) -> str | None:
+    """Process the file upload field on the form, if any.
+
+    Returns:
+      - A new "/photos/<name>" URL if a valid file was uploaded.
+      - None if no upload (caller should fall back to other inputs).
+
+    Deletes the previous managed photo if a replacement is being saved.
+    Sets a flash message and returns None on validation failures, which
+    the caller treats as "no upload happened".
+    """
+    f = request.files.get("photo_file")
+    if not f or not (f.filename or "").strip():
+        return None
+
+    raw_name = secure_filename(f.filename) or ""
+    ext = raw_name.rsplit(".", 1)[-1].lower() if "." in raw_name else ""
+    if ext not in ALLOWED_PHOTO_EXTS:
+        flash("Photo must be JPG, PNG, WebP, or GIF.", "error")
+        return None
+    # MIME cross-check: trust browser headers but verify against allow-list
+    if f.mimetype not in ALLOWED_PHOTO_MIMES:
+        flash(f"Unsupported image type: {f.mimetype}", "error")
+        return None
+
+    # Generate a random filename; never trust the user's. 20 bytes = 40 hex chars.
+    new_name = f"{secrets.token_hex(20)}.{ext}"
+    photo_dir = Path(app.config["PHOTO_DIR"])
+    photo_dir.mkdir(parents=True, exist_ok=True)
+    target = photo_dir / new_name
+    f.save(str(target))
+
+    # Replacement: delete the old managed file (if any). Failure to delete
+    # doesn't roll back the save -- the orphan is harmless and a future
+    # cleanup script can collect it.
+    if current_filename:
+        old_path = photo_dir / current_filename
+        try:
+            old_path.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            log.warning("Could not remove old photo %s: %s", old_path, e)
+
+    return f"{_MANAGED_PHOTO_PREFIX}{new_name}"
+
+
+def _delete_managed_photo(app: Flask, photo_url: str | None) -> None:
+    """Delete the on-disk file backing a managed photo URL, if it exists."""
+    if not _is_managed_photo(photo_url):
+        return
+    filename = photo_url[len(_MANAGED_PHOTO_PREFIX):]
+    if not _is_safe_managed_filename(filename):
+        return
+    path = Path(app.config["PHOTO_DIR"]) / filename
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        log.warning("Could not remove photo %s: %s", path, e)
 
 
 def register_teardown(app: Flask) -> None:

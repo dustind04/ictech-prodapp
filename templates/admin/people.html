@@ -12,7 +12,7 @@
 
 <section class="form-card">
   <h2>Add a person</h2>
-  <form method="post" action="{{ url_for('admin_people_create') }}">
+  <form method="post" action="{{ url_for('admin_people_create') }}" enctype="multipart/form-data">
     <div class="form-row">
       <label>
         Display name
@@ -24,7 +24,11 @@
       </label>
     </div>
     <label>
-      Photo URL <span class="hint">(optional)</span>
+      Photo <span class="hint">(JPG, PNG, WebP — max 8MB)</span>
+      <input name="photo_file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+    </label>
+    <label>
+      …or paste a photo URL <span class="hint">(if you'd rather link to one)</span>
       <input name="photo_url" type="url" placeholder="https://...">
     </label>
     <button type="submit" class="btn-primary">Add person</button>
@@ -36,14 +40,20 @@
   {% if people %}
     <table class="data-table">
       <thead>
-        <tr><th>Display name</th><th>Nickname</th><th>Photo</th><th></th></tr>
+        <tr><th></th><th>Display name</th><th>Nickname</th><th></th></tr>
       </thead>
       <tbody>
         {% for p in people %}
           <tr>
+            <td class="thumb-cell">
+              {% if p.photo_url %}
+                <img src="{{ p.photo_url }}" class="row-thumb" alt="">
+              {% else %}
+                <div class="row-thumb empty">—</div>
+              {% endif %}
+            </td>
             <td>{{ p.display_name }}</td>
             <td>{{ p.nickname or '—' }}</td>
-            <td>{% if p.photo_url %}<a href="{{ p.photo_url }}" target="_blank">link</a>{% else %}—{% endif %}</td>
             <td class="actions"><a href="{{ url_for('admin_people_edit', person_id=p.id) }}">Edit</a></td>
           </tr>
         {% endfor %}
