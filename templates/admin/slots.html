@@ -30,6 +30,15 @@
         </select>
       </label>
       <label>
+        Stage position
+        <select name="position_id">
+          <option value="">— None —</option>
+          {% for pos in positions %}
+            <option value="{{ pos.id }}" {{ 'selected' if slot.position_id == pos.id }}>{{ pos.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
         Mic channel
         <select name="mic_channel_id">
           <option value="">— None —</option>

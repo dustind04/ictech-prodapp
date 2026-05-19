@@ -157,11 +157,14 @@ _SLOT_QUERY = """
       ic.label         AS iem_label,
       ic.shure_channel AS iem_shure_channel,
       ic.shure_ip      AS iem_shure_ip,
-      ic.shure_type    AS iem_shure_type
+      ic.shure_type    AS iem_shure_type,
+      s.position_id    AS position_id,
+      pos.label        AS position_label
     FROM slot s
-    LEFT JOIN person  p  ON p.id = s.person_id
-    LEFT JOIN channel mc ON mc.id = s.mic_channel_id
-    LEFT JOIN channel ic ON ic.id = s.iem_channel_id
+    LEFT JOIN person  p   ON p.id = s.person_id
+    LEFT JOIN channel mc  ON mc.id = s.mic_channel_id
+    LEFT JOIN channel ic  ON ic.id = s.iem_channel_id
+    LEFT JOIN position pos ON pos.id = s.position_id
     WHERE s.archived = 0
     ORDER BY s.bank_order
 """
@@ -180,6 +183,7 @@ def register_admin_routes(app: Flask) -> None:
         counts = {
             "people":   db.execute("SELECT COUNT(*) c FROM person  WHERE archived=0").fetchone()["c"],
             "channels": db.execute("SELECT COUNT(*) c FROM channel WHERE archived=0").fetchone()["c"],
+            "positions": db.execute("SELECT COUNT(*) c FROM position WHERE archived=0").fetchone()["c"],
             "assigned_slots": db.execute(
                 "SELECT COUNT(*) c FROM slot WHERE archived=0 AND person_id IS NOT NULL"
             ).fetchone()["c"],
@@ -363,6 +367,62 @@ def register_admin_routes(app: Flask) -> None:
         flash(f"Updated {label}.", "success")
         return redirect(url_for("admin_channels"))
 
+    # --- Positions ---
+    @app.route("/admin/positions")
+    def admin_positions():
+        db = get_db(db_path)
+        positions = db.execute(
+            "SELECT * FROM position WHERE archived=0 ORDER BY label"
+        ).fetchall()
+        return render_template("admin/positions.html", positions=positions)
+
+    @app.route("/admin/positions", methods=["POST"])
+    def admin_positions_create():
+        db = get_db(db_path)
+        label = (request.form.get("label") or "").strip()
+        if not label:
+            flash("Label is required.", "error")
+            return redirect(url_for("admin_positions"))
+        db.execute("INSERT INTO position (label) VALUES (?)", (label,))
+        db.commit()
+        flash(f"Added position {label}.", "success")
+        return redirect(url_for("admin_positions"))
+
+    @app.route("/admin/positions/<int:position_id>/edit")
+    def admin_positions_edit(position_id):
+        db = get_db(db_path)
+        position = db.execute("SELECT * FROM position WHERE id=?", (position_id,)).fetchone()
+        if not position:
+            abort(404)
+        return render_template("admin/position_edit.html", position=position)
+
+    @app.route("/admin/positions/<int:position_id>", methods=["POST"])
+    def admin_positions_update(position_id):
+        db = get_db(db_path)
+        position = db.execute("SELECT id FROM position WHERE id=?", (position_id,)).fetchone()
+        if not position:
+            abort(404)
+        action = request.form.get("action", "update")
+        if action == "archive":
+            db.execute(
+                "UPDATE position SET archived=1, updated_at=datetime('now') WHERE id=?",
+                (position_id,),
+            )
+            db.commit()
+            flash("Archived.", "success")
+            return redirect(url_for("admin_positions"))
+        label = (request.form.get("label") or "").strip()
+        if not label:
+            flash("Label is required.", "error")
+            return redirect(url_for("admin_positions_edit", position_id=position_id))
+        db.execute(
+            "UPDATE position SET label=?, updated_at=datetime('now') WHERE id=?",
+            (label, position_id),
+        )
+        db.commit()
+        flash(f"Updated {label}.", "success")
+        return redirect(url_for("admin_positions"))
+
     # --- Slots ---
     @app.route("/admin/slots")
     def admin_slots():
@@ -384,6 +444,9 @@ def register_admin_routes(app: Flask) -> None:
         iems = db.execute(
             "SELECT id, label FROM channel WHERE archived=0 AND kind='iem' ORDER BY label"
         ).fetchall()
+        positions = db.execute(
+            "SELECT id, label FROM position WHERE archived=0 ORDER BY label"
+        ).fetchall()
         return render_template(
             "admin/slots.html",
             slots=slots,
@@ -391,6 +454,7 @@ def register_admin_routes(app: Flask) -> None:
             handhelds=handhelds,
             beltpacks=beltpacks,
             iems=iems,
+            positions=positions,
         )
 
     @app.route("/admin/slots/<int:slot_id>", methods=["POST"])
@@ -404,9 +468,10 @@ def register_admin_routes(app: Flask) -> None:
             v = (v or "").strip()
             return int(v) if v.isdigit() else None
 
-        person_id = _none_if_blank(request.form.get("person_id"))
-        mic_id    = _none_if_blank(request.form.get("mic_channel_id"))
-        iem_id    = _none_if_blank(request.form.get("iem_channel_id"))
+        person_id   = _none_if_blank(request.form.get("person_id"))
+        mic_id      = _none_if_blank(request.form.get("mic_channel_id"))
+        iem_id      = _none_if_blank(request.form.get("iem_channel_id"))
+        position_id = _none_if_blank(request.form.get("position_id"))
 
         # mic_only slots can't have an IEM regardless of what was posted
         if slot["kind"] == "mic_only":
@@ -414,10 +479,10 @@ def register_admin_routes(app: Flask) -> None:
 
         db.execute(
             """UPDATE slot SET
-                 person_id=?, mic_channel_id=?, iem_channel_id=?,
+                 person_id=?, mic_channel_id=?, iem_channel_id=?, position_id=?,
                  updated_at=datetime('now')
                WHERE id=?""",
-            (person_id, mic_id, iem_id, slot_id),
+            (person_id, mic_id, iem_id, position_id, slot_id),
         )
         db.commit()
         flash(f"Slot {slot_id} updated.", "success")

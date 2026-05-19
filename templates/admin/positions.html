@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Positions — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Stage positions</h1>
+    <p class="page-lead">Named spots on stage where someone stands during service. Roughly maps to your light pools.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<section class="form-card">
+  <h2>Add a position</h2>
+  <form method="post" action="{{ url_for('admin_positions_create') }}">
+    <label>
+      Label
+      <input name="label" required placeholder="Center Vocal">
+    </label>
+    <button type="submit" class="btn-primary">Add position</button>
+  </form>
+</section>
+
+<section>
+  <h2>Current positions <span class="muted">({{ positions|length }})</span></h2>
+  {% if positions %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Label</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in positions %}
+          <tr>
+            <td>{{ p.label }}</td>
+            <td class="actions"><a href="{{ url_for('admin_positions_edit', position_id=p.id) }}">Edit</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No positions yet. Add one above to get started.</p>
+  {% endif %}
+</section>
+{% endblock %}

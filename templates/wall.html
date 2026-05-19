@@ -23,6 +23,7 @@
       <div class="slot-num">{{ '%02d' % i }}</div>
       <div class="slot-photo"></div>
       <div class="slot-name">—</div>
+      <div class="slot-position">&nbsp;</div>
       <div class="slot-channel">—</div>
       <div class="slot-iem">&nbsp;</div>
     </div>
@@ -74,6 +75,7 @@
 
       const photo = el.querySelector('.slot-photo');
       const name  = el.querySelector('.slot-name');
+      const pos   = el.querySelector('.slot-position');
       const ch    = el.querySelector('.slot-channel');
       const iem   = el.querySelector('.slot-iem');
 
@@ -93,10 +95,14 @@
         photo.textContent = '';
       }
 
-      // Mic line: "Red HH · Ch 27" — or just label, or just channel, or em-dash
+      // Stage position — sits between name and mic line.
+      // Blank-but-present when there's no position so the layout doesn't shift.
+      pos.textContent = slot.position_label || '';
+
+      // Mic line: prefer the channel's label (the team's name for it),
+      // not its physical capsule type. "Vocal 1 · Ch 27" is what staff use.
       const micParts = [];
-      if (slot.mic_capsule) micParts.push(slot.mic_capsule);
-      else if (slot.mic_label) micParts.push(slot.mic_label);
+      if (slot.mic_label) micParts.push(slot.mic_label);
       if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       ch.textContent = micParts.length ? micParts.join(' · ') : '—';
 

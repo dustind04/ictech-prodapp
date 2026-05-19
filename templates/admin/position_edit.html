@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ position.label }} — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Edit position</h1>
+    <p class="page-lead">{{ position.label }}</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_positions') }}">← Positions</a>
+</div>
+
+<section class="form-card">
+  <form method="post" action="{{ url_for('admin_positions_update', position_id=position.id) }}">
+    <label>
+      Label
+      <input name="label" required value="{{ position.label }}">
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Save</button>
+      <button type="submit" name="action" value="archive" class="btn-danger"
+              onclick="return confirm('Archive {{ position.label }}? Slots using this position will be cleared.')">
+        Archive
+      </button>
+    </div>
+  </form>
+</section>
+{% endblock %}

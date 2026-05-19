@@ -3,7 +3,7 @@
 
 {% block content %}
 <h1 class="page-title">Admin</h1>
-<p class="page-lead">Manage the people, channels, and slot assignments that drive the wall display.</p>
+<p class="page-lead">Manage the people, channels, stage positions, and slot assignments that drive the wall display.</p>
 
 <div class="card-grid">
   <a class="card" href="{{ url_for('admin_people') }}">
@@ -15,6 +15,11 @@
     <div class="card-num">{{ counts.channels }}</div>
     <div class="card-label">Channels</div>
     <div class="card-hint">Handhelds, belt-packs, IEMs</div>
+  </a>
+  <a class="card" href="{{ url_for('admin_positions') }}">
+    <div class="card-num">{{ counts.positions }}</div>
+    <div class="card-label">Positions</div>
+    <div class="card-hint">Center vocal, pulpit, etc.</div>
   </a>
   <a class="card" href="{{ url_for('admin_slots') }}">
     <div class="card-num">{{ counts.assigned_slots }} / 10</div>
