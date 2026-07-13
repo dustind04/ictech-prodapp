@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Weekly import — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Weekly import</h1>
+    <p class="page-lead">Upload Dave's Input List workbook; review what lands on the wall; apply.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<section class="form-card">
+  <form method="post" action="{{ url_for('admin_import_preview') }}" enctype="multipart/form-data">
+    <div class="form-row">
+      <label>
+        Input List workbook (.xlsx)
+        <input type="file" name="file" accept=".xlsx" required>
+      </label>
+    </div>
+    <button type="submit" class="btn-primary">Preview</button>
+  </form>
+</section>
+
+{% if plan %}
+<section>
+  <h2>Preview{% if plan.sunday %} — Sunday {{ plan.sunday }}{% endif %}</h2>
+  {% if plan.warnings %}
+    <ul class="import-warnings">
+      {% for w in plan.warnings %}<li>⚠ {{ w }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Slot</th><th>Person</th><th>Mic</th><th>IEM</th><th>Position</th><th>MyMix</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      {% for a in plan.assignments %}
+        <tr>
+          <td>{{ a.bank_order }}</td>
+          <td>{{ a.person or ('—' if a.clear else '?') }}</td>
+          <td>{{ a.mic or '—' }}</td>
+          <td>{{ a.iem or '—' }}</td>
+          <td>{{ a.position or '—' }}</td>
+          <td>{{ a.mymix or '—' }}</td>
+          <td class="muted">{{ a.notes | join(' ') }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('admin_import_apply') }}">
+    <input type="hidden" name="plan_json" value='{{ plan.assignments | tojson | forceescape }}'>
+    <button type="submit" class="btn-primary"
+            onclick="return confirm('Apply these assignments to the slots? This replaces the current week.')">
+      Apply to slots
+    </button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

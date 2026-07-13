@@ -36,6 +36,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+import importer
 from db import get_db, init_db
 
 
@@ -413,6 +414,58 @@ def register_admin_routes(app: Flask) -> None:
         db.commit()
         flash(f"Updated {label}.", "success")
         return redirect(url_for("admin_channels"))
+
+    # --- Weekly import ---
+    @app.route("/admin/import")
+    def admin_import():
+        return render_template("admin/import.html", plan=None)
+
+    @app.route("/admin/import", methods=["POST"])
+    def admin_import_preview():
+        f = request.files.get("file")
+        if f is None or not f.filename:
+            flash("Choose an .xlsx file first.", "error")
+            return redirect(url_for("admin_import"))
+        try:
+            parsed = importer.parse_workbook(f.read())
+        except Exception as exc:  # bad zip, wrong sheet names, etc.
+            flash(f"Could not read that workbook: {exc}", "error")
+            return redirect(url_for("admin_import"))
+        plan = importer.build_plan(get_db(db_path), parsed)
+        return render_template("admin/import.html", plan=plan)
+
+    @app.route("/admin/import/apply", methods=["POST"])
+    def admin_import_apply():
+        import json as _json
+        try:
+            assignments = _json.loads(request.form.get("plan_json") or "[]")
+        except ValueError:
+            flash("Import plan was malformed — re-upload and preview again.", "error")
+            return redirect(url_for("admin_import"))
+        count = importer.apply_plan(get_db(db_path), assignments)
+        flash(f"Applied weekly import to {count} slots.", "success")
+        return redirect(url_for("admin_slots"))
+
+    # --- Inventory export (backup) ---
+    @app.route("/admin/export.json")
+    def admin_export():
+        """Complete dump of everything operators have entered. This is
+        the backup format — snapshot it into the git repo so inventory
+        can never be lost. Excludes nothing; photos are files on disk
+        and are backed up separately with the data directory."""
+        db = get_db(db_path)
+        def rows(table):
+            return [dict(r) for r in db.execute(f"SELECT * FROM {table}")]
+        return jsonify({
+            "exported_at": db.execute("SELECT datetime('now') AS t").fetchone()["t"],
+            "schema_migrations": rows("schema_migrations"),
+            "person": rows("person"),
+            "channel": rows("channel"),
+            "position": rows("position"),
+            "slot": rows("slot"),
+            "wireless_model": rows("wireless_model"),
+            "capsule_model": rows("capsule_model"),
+        })
 
     # --- Positions ---
     @app.route("/admin/positions")

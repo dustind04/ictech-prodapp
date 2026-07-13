@@ -34,15 +34,41 @@ git pull
 docker compose -f docker-compose.prod.yaml up -d --build
 ```
 
-## Data & backups
+## Data & backups — the inventory must never be lost
 
-SQLite DB and uploaded photos live in `./data/` on the host (mounted at
-`/data` in the container). Back up by copying that directory; it is small.
-A cron line like this keeps 14 daily snapshots:
+Three layers:
 
-```
-15 3 * * * cd ~/ictech-prodapp && tar czf ~/backups/ictech-$(date +\%a).tgz data/
-```
+1. **Nightly tarball on the box** (DB + photos). Cron keeps a rolling week
+   by weekday name:
+
+   ```
+   15 3 * * * cd ~/ictech-prodapp && mkdir -p ~/backups/ictech && tar czf ~/backups/ictech/data-$(date +\%a).tgz data/
+   ```
+
+2. **JSON snapshot in git.** `GET /admin/export.json` (behind admin auth)
+   dumps every operator-entered table — people, channels/inventory,
+   positions, slots, gear catalogs. Snapshots live in `seeds/` in this
+   repo. **After any big data-entry session (e.g. the one-time inventory
+   fill), take a fresh snapshot and commit it:**
+
+   ```bash
+   curl -su admin:PASS http://localhost:8058/admin/export.json > seeds/snapshot-$(date +%F).json
+   git add seeds/ && git commit -m "Inventory snapshot $(date +%F)" && git push
+   ```
+
+3. **Restore path:** `tools/restore_snapshot.py` (ships in the image)
+   reloads a snapshot into a fresh or existing DB:
+
+   ```bash
+   docker exec -i ictech python3 tools/restore_snapshot.py < seeds/snapshot-YYYY-MM-DD.json
+   ```
+
+## Weekly Input List import
+
+Admin → **Weekly import** → upload Dave's `<date> Input List.xlsx` →
+preview (person/mic/IEM/position/MyMix per slot, with warnings for
+anything that didn't match inventory) → **Apply to slots**. The sheet is
+the weekly truth: slots with no row that week are emptied.
 
 ## Security posture
 

@@ -9,10 +9,11 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy app code.
-COPY app.py db.py ./
+COPY app.py db.py importer.py ./
 COPY migrations ./migrations
 COPY templates ./templates
 COPY static ./static
+COPY tools ./tools
 
 # Persistent data lives in /data, mounted from a volume on the host.
 # The application creates this directory if missing.
