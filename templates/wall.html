@@ -8,14 +8,12 @@
 
 {% block content %}
 <div class="wall-header">
-  <div class="wall-brand-block">
-    <div class="wall-brand">
-      <span class="ic">ic</span><span class="tech">Tech</span> <span class="suffix">Services</span>
-    </div>
-    <div class="wall-tagline">Immanuel Church · Welcome home.</div>
+  <div class="wall-logo">
+    <img src="{{ url_for('static', filename='immanuel-logo.png') }}" alt="Immanuel Church — Welcome home.">
   </div>
   <div class="wall-greeting-block">
     <div class="wall-greeting" id="wall-greeting">&nbsp;</div>
+    <div class="wall-welcome">Welcome home.</div>
     <div class="wall-leader" id="wall-leader">&nbsp;</div>
   </div>
   <div class="wall-meta-block">
@@ -240,9 +238,9 @@
     [['red'],            '#D64545'],
     [['white', 'wht'],   '#F7F7F5'],
     [['blue', 'blu'],    '#4A90D9'],
-    [['black', 'blk'],   '#0A0A0A'],
+    [['black', 'blk'],   '#050505'],
     [['orange', 'orng'], '#E8923A'],
-    [['yellow', 'ylo'],  '#E8C83A'],
+    [['yellow', 'ylo'],  '#E3C43C'],
     [['green', 'grn'],   '#7AB648'],
   ];
   function micColor(slot) {
@@ -294,21 +292,14 @@
       const isLeader = !!(leader && slot.person_id && slot.person_id === leader.person_id);
       el.classList.toggle('leader', isLeader);
 
-      // Colored channel -> matching rim. Black gets a faint outer line
-      // so the rim reads as "black", not "no rim", on the dark wall.
-      // A leader keeps the green glow (CSS :not guard); the rim color
-      // still takes the border, so both signals coexist. Sizes live in
-      // CSS so they scale with the display's --u unit.
+      // Colored channel -> the Bulletin top bar on the tile. Every bar
+      // carries a light bottom hairline (CSS) so even black reads as a
+      // deliberate color in the dim room. Leader keeps the green border
+      // + tag; a rim-less leader gets a green bar.
       const rim = micColor(slot);
       el.classList.toggle('rimmed', !!rim);
-      if (rim) {
-        el.style.setProperty('--rim-color', rim);
-        el.style.setProperty('--rim-glow',
-          rim === '#0A0A0A' ? 'rgba(255,255,255,0.18)' : rim + '55');
-      } else {
-        el.style.removeProperty('--rim-color');
-        el.style.removeProperty('--rim-glow');
-      }
+      if (rim) el.style.setProperty('--rim-color', rim);
+      else el.style.removeProperty('--rim-color');
 
       const photo = el.querySelector('.slot-photo');
       const name  = el.querySelector('.slot-name');

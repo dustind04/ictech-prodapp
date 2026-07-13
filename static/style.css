@@ -382,35 +382,41 @@ input:focus, select:focus {
   display: flex;
   flex-direction: column;
 }
+/* The Bulletin, dark: editorial print structure on the charcoal the
+   dim backstage room calls for. Off-white header rule, uppercase
+   greeting with the brand's green period, real Immanuel logo on a
+   small white chip so the lockup keeps its colors. */
 .wall-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: calc(24 * var(--u));
+  border-bottom: calc(3 * var(--u)) solid #F7F7F5;
+  padding-bottom: calc(16 * var(--u));
+  margin-bottom: calc(20 * var(--u));
   flex-shrink: 0;
 }
-.wall-brand {
-  font-size: calc(30 * var(--u));
-  font-weight: 800;
-  letter-spacing: -0.01em;
+.wall-logo {
+  background: #fff;
+  border-radius: calc(10 * var(--u));
+  padding: calc(10 * var(--u)) calc(16 * var(--u));
 }
-.wall-brand .ic { color: var(--green); }
-.wall-brand .tech { color: #fff; }
-.wall-brand .suffix { color: #aaa; font-weight: 500; margin-left: calc(8 * var(--u)); }
-.wall-tagline {
-  font-size: calc(15 * var(--u));
-  font-weight: 500;
-  color: #7a7a7a;
-  margin-top: calc(2 * var(--u));
-}
+.wall-logo img { height: calc(44 * var(--u)); display: block; }
 .wall-greeting-block {
   text-align: center;
 }
 .wall-greeting {
-  font-size: calc(40 * var(--u));
-  font-weight: 800;
+  font-size: calc(44 * var(--u));
+  font-weight: 900;
   letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.wall-greeting::after { content: '.'; color: var(--green); }
+.wall-welcome {
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  font-size: calc(21 * var(--u));
   color: var(--green);
+  margin-top: calc(2 * var(--u));
 }
 .wall-leader {
   font-size: calc(17 * var(--u));
@@ -443,51 +449,54 @@ input:focus, select:focus {
 .wall-countdown {
   display: inline-block;
   margin-top: calc(6 * var(--u));
-  padding: calc(3 * var(--u)) calc(16 * var(--u));
-  border: calc(1 * var(--u)) solid #3A3A3A;
+  padding: calc(4 * var(--u)) calc(16 * var(--u));
   border-radius: 999px;
+  background: var(--green);
   font-size: calc(20 * var(--u));
-  font-weight: 700;
-  color: #ddd;
+  font-weight: 800;
+  color: #fff;
   font-variant-numeric: tabular-nums;
-  transition: background 300ms ease, border-color 300ms ease, color 300ms ease;
-}
-.wall-countdown.live {
-  border-color: var(--green);
-  color: var(--green);
+  transition: background 300ms ease;
 }
 .wall-countdown.over {
-  border-color: #E05252;
-  background: #E05252;
-  color: #fff;
+  background: #D64545;
 }
 
-/* This week's music leader: green ring + corner tag on their tile.
-   Pure decoration on the existing tile — the layout must not shift. */
+/* The Bulletin's signature: the channel color runs as a bar across the
+   top of the tile (set via --rim-color from JS). Every bar carries a
+   faint light hairline at its base so even a black bar reads as a
+   deliberate color in the dim room. */
+.slot::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: calc(8 * var(--u));
+  background: var(--rim-color, transparent);
+}
+.slot.rimmed::before {
+  box-shadow: inset 0 calc(-1 * var(--u)) 0 rgba(255, 255, 255, 0.22);
+}
+/* This week's music leader: green border, subtle glow, corner tag.
+   A rim-less leader gets a green top bar; a rimmed one keeps the
+   channel color's bar. Layout never shifts. */
 .slot.leader {
   border-color: var(--green);
-  box-shadow: 0 0 0 calc(1 * var(--u)) var(--green),
-              0 0 calc(22 * var(--u)) rgba(122, 182, 72, 0.35);
-  position: relative;
+  box-shadow: 0 0 calc(18 * var(--u)) rgba(122, 182, 72, 0.30);
 }
+.slot.leader:not(.rimmed)::before { background: var(--green); }
 .slot.leader::after {
   content: 'LEADER';
   position: absolute;
-  top: calc(8 * var(--u));
-  right: calc(8 * var(--u));
+  top: calc(16 * var(--u));
+  right: calc(10 * var(--u));
   background: var(--green);
-  color: var(--charcoal);
+  color: #fff;
   font-size: calc(11 * var(--u));
   font-weight: 800;
   letter-spacing: 0.08em;
   padding: calc(2 * var(--u)) calc(7 * var(--u));
   border-radius: calc(4 * var(--u));
 }
-/* Colored channel rim — set via --rim-color/--rim-glow from JS. Comes
-   after .leader so the rim color owns the border when both apply; the
-   glow stays green for the leader (:not guard below). */
-.slot.rimmed { border-color: var(--rim-color); }
-.slot.rimmed:not(.leader) { box-shadow: 0 0 calc(14 * var(--u)) var(--rim-glow); }
 
 /* Three zones, one screen: Vocals | Band | Speakers. Zone widths are
    proportional to their tile counts (flex set inline: 6/6/4). */
@@ -503,15 +512,24 @@ input:focus, select:focus {
   min-width: 0;
 }
 .group-title {
-  font-size: calc(14 * var(--u));
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-size: calc(15 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #7a7a7a;
-  border-bottom: calc(1 * var(--u)) solid #333;
-  padding-bottom: calc(6 * var(--u));
-  margin-bottom: calc(10 * var(--u));
+  color: #F7F7F5;
+  border-bottom: calc(1 * var(--u)) solid #3A3A3A;
+  padding-bottom: calc(8 * var(--u));
+  margin-bottom: calc(12 * var(--u));
 }
+.group-title::before {
+  content: '';
+  display: inline-block;
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  background: var(--green);
+  margin-right: calc(10 * var(--u));
+}
+.group-title::after { content: '.'; color: var(--green); }
 .slot-group {
   flex: 1;
   display: grid;
@@ -531,16 +549,17 @@ input:focus, select:focus {
 .slot-also:empty { display: none; }
 
 .slot {
-  background: #2A2A2A;
-  border: calc(2 * var(--u)) solid #3A3A3A;
-  border-radius: calc(12 * var(--u));
-  padding: calc(16 * var(--u)) calc(14 * var(--u));
+  background: #262626;
+  border: calc(1 * var(--u)) solid #3A3A3A;
+  border-radius: calc(8 * var(--u));
+  padding: calc(20 * var(--u)) calc(14 * var(--u)) calc(16 * var(--u));
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   min-width: 0;
   overflow: hidden;
+  position: relative;
   transition: border-color 200ms ease, opacity 200ms ease;
 }
 .slot.empty {
