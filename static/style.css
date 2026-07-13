@@ -423,16 +423,38 @@ input:focus, select:focus {
 .wall-meta-block {
   text-align: right;
 }
-.wall-meta-day {
-  font-size: 18px;
-  font-weight: 600;
-  color: #ddd;
+.wall-service-date {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--green);
 }
 .wall-meta {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
   color: #aaa;
   font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.wall-countdown {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 14px;
+  border: 1px solid #3A3A3A;
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ddd;
+  font-variant-numeric: tabular-nums;
+  transition: background 300ms ease, border-color 300ms ease, color 300ms ease;
+}
+.wall-countdown.live {
+  border-color: var(--green);
+  color: var(--green);
+}
+.wall-countdown.over {
+  border-color: #E05252;
+  background: #E05252;
+  color: #fff;
 }
 
 /* This week's music leader: green ring + corner tag on their tile.

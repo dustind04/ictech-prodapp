@@ -19,8 +19,9 @@
     <div class="wall-leader" id="wall-leader">&nbsp;</div>
   </div>
   <div class="wall-meta-block">
-    <div class="wall-meta-day" id="wall-meta-day">—</div>
+    <div class="wall-service-date" id="wall-service-date">—</div>
     <div class="wall-meta" id="wall-meta">—</div>
+    <div class="wall-countdown" id="wall-countdown">—</div>
   </div>
 </div>
 
@@ -42,27 +43,106 @@
 </div>
 
 <script>
-  // Greeting follows the band's week, not the clock: they see this
-  // screen at Tuesday rehearsal, then not again until Sunday morning.
-  //   Mon + Tue  -> "Welcome to Rehearsal"
-  //   Wed - Sun  -> "Good Morning" (next sight of it is Sunday service)
+  // ---------------------------------------------------------------
+  // The week clock. Everything is America/Chicago — the room the TV
+  // hangs in — no matter where the page is viewed from.
+  //
+  // Sunday services at 9:00 and 11:00. Each runs 70 minutes on paper:
+  // count DOWN to the service, then count UP service time; at +70 min
+  // the counter goes red (you're over); at +75 min move on to the next
+  // target. After second service (12:15) the target is Tuesday
+  // rehearsal; after rehearsal it's back to Sunday 9 AM. Rinse, repeat.
+  // ---------------------------------------------------------------
+  const REHEARSAL = { day: 2, h: 19, m: 0, endH: 21, endM: 30 };  // Tue 7:00 PM
+
+  function centralNow() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  }
+
+  // Greeting follows the band's week: Mon/Tue they're coming to
+  // rehearsal; Wed onward the next sight of this screen is Sunday AM.
   function greetingFor(d) {
     const day = d.getDay();                 // 0=Sun ... 6=Sat
     if (day === 1 || day === 2) return 'Welcome to Rehearsal';
     return 'Good Morning';
   }
 
-  // Update greeting + date/time every second
+  // The service date on display: the coming Sunday, rolling over to
+  // next week once this Sunday is done (12:30 PM cutoff).
+  function serviceSunday(now) {
+    const d = new Date(now);
+    let add = (7 - d.getDay()) % 7;
+    if (d.getDay() === 0) {
+      const cutoff = new Date(d); cutoff.setHours(12, 30, 0, 0);
+      if (d >= cutoff) add = 7;
+    }
+    d.setDate(d.getDate() + add);
+    return d;
+  }
+
+  function scheduleStatus(now) {
+    const at = (h, m) => { const d = new Date(now); d.setHours(h, m, 0, 0); return d; };
+    const nextDow = (dow, h, m) => {
+      const d = new Date(now);
+      let add = (dow - d.getDay() + 7) % 7;
+      d.setDate(d.getDate() + add); d.setHours(h, m, 0, 0);
+      if (d <= now) d.setDate(d.getDate() + 7);
+      return d;
+    };
+    const wait = (label, target) => ({ mode: 'wait', label, secs: (target - now) / 1000 });
+    const live = (label, start, over) => ({ mode: over ? 'over' : 'live', label, secs: (now - start) / 1000 });
+    const day = now.getDay();
+
+    if (day === 0) {
+      if (now < at(9, 0))   return wait('1st service', at(9, 0));
+      if (now < at(10, 10)) return live('Service time', at(9, 0), false);
+      if (now < at(10, 15)) return live('Service time', at(9, 0), true);
+      if (now < at(11, 0))  return wait('2nd service', at(11, 0));
+      if (now < at(12, 10)) return live('Service time', at(11, 0), false);
+      if (now < at(12, 15)) return live('Service time', at(11, 0), true);
+      return wait('Rehearsal', nextDow(REHEARSAL.day, REHEARSAL.h, REHEARSAL.m));
+    }
+    if (day === REHEARSAL.day) {
+      if (now < at(REHEARSAL.h, REHEARSAL.m)) return wait('Rehearsal', at(REHEARSAL.h, REHEARSAL.m));
+      if (now < at(REHEARSAL.endH, REHEARSAL.endM))
+        return live('Rehearsal', at(REHEARSAL.h, REHEARSAL.m), false);
+      return wait('1st service', nextDow(0, 9, 0));
+    }
+    if (day === 1) return wait('Rehearsal', nextDow(REHEARSAL.day, REHEARSAL.h, REHEARSAL.m));
+    return wait('1st service', nextDow(0, 9, 0));
+  }
+
+  function fmtDuration(secs) {
+    secs = Math.max(0, Math.floor(secs));
+    const d = Math.floor(secs / 86400);
+    const h = Math.floor((secs % 86400) / 3600);
+    const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    return d > 0 ? `${d}d ${h}:${m}:${s}` : `${h}:${m}:${s}`;
+  }
+
   function tickClock() {
-    const d = new Date();
+    const now = centralNow();
     const meta = document.getElementById('wall-meta');
-    const dayEl = document.getElementById('wall-meta-day');
+    const svc = document.getElementById('wall-service-date');
+    const cd = document.getElementById('wall-countdown');
     const greet = document.getElementById('wall-greeting');
-    if (dayEl) dayEl.textContent = d.toLocaleDateString(undefined,
+
+    if (svc) svc.textContent = 'Service: ' + serviceSunday(now).toLocaleDateString('en-US',
         { weekday: 'long', month: 'long', day: 'numeric' });
-    if (meta) meta.textContent = d.toLocaleTimeString(undefined,
-        { hour: 'numeric', minute: '2-digit' });
-    if (greet) greet.textContent = greetingFor(d);
+    if (meta) meta.textContent = now.toLocaleDateString('en-US',
+        { weekday: 'long', month: 'long', day: 'numeric' }) + ' · ' +
+        now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    if (greet) greet.textContent = greetingFor(now);
+
+    if (cd) {
+      const st = scheduleStatus(now);
+      cd.textContent = st.mode === 'wait'
+        ? `${st.label} in ${fmtDuration(st.secs)}`
+        : `${st.label} ${fmtDuration(st.secs)}`;
+      cd.classList.toggle('live', st.mode === 'live');
+      cd.classList.toggle('over', st.mode === 'over');
+    }
   }
   tickClock();
   setInterval(tickClock, 1000);
