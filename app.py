@@ -24,6 +24,7 @@ from pathlib import Path
 
 from flask import (
     Flask,
+    Response,
     abort,
     flash,
     jsonify,
@@ -93,12 +94,45 @@ def create_app() -> Flask:
 
     init_db(app.config["DATABASE_PATH"])
 
+    _register_admin_auth(app)
     register_display_routes(app)
     register_api_routes(app)
     register_admin_routes(app)
     register_photo_routes(app)
     register_teardown(app)
     return app
+
+
+# =============================================================
+# Admin auth — HTTP Basic on /admin, only when credentials are
+# configured. The backstage-VLAN deployment sets neither var and
+# stays open; the internet-facing deployment (Cloudflare tunnel)
+# sets both. The wall display and /api/state are always open —
+# they're the product.
+# =============================================================
+def _register_admin_auth(app: Flask) -> None:
+    admin_user = os.environ.get("ICTECH_ADMIN_USER")
+    admin_password = os.environ.get("ICTECH_ADMIN_PASSWORD")
+    if not (admin_user and admin_password):
+        return
+
+    @app.before_request
+    def require_admin_auth():
+        if not request.path.startswith("/admin"):
+            return None
+        auth = request.authorization
+        if (
+            auth is not None
+            and auth.type == "basic"
+            and secrets.compare_digest(auth.username or "", admin_user)
+            and secrets.compare_digest(auth.password or "", admin_password)
+        ):
+            return None
+        return Response(
+            "Authentication required.",
+            401,
+            {"WWW-Authenticate": 'Basic realm="icTech admin"'},
+        )
 
 
 # =============================================================

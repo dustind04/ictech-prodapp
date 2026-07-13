@@ -1,0 +1,29 @@
+# Production stack for the Debian box: the app plus a Cloudflare tunnel
+# sidecar that publishes it to the outside world. No ports are exposed on
+# the public interface — 8058 binds to localhost only (for on-box curl
+# checks); all external traffic arrives through the tunnel.
+#
+# Usage:  docker compose -f docker-compose.prod.yaml up -d --build
+# Config: .env next to this file (see .env.example).
+services:
+  ictech:
+    build: .
+    image: ictech:prod
+    container_name: ictech
+    ports:
+      - '127.0.0.1:8058:8058'
+    volumes:
+      - ./data:/data
+    environment:
+      ICTECH_SECRET: ${ICTECH_SECRET}
+      ICTECH_ADMIN_USER: ${ICTECH_ADMIN_USER}
+      ICTECH_ADMIN_PASSWORD: ${ICTECH_ADMIN_PASSWORD}
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ictech_tunnel
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - ictech
+    restart: unless-stopped

@@ -1,3 +1,6 @@
+# Secrets — tunnel token and admin credentials live here
+.env
+
 # Persistent data — never commit the SQLite database
 /data/
 *.db
