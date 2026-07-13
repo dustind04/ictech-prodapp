@@ -5,7 +5,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Slot assignments</h1>
-    <p class="page-lead">10 physical positions in the charger bank. Slots 1–6 are paired (vocalist handheld + IEM). Slots 7–10 are belt-pack mics only.</p>
+    <p class="page-lead">Slots 1–6: vocalist handheld + IEM (charger bank). Slots 7–10: wireless speaker mics. Seats 11–16: band members — instrument, optional IEM/mic.</p>
   </div>
   <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
 </div>
@@ -32,12 +32,18 @@
 
 <div class="slot-edit-grid">
   {% for slot in slots %}
-    <form class="slot-edit {{ 'paired' if slot.kind == 'paired' else 'mic-only' }}"
+    <form class="slot-edit {{ slot.kind }}"
           method="post" action="{{ url_for('admin_slots_update', slot_id=slot.slot_id) }}">
       <div class="slot-edit-header">
-        <span class="slot-edit-num">Slot {{ '%02d' % slot.bank_order }}</span>
-        <span class="badge badge-{{ slot.kind }}">{{ 'paired' if slot.kind == 'paired' else 'mic-only' }}</span>
+        <span class="slot-edit-num">{{ 'Seat' if slot.kind == 'band' else 'Slot' }} {{ '%02d' % slot.bank_order }}</span>
+        <span class="badge badge-{{ slot.kind }}">{{ {'paired': 'paired', 'mic_only': 'mic-only', 'band': 'band'}[slot.kind] }}</span>
       </div>
+      {% if slot.kind == 'band' %}
+        <label>
+          Instrument
+          <input name="label" value="{{ slot.slot_label or '' }}" placeholder="Drums">
+        </label>
+      {% endif %}
       <label>
         Person
         <select name="person_id">
@@ -59,11 +65,15 @@
         </select>
       </label>
       <label>
-        Mic channel
+        Mic channel{% if slot.kind == 'band' %} <span class="hint">(only if leading/singing)</span>{% endif %}
         <select name="mic_channel_id">
           <option value="">— None —</option>
           {% if slot.kind == 'paired' %}
             {% for c in handhelds %}
+              <option value="{{ c.id }}" {{ 'selected' if slot.mic_channel_id == c.id }}>{{ c.label }}</option>
+            {% endfor %}
+          {% elif slot.kind == 'band' %}
+            {% for c in handhelds + beltpacks %}
               <option value="{{ c.id }}" {{ 'selected' if slot.mic_channel_id == c.id }}>{{ c.label }}</option>
             {% endfor %}
           {% else %}
@@ -77,9 +87,9 @@
         MyMix channel <span class="hint">(e.g. Vox 1)</span>
         <input name="mymix_channel" value="{{ slot.mymix_channel or '' }}" placeholder="Vox 1">
       </label>
-      {% if slot.kind == 'paired' %}
+      {% if slot.kind in ('paired', 'band') %}
         <label>
-          IEM channel
+          IEM channel{% if slot.kind == 'band' %} <span class="hint">(occasional)</span>{% endif %}
           <select name="iem_channel_id">
             <option value="">— None —</option>
             {% for c in iems %}

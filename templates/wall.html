@@ -25,21 +25,42 @@
   </div>
 </div>
 
-<div class="slot-grid" id="slot-grid">
-  {# Slots are rendered client-side after the first /api/state call so the
-     wall view reflects fresh data within 2s of any admin edit. We render
-     a skeleton here so the page isn't blank during the first paint. #}
-  {% for i in range(1, 11) %}
+{# Slots are rendered client-side after the first /api/state call so the
+   wall view reflects fresh data within 2s of any admin edit. We render
+   a skeleton here so the page isn't blank during the first paint.
+   Three zones, one screen: wireless vocalists left, band middle,
+   wireless speakers right. #}
+{% macro slot_tile(i) %}
     <div class="slot skeleton" data-slot-id="{{ i }}">
       <div class="slot-num">{{ '%02d' % i }}</div>
       <div class="slot-photo"></div>
       <div class="slot-name">—</div>
       <div class="slot-position">&nbsp;</div>
+      <div class="slot-also"></div>
       <div class="slot-channel">—</div>
       <div class="slot-mymix">&nbsp;</div>
       <div class="slot-iem">&nbsp;</div>
     </div>
-  {% endfor %}
+{% endmacro %}
+<div class="wall-groups" id="slot-grid">
+  <div class="slot-group-wrap" style="flex: 6">
+    <div class="group-title">Vocals</div>
+    <div class="slot-group" style="--cols: 6">
+      {% for i in range(1, 7) %}{{ slot_tile(i) }}{% endfor %}
+    </div>
+  </div>
+  <div class="slot-group-wrap" style="flex: 6">
+    <div class="group-title">Band</div>
+    <div class="slot-group" style="--cols: 6">
+      {% for i in range(11, 17) %}{{ slot_tile(i) }}{% endfor %}
+    </div>
+  </div>
+  <div class="slot-group-wrap" style="flex: 4">
+    <div class="group-title">Speakers</div>
+    <div class="slot-group" style="--cols: 4">
+      {% for i in range(7, 11) %}{{ slot_tile(i) }}{% endfor %}
+    </div>
+  </div>
 </div>
 
 <script>
@@ -176,6 +197,16 @@
     { bank_order: 9, kind: 'mic_only', person_id: 907, person_name: 'Joe B.',
       mic_label: 'Sermon RF', mymix_channel: 'Misc' },
     { bank_order: 10, kind: 'mic_only' },
+    { bank_order: 11, kind: 'band', person_id: 908, person_name: 'Kyle D.',
+      slot_label: 'Drums', mymix_channel: 'Drums' },
+    { bank_order: 12, kind: 'band', person_id: 909, person_name: 'Chip',
+      slot_label: 'Bass', mymix_channel: 'Bass' },
+    { bank_order: 13, kind: 'band', person_id: 910, person_name: 'Jo',
+      slot_label: 'Keys', mymix_channel: 'Keys' },
+    { bank_order: 14, kind: 'band', person_id: 911, person_name: 'Dave H.',
+      slot_label: 'Elec 1', mymix_channel: 'Elec 1', iem_label: 'Pack 5' },
+    { bank_order: 15, kind: 'band', slot_label: 'Acous' },
+    { bank_order: 16, kind: 'band', slot_label: 'Synth' },
   ];
 
   // Pull /api/state and re-render the grid every 2 seconds.
@@ -236,6 +267,18 @@
   function render(slots, leader) {
     const grid = document.getElementById('slot-grid');
     if (!grid) return;
+
+    // Someone on both a vocal slot and a speaker slot lands with the
+    // vocalists: their speaker tile is folded away and the vocal tile
+    // calls out the speaker mic they also carry.
+    const speakerByPerson = {};
+    for (const s of slots) {
+      if (s.kind === 'mic_only' && s.person_id) speakerByPerson[s.person_id] = s;
+    }
+    const alsoSinging = new Set(
+      slots.filter(s => s.kind === 'paired' && s.person_id && speakerByPerson[s.person_id])
+           .map(s => s.person_id));
+
     for (const slot of slots) {
       const el = grid.querySelector(`.slot[data-slot-id="${slot.bank_order}"]`);
       if (!el) continue;
@@ -243,6 +286,10 @@
       el.classList.toggle('empty', !slot.person_id);
       el.classList.toggle('paired', slot.kind === 'paired');
       el.classList.toggle('mic-only', slot.kind === 'mic_only');
+      el.classList.toggle('band', slot.kind === 'band');
+      // Fold away a speaker tile whose person is already shown in Vocals.
+      el.classList.toggle('merged-away',
+        slot.kind === 'mic_only' && !!slot.person_id && alsoSinging.has(slot.person_id));
       // The week's music leader gets the green treatment on their tile.
       const isLeader = !!(leader && slot.person_id && slot.person_id === leader.person_id);
       el.classList.toggle('leader', isLeader);
@@ -280,26 +327,43 @@
         photo.textContent = '';
       }
 
-      // Stage position — sits between name and mic line.
-      // Blank-but-present when there's no position so the layout doesn't shift.
-      pos.textContent = slot.position_label || '';
+      // Stage position pill. Band seats show their instrument here
+      // instead; blank-but-present so the layout doesn't shift.
+      pos.textContent = slot.kind === 'band'
+        ? (slot.slot_label || slot.position_label || '')
+        : (slot.position_label || '');
+
+      // Dual-role callout on the vocal tile: "+ Speaker · Orng RF".
+      const also = el.querySelector('.slot-also');
+      if (also) {
+        const spk = slot.kind === 'paired' && slot.person_id
+          ? speakerByPerson[slot.person_id] : null;
+        also.textContent = spk
+          ? `+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}` : '';
+      }
 
       // Mic line: prefer the channel's label (the team's name for it),
       // not its physical capsule type. "Vocal 1 · Ch 27" is what staff use.
+      // Band members don't need mic info — the line only appears on a
+      // band tile when a mic is actually assigned (e.g. music leader).
       const micParts = [];
       if (slot.mic_label) micParts.push(slot.mic_label);
       if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
-      ch.textContent = micParts.length ? micParts.join(' · ') : '—';
+      ch.textContent = micParts.length ? micParts.join(' · ')
+                     : (slot.kind === 'band' ? '' : '—');
 
       // MyMix line: the personal-monitor channel label for this person's
       // voice/instrument feed. Critical for the backstage manager who's
       // troubleshooting "I can't hear myself".
       mymix.textContent = slot.mymix_channel ? `MyMix: ${slot.mymix_channel}` : '';
 
-      // IEM line: only meaningful for paired slots
+      // IEM line: paired slots always show it; band seats only when a
+      // pack is actually assigned (the occasional case).
       if (slot.kind === 'paired') {
         iem.textContent = slot.iem_label || 'IEM —';
+      } else if (slot.kind === 'band') {
+        iem.textContent = slot.iem_label || '';
       } else {
         iem.textContent = '';
       }

@@ -33,7 +33,13 @@ Work was explicitly stopped at commit 5.
 
 ## Data model
 
-Four tables: `person`, `channel`, `slot`, `position`.
+Four tables: `person`, `channel`, `slot`, `position` (plus `app_setting`, gear catalogs).
+
+Slots: 1–6 paired (vocal handheld + IEM), 7–10 mic_only (wireless
+speakers), 11–16 band (instrument seats; IEM/mic optional — mic only
+when they lead/sing). Wall zones: Vocals left, Band middle, Speakers
+right. A person on both a vocal and a speaker slot renders once, with
+the vocalists, with a "+ Speaker" callout.
 
 `slot` is the join point — it links to:
 - `person`
