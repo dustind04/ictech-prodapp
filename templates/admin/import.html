@@ -38,7 +38,7 @@
       {% for a in plan.assignments %}
         <tr>
           <td>{{ a.bank_order }}</td>
-          <td>{{ a.person or ('—' if a.clear else '?') }}</td>
+          <td>{{ a.person or ('—' if a['clear'] else '?') }}</td>
           <td>{{ a.mic or '—' }}</td>
           <td>{{ a.iem or '—' }}</td>
           <td>{{ a.position or '—' }}</td>
