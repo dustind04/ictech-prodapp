@@ -53,7 +53,7 @@
   // target. After second service (12:15) the target is Tuesday
   // rehearsal; after rehearsal it's back to Sunday 9 AM. Rinse, repeat.
   // ---------------------------------------------------------------
-  const REHEARSAL = { day: 2, h: 19, m: 0, endH: 21, endM: 30 };  // Tue 7:00 PM
+  const REHEARSAL = { day: 2, h: 18, m: 30, endH: 21, endM: 0 };  // Tue 6:30 PM
 
   function centralNow() {
     return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
@@ -147,9 +147,45 @@
   tickClock();
   setInterval(tickClock, 1000);
 
+  // ---------------------------------------------------------------
+  // Demo mode (?demo=1): render a stub of Dave's July 19 Input List
+  // instead of polling the API. Screenshot/preview aid only — nothing
+  // touches the database. Remove the query param for live data.
+  // ---------------------------------------------------------------
+  const DEMO = new URLSearchParams(location.search).has('demo');
+  const DEMO_LEADER = { person_id: 901, name: 'Chris C.' };
+  const DEMO_SLOTS = [
+    { bank_order: 1, kind: 'paired', person_id: 901, person_name: 'Chris C.',
+      position_label: 'Pool 2', mic_label: 'Red HH', mic_shure_channel_name: 'Vox 1',
+      mymix_channel: 'Vox 1', iem_label: 'Pack 1' },
+    { bank_order: 2, kind: 'paired', person_id: 902, person_name: 'Becky B.',
+      position_label: 'Pool 3', mic_label: 'Wht HH', mic_shure_channel_name: 'Vox 2',
+      mymix_channel: 'Vox 2', iem_label: 'Pack 2' },
+    { bank_order: 3, kind: 'paired', person_id: 903, person_name: 'Kiara H.',
+      position_label: 'Pool 4', mic_label: 'Blu HH', mic_shure_channel_name: 'Vox 3',
+      mymix_channel: 'Vox 3', iem_label: 'Pack 3' },
+    { bank_order: 4, kind: 'paired', person_id: 904, person_name: 'Joanna E.',
+      position_label: 'Pool 5', mic_label: 'Blk HH', mic_shure_channel_name: 'Vox 4',
+      mymix_channel: 'Vox 4', iem_label: 'Pack 4' },
+    { bank_order: 5, kind: 'paired' },
+    { bank_order: 6, kind: 'paired' },
+    { bank_order: 7, kind: 'mic_only', person_id: 905, person_name: 'Nate B.',
+      position_label: 'CS Pool', mic_label: 'Orng RF', mymix_channel: 'Misc' },
+    { bank_order: 8, kind: 'mic_only', person_id: 906, person_name: 'Angel L.',
+      position_label: 'CS Pool', mic_label: 'Ylo RF', mymix_channel: 'Misc' },
+    { bank_order: 9, kind: 'mic_only', person_id: 907, person_name: 'Joe B.',
+      mic_label: 'Sermon RF', mymix_channel: 'Misc' },
+    { bank_order: 10, kind: 'mic_only' },
+  ];
+
   // Pull /api/state and re-render the grid every 2 seconds.
   // Vanilla fetch + DOM manipulation; no framework needed for 10 cards.
   async function refresh() {
+    if (DEMO) {
+      renderLeader(DEMO_LEADER);
+      render(DEMO_SLOTS, DEMO_LEADER);
+      return;
+    }
     try {
       const res = await fetch('/api/state', { cache: 'no-store' });
       if (!res.ok) return;
@@ -164,6 +200,27 @@
   function initials(name) {
     if (!name) return '';
     return name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  // Channel color -> tile rim. Dave names channels by capsule color
+  // ("Red HH", "Wht HH", "Orng RF"); the rim makes the grab-the-right-
+  // mic decision possible from across the room.
+  const MIC_COLORS = [
+    [['red'],            '#D64545'],
+    [['white', 'wht'],   '#F7F7F5'],
+    [['blue', 'blu'],    '#4A90D9'],
+    [['black', 'blk'],   '#0A0A0A'],
+    [['orange', 'orng'], '#E8923A'],
+    [['yellow', 'ylo'],  '#E8C83A'],
+    [['green', 'grn'],   '#7AB648'],
+  ];
+  function micColor(slot) {
+    const text = `${slot.mic_label || ''} ${slot.mic_capsule || ''}`.toLowerCase();
+    const words = text.split(/[\s/·-]+/);
+    for (const [names, hex] of MIC_COLORS) {
+      if (names.some(n => words.includes(n))) return hex;
+    }
+    return null;
   }
 
   // Leader chip in the header. Always rendered (blank when unset) so
@@ -187,8 +244,18 @@
       el.classList.toggle('paired', slot.kind === 'paired');
       el.classList.toggle('mic-only', slot.kind === 'mic_only');
       // The week's music leader gets the green treatment on their tile.
-      el.classList.toggle('leader',
-        !!(leader && slot.person_id && slot.person_id === leader.person_id));
+      const isLeader = !!(leader && slot.person_id && slot.person_id === leader.person_id);
+      el.classList.toggle('leader', isLeader);
+
+      // Colored channel -> matching rim. Black gets a faint outer line
+      // so the rim reads as "black", not "no rim", on the dark wall.
+      // A leader keeps the green glow (class-level); the rim color
+      // still takes the border, so both signals coexist.
+      const rim = micColor(slot);
+      el.style.borderColor = rim || '';
+      el.style.boxShadow = (rim && !isLeader)
+        ? `0 0 14px ${rim === '#0A0A0A' ? 'rgba(255,255,255,0.18)' : rim + '55'}`
+        : '';
 
       const photo = el.querySelector('.slot-photo');
       const name  = el.querySelector('.slot-name');
