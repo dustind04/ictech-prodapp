@@ -396,11 +396,20 @@ input:focus, select:focus {
   flex-shrink: 0;
 }
 .wall-logo {
+  display: inline-block;
   background: #fff;
   border-radius: calc(10 * var(--u));
   padding: calc(10 * var(--u)) calc(16 * var(--u));
 }
 .wall-logo img { height: calc(44 * var(--u)); display: block; }
+/* Static schedule reference: gray = never changes. */
+.wall-sched {
+  font-size: calc(13 * var(--u));
+  font-weight: 600;
+  color: #7a7a7a;
+  margin-top: calc(8 * var(--u));
+  letter-spacing: 0.02em;
+}
 .wall-greeting-block {
   text-align: center;
 }
@@ -418,33 +427,44 @@ input:focus, select:focus {
   color: var(--green);
   margin-top: calc(2 * var(--u));
 }
-.wall-leader {
-  font-size: calc(17 * var(--u));
-  margin-top: calc(4 * var(--u));
-  min-height: calc(26 * var(--u));
-}
-.leader-chip {
-  display: inline-block;
-  padding: calc(3 * var(--u)) calc(16 * var(--u));
-  border: calc(1 * var(--u)) solid var(--green);
-  border-radius: 999px;
-  color: #ddd;
-}
-.leader-chip strong { color: var(--green); }
 .wall-meta-block {
   text-align: right;
 }
+/* Everything weekly lives in this one green-boxed panel — the visual
+   cue for "this changes"; anything outside it is fixtures. */
+.this-week {
+  display: inline-block;
+  text-align: right;
+  border: calc(1 * var(--u)) solid rgba(122, 182, 72, 0.55);
+  border-radius: calc(10 * var(--u));
+  padding: calc(8 * var(--u)) calc(16 * var(--u)) calc(12 * var(--u));
+}
+.tw-caption {
+  font-size: calc(11 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: calc(4 * var(--u));
+}
+.tw-caption::after { content: '.'; color: #fff; }
 .wall-service-date {
   font-size: calc(22 * var(--u));
   font-weight: 700;
   color: var(--green);
 }
+.wall-leader {
+  font-size: calc(15 * var(--u));
+  color: #ddd;
+  margin-top: calc(2 * var(--u));
+}
+.wall-leader strong { color: var(--green); }
 .wall-meta {
-  font-size: calc(18 * var(--u));
+  font-size: calc(17 * var(--u));
   font-weight: 500;
   color: #aaa;
   font-variant-numeric: tabular-nums;
-  margin-top: calc(2 * var(--u));
+  margin-top: calc(6 * var(--u));
 }
 .wall-countdown {
   display: inline-block;
@@ -618,46 +638,56 @@ input:focus, select:focus {
   max-width: 100%;
   overflow-wrap: break-word;
 }
+.slot-position { min-height: calc(23 * var(--u)); }
 .slot-position:empty {
   background: transparent;
   border-color: transparent;
-  padding: 0;
-  margin-bottom: 0;
-  min-height: 0;
 }
 .slot.empty .slot-position {
   background: transparent;
   border-color: transparent;
   color: #555;
 }
-.slot-channel {
+/* Locked rows: fixed anatomy at the bottom of every tile. The gray
+   labels never move or disappear — they are the static frame; the
+   values beside them are the weekly data ("—" and dim when absent). */
+.slot-rows {
+  width: 100%;
+  margin-top: auto;
+  border-top: calc(1 * var(--u)) solid #383838;
+  padding-top: calc(8 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(5 * var(--u));
+}
+.slot-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(8 * var(--u));
+  min-height: calc(17 * var(--u));
+}
+.row-label {
+  font-size: calc(10 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #777;
+  flex-shrink: 0;
+}
+.row-value {
   font-size: calc(14 * var(--u));
   font-weight: 600;
-  color: #ccc;
-  margin-bottom: calc(4 * var(--u));
+  color: #eee;
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: break-word;
   font-variant-numeric: tabular-nums;
 }
-.slot-mymix {
-  font-size: calc(12 * var(--u));
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #aaa;
-  margin-bottom: calc(4 * var(--u));
-  min-height: calc(15 * var(--u));
-  overflow-wrap: break-word;
-  width: 100%;
-}
-.slot-mymix:empty { min-height: 0; margin-bottom: 0; }
-.slot.empty .slot-mymix { color: transparent; }
-.slot-iem {
-  font-size: calc(13 * var(--u));
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--green);
-  text-transform: uppercase;
-  margin-top: auto;
-  padding-top: calc(8 * var(--u));
-}
+.slot-iem.row-value { color: var(--green); text-transform: uppercase; letter-spacing: 0.04em; }
+.row-value.blank { color: #555; font-weight: 500; }
+.slot-iem.row-value.blank { color: #555; text-transform: none; }
+.slot.empty .row-value { color: #555; }
 .slot.skeleton .slot-name,
 .slot.skeleton .slot-position,
 .slot.skeleton .slot-channel,

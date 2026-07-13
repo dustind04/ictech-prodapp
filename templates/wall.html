@@ -8,18 +8,26 @@
 
 {% block content %}
 <div class="wall-header">
-  <div class="wall-logo">
-    <img src="{{ url_for('static', filename='immanuel-logo.png') }}" alt="Immanuel Church — Welcome home.">
+  <div class="wall-logo-block">
+    <div class="wall-logo">
+      <img src="{{ url_for('static', filename='immanuel-logo.png') }}" alt="Immanuel Church — Welcome home.">
+    </div>
+    {# Static schedule reference — never changes, always this corner. #}
+    <div class="wall-sched">Sundays 9:00 &amp; 11:00 AM · Rehearsal Tue 6:30 PM</div>
   </div>
   <div class="wall-greeting-block">
     <div class="wall-greeting" id="wall-greeting">&nbsp;</div>
     <div class="wall-welcome">Welcome home.</div>
-    <div class="wall-leader" id="wall-leader">&nbsp;</div>
   </div>
   <div class="wall-meta-block">
-    <div class="wall-service-date" id="wall-service-date">—</div>
+    {# Everything that changes week to week lives in this one panel. #}
+    <div class="this-week">
+      <div class="tw-caption">This Week</div>
+      <div class="wall-service-date" id="wall-service-date">—</div>
+      <div class="wall-leader" id="wall-leader">&nbsp;</div>
+      <div class="wall-countdown" id="wall-countdown">—</div>
+    </div>
     <div class="wall-meta" id="wall-meta">—</div>
-    <div class="wall-countdown" id="wall-countdown">—</div>
   </div>
 </div>
 
@@ -28,6 +36,10 @@
    a skeleton here so the page isn't blank during the first paint.
    Three zones, one screen: wireless vocalists left, band middle,
    wireless speakers right. #}
+{# Locked tile anatomy: every tile carries the same rows in the same
+   order, with static gray field labels and "—" for absent values —
+   nothing collapses, so the eye always knows where each fact lives.
+   Labels are the static frame; bright values are the weekly data. #}
 {% macro slot_tile(i) %}
     <div class="slot skeleton" data-slot-id="{{ i }}">
       <div class="slot-num">{{ '%02d' % i }}</div>
@@ -35,9 +47,11 @@
       <div class="slot-name">—</div>
       <div class="slot-position">&nbsp;</div>
       <div class="slot-also"></div>
-      <div class="slot-channel">—</div>
-      <div class="slot-mymix">&nbsp;</div>
-      <div class="slot-iem">&nbsp;</div>
+      <div class="slot-rows">
+        <div class="slot-row"><span class="row-label">Mic</span><span class="row-value slot-channel">—</span></div>
+        <div class="slot-row"><span class="row-label">MyMix</span><span class="row-value slot-mymix">—</span></div>
+        <div class="slot-row"><span class="row-label">IEM</span><span class="row-value slot-iem">—</span></div>
+      </div>
     </div>
 {% endmacro %}
 <div class="wall-groups" id="slot-grid">
@@ -252,14 +266,13 @@
     return null;
   }
 
-  // Leader chip in the header. Always rendered (blank when unset) so
-  // the header never jumps.
+  // Leader line inside the This Week panel. Always rendered ("—" when
+  // unset) so the panel never jumps.
   function renderLeader(leader) {
     const el = document.getElementById('wall-leader');
     if (!el) return;
-    if (!leader) { el.innerHTML = '&nbsp;'; return; }
-    el.innerHTML = '<span class="leader-chip">♪ Leading this week: <strong></strong></span>';
-    el.querySelector('strong').textContent = leader.name;
+    el.innerHTML = '♪ Leader: <strong></strong>';
+    el.querySelector('strong').textContent = leader ? leader.name : '—';
   }
 
   function render(slots, leader) {
@@ -339,31 +352,21 @@
           ? `+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}` : '';
       }
 
-      // Mic line: prefer the channel's label (the team's name for it),
-      // not its physical capsule type. "Vocal 1 · Ch 27" is what staff use.
-      // Band members don't need mic info — the line only appears on a
-      // band tile when a mic is actually assigned (e.g. music leader).
+      // Locked rows: the gray labels are the static frame; values are
+      // the weekly data. Absent values render as a dim "—" so every
+      // fact keeps its place — a band member with no mic still shows
+      // the Mic row, just blank.
+      const setRow = (el2, text) => {
+        el2.textContent = text || '—';
+        el2.classList.toggle('blank', !text);
+      };
       const micParts = [];
       if (slot.mic_label) micParts.push(slot.mic_label);
       if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
-      ch.textContent = micParts.length ? micParts.join(' · ')
-                     : (slot.kind === 'band' ? '' : '—');
-
-      // MyMix line: the personal-monitor channel label for this person's
-      // voice/instrument feed. Critical for the backstage manager who's
-      // troubleshooting "I can't hear myself".
-      mymix.textContent = slot.mymix_channel ? `MyMix: ${slot.mymix_channel}` : '';
-
-      // IEM line: paired slots always show it; band seats only when a
-      // pack is actually assigned (the occasional case).
-      if (slot.kind === 'paired') {
-        iem.textContent = slot.iem_label || 'IEM —';
-      } else if (slot.kind === 'band') {
-        iem.textContent = slot.iem_label || '';
-      } else {
-        iem.textContent = '';
-      }
+      setRow(ch, micParts.join(' · '));
+      setRow(mymix, slot.mymix_channel);
+      setRow(iem, slot.iem_label);
     }
   }
 
