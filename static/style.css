@@ -370,11 +370,15 @@ input:focus, select:focus {
 .wall-body {
   background: var(--charcoal);
   color: #fff;
+  /* The wall is a fullscreen 16:9 kiosk (40" 4K TV). All wall sizing
+     uses --u, one "design pixel" against a 1920-wide reference frame:
+     the layout renders identically at 1920, 3840, or anything else. */
+  --u: calc(100vw / 1920);
 }
 .wall-main {
   width: 100vw;
   min-height: 100vh;
-  padding: 24px 32px 32px;
+  padding: calc(24 * var(--u)) calc(32 * var(--u)) calc(32 * var(--u));
   display: flex;
   flex-direction: column;
 }
@@ -382,41 +386,41 @@ input:focus, select:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: calc(24 * var(--u));
   flex-shrink: 0;
 }
 .wall-brand {
-  font-size: 28px;
+  font-size: calc(30 * var(--u));
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 .wall-brand .ic { color: var(--green); }
 .wall-brand .tech { color: #fff; }
-.wall-brand .suffix { color: #aaa; font-weight: 500; margin-left: 8px; }
+.wall-brand .suffix { color: #aaa; font-weight: 500; margin-left: calc(8 * var(--u)); }
 .wall-tagline {
-  font-size: 14px;
+  font-size: calc(15 * var(--u));
   font-weight: 500;
   color: #7a7a7a;
-  margin-top: 2px;
+  margin-top: calc(2 * var(--u));
 }
 .wall-greeting-block {
   text-align: center;
 }
 .wall-greeting {
-  font-size: 34px;
+  font-size: calc(40 * var(--u));
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--green);
 }
 .wall-leader {
-  font-size: 16px;
-  margin-top: 4px;
-  min-height: 24px;
+  font-size: calc(17 * var(--u));
+  margin-top: calc(4 * var(--u));
+  min-height: calc(26 * var(--u));
 }
 .leader-chip {
   display: inline-block;
-  padding: 2px 14px;
-  border: 1px solid var(--green);
+  padding: calc(3 * var(--u)) calc(16 * var(--u));
+  border: calc(1 * var(--u)) solid var(--green);
   border-radius: 999px;
   color: #ddd;
 }
@@ -425,24 +429,24 @@ input:focus, select:focus {
   text-align: right;
 }
 .wall-service-date {
-  font-size: 20px;
+  font-size: calc(22 * var(--u));
   font-weight: 700;
   color: var(--green);
 }
 .wall-meta {
-  font-size: 17px;
+  font-size: calc(18 * var(--u));
   font-weight: 500;
   color: #aaa;
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
+  margin-top: calc(2 * var(--u));
 }
 .wall-countdown {
   display: inline-block;
-  margin-top: 6px;
-  padding: 3px 14px;
-  border: 1px solid #3A3A3A;
+  margin-top: calc(6 * var(--u));
+  padding: calc(3 * var(--u)) calc(16 * var(--u));
+  border: calc(1 * var(--u)) solid #3A3A3A;
   border-radius: 999px;
-  font-size: 18px;
+  font-size: calc(20 * var(--u));
   font-weight: 700;
   color: #ddd;
   font-variant-numeric: tabular-nums;
@@ -462,29 +466,35 @@ input:focus, select:focus {
    Pure decoration on the existing tile — the layout must not shift. */
 .slot.leader {
   border-color: var(--green);
-  box-shadow: 0 0 0 1px var(--green), 0 0 22px rgba(122, 182, 72, 0.35);
+  box-shadow: 0 0 0 calc(1 * var(--u)) var(--green),
+              0 0 calc(22 * var(--u)) rgba(122, 182, 72, 0.35);
   position: relative;
 }
 .slot.leader::after {
   content: 'LEADER';
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: calc(8 * var(--u));
+  right: calc(8 * var(--u));
   background: var(--green);
   color: var(--charcoal);
-  font-size: 10px;
+  font-size: calc(11 * var(--u));
   font-weight: 800;
   letter-spacing: 0.08em;
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: calc(2 * var(--u)) calc(7 * var(--u));
+  border-radius: calc(4 * var(--u));
 }
+/* Colored channel rim — set via --rim-color/--rim-glow from JS. Comes
+   after .leader so the rim color owns the border when both apply; the
+   glow stays green for the leader (:not guard below). */
+.slot.rimmed { border-color: var(--rim-color); }
+.slot.rimmed:not(.leader) { box-shadow: 0 0 calc(14 * var(--u)) var(--rim-glow); }
 
 /* Three zones, one screen: Vocals | Band | Speakers. Zone widths are
    proportional to their tile counts (flex set inline: 6/6/4). */
 .wall-groups {
   flex: 1;
   display: flex;
-  gap: 24px;
+  gap: calc(24 * var(--u));
   align-items: stretch;
 }
 .slot-group-wrap {
@@ -493,38 +503,38 @@ input:focus, select:focus {
   min-width: 0;
 }
 .group-title {
-  font-size: 13px;
+  font-size: calc(14 * var(--u));
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #7a7a7a;
-  border-bottom: 1px solid #333;
-  padding-bottom: 6px;
-  margin-bottom: 10px;
+  border-bottom: calc(1 * var(--u)) solid #333;
+  padding-bottom: calc(6 * var(--u));
+  margin-bottom: calc(10 * var(--u));
 }
 .slot-group {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(var(--cols, 6), 1fr);
-  gap: 12px;
+  gap: calc(12 * var(--u));
   align-items: stretch;
 }
 /* Speaker tile folded into a vocal tile (person sings AND speaks). */
 .slot.merged-away { display: none; }
 /* Dual-role callout under the position pill on the vocal tile. */
 .slot-also {
-  font-size: 11px;
+  font-size: calc(12 * var(--u));
   font-weight: 700;
   color: var(--green);
-  margin-top: 4px;
+  margin-top: calc(4 * var(--u));
 }
 .slot-also:empty { display: none; }
 
 .slot {
   background: #2A2A2A;
-  border: 2px solid #3A3A3A;
-  border-radius: 12px;
-  padding: 16px 14px;
+  border: calc(2 * var(--u)) solid #3A3A3A;
+  border-radius: calc(12 * var(--u));
+  padding: calc(16 * var(--u)) calc(14 * var(--u));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -538,16 +548,16 @@ input:focus, select:focus {
   border-style: dashed;
 }
 .slot-num {
-  font-size: 12px;
+  font-size: calc(12 * var(--u));
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #888;
-  margin-bottom: 12px;
+  margin-bottom: calc(12 * var(--u));
   align-self: flex-start;
 }
 .slot-photo {
-  width: 80px;
-  height: 80px;
+  width: calc(88 * var(--u));
+  height: calc(88 * var(--u));
   border-radius: 50%;
   background: var(--green);
   background-size: cover;
@@ -555,20 +565,20 @@ input:focus, select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: calc(30 * var(--u));
   font-weight: 800;
   color: #fff;
-  margin-bottom: 12px;
+  margin-bottom: calc(12 * var(--u));
   flex-shrink: 0;
 }
 .slot.empty .slot-photo { background: #3A3A3A; }
 .slot-name {
-  font-size: 18px;
+  font-size: calc(21 * var(--u));
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #fff;
   line-height: 1.15;
-  margin-bottom: 6px;
+  margin-bottom: calc(6 * var(--u));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -576,16 +586,16 @@ input:focus, select:focus {
 }
 .slot.empty .slot-name { color: #888; font-weight: 500; font-style: italic; }
 .slot-position {
-  font-size: 11px;
+  font-size: calc(12 * var(--u));
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #fff;
   background: rgba(122, 182, 72, 0.20);
-  border: 1px solid rgba(122, 182, 72, 0.50);
+  border: calc(1 * var(--u)) solid rgba(122, 182, 72, 0.50);
   border-radius: 999px;
-  padding: 3px 10px;
-  margin-bottom: 10px;
+  padding: calc(3 * var(--u)) calc(10 * var(--u));
+  margin-bottom: calc(10 * var(--u));
   line-height: 1.2;
   max-width: 100%;
   overflow: hidden;
@@ -605,19 +615,19 @@ input:focus, select:focus {
   color: #555;
 }
 .slot-channel {
-  font-size: 13px;
+  font-size: calc(14 * var(--u));
   font-weight: 600;
   color: #ccc;
-  margin-bottom: 4px;
+  margin-bottom: calc(4 * var(--u));
   font-variant-numeric: tabular-nums;
 }
 .slot-mymix {
-  font-size: 11px;
+  font-size: calc(12 * var(--u));
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #aaa;
-  margin-bottom: 4px;
-  min-height: 14px;
+  margin-bottom: calc(4 * var(--u));
+  min-height: calc(15 * var(--u));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -626,13 +636,13 @@ input:focus, select:focus {
 .slot-mymix:empty { min-height: 0; margin-bottom: 0; }
 .slot.empty .slot-mymix { color: transparent; }
 .slot-iem {
-  font-size: 12px;
+  font-size: calc(13 * var(--u));
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--green);
   text-transform: uppercase;
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: calc(8 * var(--u));
 }
 .slot.skeleton .slot-name,
 .slot.skeleton .slot-position,

@@ -296,13 +296,19 @@
 
       // Colored channel -> matching rim. Black gets a faint outer line
       // so the rim reads as "black", not "no rim", on the dark wall.
-      // A leader keeps the green glow (class-level); the rim color
-      // still takes the border, so both signals coexist.
+      // A leader keeps the green glow (CSS :not guard); the rim color
+      // still takes the border, so both signals coexist. Sizes live in
+      // CSS so they scale with the display's --u unit.
       const rim = micColor(slot);
-      el.style.borderColor = rim || '';
-      el.style.boxShadow = (rim && !isLeader)
-        ? `0 0 14px ${rim === '#0A0A0A' ? 'rgba(255,255,255,0.18)' : rim + '55'}`
-        : '';
+      el.classList.toggle('rimmed', !!rim);
+      if (rim) {
+        el.style.setProperty('--rim-color', rim);
+        el.style.setProperty('--rim-glow',
+          rim === '#0A0A0A' ? 'rgba(255,255,255,0.18)' : rim + '55');
+      } else {
+        el.style.removeProperty('--rim-color');
+        el.style.removeProperty('--rim-glow');
+      }
 
       const photo = el.querySelector('.slot-photo');
       const name  = el.querySelector('.slot-name');
