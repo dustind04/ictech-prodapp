@@ -322,7 +322,12 @@ def register_admin_routes(app: Flask) -> None:
     def admin_channels():
         db = get_db(db_path)
         channels = db.execute(
-            "SELECT * FROM channel WHERE archived=0 ORDER BY kind, label"
+            """SELECT c.*, wm.family AS wm_family, wm.model AS wm_model,
+                      cm.brand AS cm_brand, cm.model AS cm_model
+                 FROM channel c
+                 LEFT JOIN wireless_model wm ON wm.id = c.wireless_model_id
+                 LEFT JOIN capsule_model cm ON cm.id = c.capsule_model_id
+                WHERE c.archived=0 ORDER BY c.kind, c.label"""
         ).fetchall()
         return render_template(
             "admin/channels.html",
@@ -330,6 +335,7 @@ def register_admin_routes(app: Flask) -> None:
             kinds=CHANNEL_KINDS,
             shure_types=SHURE_TYPES,
             shure_type_labels=SHURE_TYPE_LABELS,
+            **_gear_catalog(db),
         )
 
     @app.route("/admin/channels", methods=["POST"])
@@ -341,12 +347,13 @@ def register_admin_routes(app: Flask) -> None:
             flash("Label and kind are required.", "error")
             return redirect(url_for("admin_channels"))
         values = _channel_form_values(request.form, label, kind)
+        _validate_gear_ids(db, values)
         db.execute(
             """INSERT INTO channel
                  (label, kind, shure_ip, shure_channel, shure_type,
-                  capsule, frequency_mhz)
+                  capsule, frequency_mhz, wireless_model_id, capsule_model_id)
                VALUES (:label, :kind, :shure_ip, :shure_channel, :shure_type,
-                       :capsule, :frequency_mhz)""",
+                       :capsule, :frequency_mhz, :wireless_model_id, :capsule_model_id)""",
             values,
         )
         db.commit()
@@ -365,6 +372,7 @@ def register_admin_routes(app: Flask) -> None:
             kinds=CHANNEL_KINDS,
             shure_types=SHURE_TYPES,
             shure_type_labels=SHURE_TYPE_LABELS,
+            **_gear_catalog(db),
         )
 
     @app.route("/admin/channels/<int:channel_id>", methods=["POST"])
@@ -388,12 +396,14 @@ def register_admin_routes(app: Flask) -> None:
             flash("Label and kind are required.", "error")
             return redirect(url_for("admin_channels_edit", channel_id=channel_id))
         values = _channel_form_values(request.form, label, kind)
+        _validate_gear_ids(db, values)
         values["id"] = channel_id
         db.execute(
             """UPDATE channel SET
                  label=:label, kind=:kind,
                  shure_ip=:shure_ip, shure_channel=:shure_channel, shure_type=:shure_type,
                  capsule=:capsule, frequency_mhz=:frequency_mhz,
+                 wireless_model_id=:wireless_model_id, capsule_model_id=:capsule_model_id,
                  updated_at=datetime('now')
                WHERE id=:id""",
             values,
@@ -572,6 +582,32 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
         "shure_type": shure_type,
         "capsule": _opt_str("capsule"),
         "frequency_mhz": _opt_float("frequency_mhz"),
+        "wireless_model_id": _opt_int("wireless_model_id"),
+        "capsule_model_id": _opt_int("capsule_model_id"),
+    }
+
+
+def _validate_gear_ids(db, values: dict) -> None:
+    """Null out gear FK values that don't exist — a stale form beats a 500."""
+    for col, table in (
+        ("wireless_model_id", "wireless_model"),
+        ("capsule_model_id", "capsule_model"),
+    ):
+        if values[col] is not None:
+            row = db.execute(f"SELECT 1 FROM {table} WHERE id=?", (values[col],)).fetchone()
+            if row is None:
+                values[col] = None
+
+
+def _gear_catalog(db) -> dict:
+    """The seeded equipment catalogs, shaped for the channel-form dropdowns."""
+    return {
+        "wireless_models": db.execute(
+            "SELECT * FROM wireless_model ORDER BY kind, sort_order, model"
+        ).fetchall(),
+        "capsule_models": db.execute(
+            "SELECT * FROM capsule_model ORDER BY brand, sort_order, model"
+        ).fetchall(),
     }
 
 

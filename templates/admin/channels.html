@@ -29,7 +29,37 @@
     </div>
     <div class="form-row">
       <label>
-        Capsule / description
+        Wireless model <span class="hint">(Shure)</span>
+        <select name="wireless_model_id">
+          <option value="">—</option>
+          {% for grp, title in [('handheld', 'Handheld transmitters'),
+                                ('beltpack', 'Bodypack transmitters'),
+                                ('iem', 'IEM packs')] %}
+            <optgroup label="{{ title }}">
+              {% for m in wireless_models if m.kind == grp %}
+                <option value="{{ m.id }}">{{ m.model }} — {{ m.family }}</option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Capsule model
+        <select name="capsule_model_id">
+          <option value="">—</option>
+          {% for brand in ['Shure', 'Sennheiser'] %}
+            <optgroup label="{{ brand }}">
+              {% for cm in capsule_models if cm.brand == brand %}
+                <option value="{{ cm.id }}">{{ cm.model }} — {{ cm.description }}</option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>
+        Color tag / description
         <input name="capsule" placeholder="Red HH, Headset, Lav...">
       </label>
       <label>
@@ -68,7 +98,7 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Label</th><th>Kind</th><th>Capsule</th>
+          <th>Label</th><th>Kind</th><th>Gear</th><th>Tag</th>
           <th>Receiver</th><th>Channel</th><th>Freq.</th><th></th>
         </tr>
       </thead>
@@ -77,6 +107,11 @@
           <tr>
             <td>{{ c.label }}</td>
             <td><span class="badge badge-{{ c.kind }}">{{ c.kind }}</span></td>
+            <td>
+              {% if c.wm_model or c.cm_model %}
+                {{ c.wm_model or '' }}{% if c.wm_model and c.cm_model %} · {% endif %}{% if c.cm_model %}{{ c.cm_brand }} {{ c.cm_model }}{% endif %}
+              {% else %}—{% endif %}
+            </td>
             <td>{{ c.capsule or '—' }}</td>
             <td>
               {% if c.shure_ip %}
