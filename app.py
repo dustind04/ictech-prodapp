@@ -184,12 +184,14 @@ _SLOT_QUERY = """
       s.mic_channel_id AS mic_channel_id,
       mc.label         AS mic_label,
       mc.shure_channel AS mic_shure_channel,
+      mc.shure_channel_name AS mic_shure_channel_name,
       mc.shure_ip      AS mic_shure_ip,
       mc.shure_type    AS mic_shure_type,
       mc.capsule       AS mic_capsule,
       s.iem_channel_id AS iem_channel_id,
       ic.label         AS iem_label,
       ic.shure_channel AS iem_shure_channel,
+      ic.shure_channel_name AS iem_shure_channel_name,
       ic.shure_ip      AS iem_shure_ip,
       ic.shure_type    AS iem_shure_type,
       s.position_id    AS position_id,
@@ -350,9 +352,9 @@ def register_admin_routes(app: Flask) -> None:
         _validate_gear_ids(db, values)
         db.execute(
             """INSERT INTO channel
-                 (label, kind, shure_ip, shure_channel, shure_type,
+                 (label, kind, shure_ip, shure_channel_name, shure_type,
                   capsule, frequency_mhz, wireless_model_id, capsule_model_id)
-               VALUES (:label, :kind, :shure_ip, :shure_channel, :shure_type,
+               VALUES (:label, :kind, :shure_ip, :shure_channel_name, :shure_type,
                        :capsule, :frequency_mhz, :wireless_model_id, :capsule_model_id)""",
             values,
         )
@@ -401,7 +403,7 @@ def register_admin_routes(app: Flask) -> None:
         db.execute(
             """UPDATE channel SET
                  label=:label, kind=:kind,
-                 shure_ip=:shure_ip, shure_channel=:shure_channel, shure_type=:shure_type,
+                 shure_ip=:shure_ip, shure_channel_name=:shure_channel_name, shure_type=:shure_type,
                  capsule=:capsule, frequency_mhz=:frequency_mhz,
                  wireless_model_id=:wireless_model_id, capsule_model_id=:capsule_model_id,
                  updated_at=datetime('now')
@@ -578,7 +580,7 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
         "label": label,
         "kind": kind,
         "shure_ip": _opt_str("shure_ip"),
-        "shure_channel": _opt_int("shure_channel"),
+        "shure_channel_name": _opt_str("shure_channel_name"),
         "shure_type": shure_type,
         "capsule": _opt_str("capsule"),
         "frequency_mhz": _opt_float("frequency_mhz"),

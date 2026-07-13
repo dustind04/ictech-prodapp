@@ -84,8 +84,8 @@
         <input name="shure_ip" placeholder="10.0.1.50">
       </label>
       <label>
-        Channel on receiver
-        <input name="shure_channel" type="number" min="1" max="8" placeholder="1">
+        Channel name <span class="hint">(from WWB)</span>
+        <input name="shure_channel_name" placeholder="VOX 1">
       </label>
     </div>
     <button type="submit" class="btn-primary">Add channel</button>
@@ -119,7 +119,7 @@
                 <code>{{ c.shure_ip }}</code>
               {% else %}—{% endif %}
             </td>
-            <td>{{ c.shure_channel or '—' }}</td>
+            <td>{{ c.shure_channel_name or c.shure_channel or '—' }}</td>
             <td>{{ '%.3f' % c.frequency_mhz if c.frequency_mhz else '—' }}</td>
             <td class="actions"><a href="{{ url_for('admin_channels_edit', channel_id=c.id) }}">Edit</a></td>
           </tr>

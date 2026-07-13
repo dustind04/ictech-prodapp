@@ -84,9 +84,9 @@
         <input name="shure_ip" value="{{ channel.shure_ip or '' }}">
       </label>
       <label>
-        Channel on receiver
-        <input name="shure_channel" type="number" min="1" max="8"
-               value="{{ channel.shure_channel if channel.shure_channel is not none else '' }}">
+        Channel name <span class="hint">(from WWB)</span>
+        <input name="shure_channel_name"
+               value="{{ channel.shure_channel_name or '' }}">
       </label>
     </div>
 

@@ -105,7 +105,8 @@
       // not its physical capsule type. "Vocal 1 · Ch 27" is what staff use.
       const micParts = [];
       if (slot.mic_label) micParts.push(slot.mic_label);
-      if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
+      if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
+      else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       ch.textContent = micParts.length ? micParts.join(' · ') : '—';
 
       // MyMix line: the personal-monitor channel label for this person's
