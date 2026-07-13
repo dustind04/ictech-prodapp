@@ -1,0 +1,419 @@
+{
+ "capsule_model": [
+  {
+   "brand": "Shure",
+   "description": "Dynamic cardioid",
+   "id": 1,
+   "model": "SM58",
+   "part_number": "RPW112",
+   "sort_order": 10
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser cardioid",
+   "id": 2,
+   "model": "SM86",
+   "part_number": "RPW114",
+   "sort_order": 11
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser supercardioid",
+   "id": 3,
+   "model": "SM87A",
+   "part_number": "RPW116",
+   "sort_order": 12
+  },
+  {
+   "brand": "Shure",
+   "description": "Dynamic supercardioid",
+   "id": 4,
+   "model": "Beta 58A",
+   "part_number": "RPW118",
+   "sort_order": 20
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser supercardioid",
+   "id": 5,
+   "model": "Beta 87A",
+   "part_number": "RPW120",
+   "sort_order": 21
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser cardioid",
+   "id": 6,
+   "model": "Beta 87C",
+   "part_number": "RPW122",
+   "sort_order": 22
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser omnidirectional",
+   "id": 7,
+   "model": "VP68",
+   "part_number": "RPW124",
+   "sort_order": 30
+  },
+  {
+   "brand": "Shure",
+   "description": "Dynamic cardioid",
+   "id": 8,
+   "model": "KSM8 Dualdyne",
+   "part_number": "RPW174",
+   "sort_order": 40
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser, switchable card/supercard",
+   "id": 9,
+   "model": "KSM9",
+   "part_number": "RPW184",
+   "sort_order": 41
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser, switchable hyper/subcardioid",
+   "id": 10,
+   "model": "KSM9HS",
+   "part_number": null,
+   "sort_order": 42
+  },
+  {
+   "brand": "Shure",
+   "description": "Condenser cardioid",
+   "id": 11,
+   "model": "KSM11",
+   "part_number": "RPW192",
+   "sort_order": 43
+  },
+  {
+   "brand": "Shure",
+   "description": "Dynamic cardioid, dual-engine",
+   "id": 12,
+   "model": "Nexadyne 8/C",
+   "part_number": "RPW200",
+   "sort_order": 50
+  },
+  {
+   "brand": "Shure",
+   "description": "Dynamic supercardioid, dual-engine",
+   "id": 13,
+   "model": "Nexadyne 8/S",
+   "part_number": "RPW204",
+   "sort_order": 51
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Dynamic cardioid",
+   "id": 14,
+   "model": "MMD 835-1",
+   "part_number": null,
+   "sort_order": 10
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Dynamic supercardioid",
+   "id": 15,
+   "model": "MMD 845-1",
+   "part_number": null,
+   "sort_order": 11
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Dynamic cardioid",
+   "id": 16,
+   "model": "MMD 935-1",
+   "part_number": null,
+   "sort_order": 12
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Dynamic supercardioid",
+   "id": 17,
+   "model": "MMD 945-1",
+   "part_number": null,
+   "sort_order": 13
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Dynamic omnidirectional",
+   "id": 18,
+   "model": "MMD 42-1",
+   "part_number": null,
+   "sort_order": 14
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Condenser supercardioid",
+   "id": 19,
+   "model": "MME 865-1",
+   "part_number": null,
+   "sort_order": 20
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Condenser LD, switchable card/supercard",
+   "id": 20,
+   "model": "MMK 965-1",
+   "part_number": null,
+   "sort_order": 21
+  },
+  {
+   "brand": "Sennheiser",
+   "description": "Dynamic cardioid (Digital 6000/9000)",
+   "id": 21,
+   "model": "MD 9235",
+   "part_number": null,
+   "sort_order": 30
+  }
+ ],
+ "channel": [],
+ "exported_at": "2026-07-13 21:31:54",
+ "position": [
+  {
+   "archived": 0,
+   "created_at": "2026-07-13 21:31:35",
+   "id": 1,
+   "label": "Pool 2",
+   "updated_at": "2026-07-13 21:31:35"
+  },
+  {
+   "archived": 0,
+   "created_at": "2026-07-13 21:31:35",
+   "id": 2,
+   "label": "Pool 3",
+   "updated_at": "2026-07-13 21:31:35"
+  },
+  {
+   "archived": 0,
+   "created_at": "2026-07-13 21:31:35",
+   "id": 3,
+   "label": "Pool 4",
+   "updated_at": "2026-07-13 21:31:35"
+  },
+  {
+   "archived": 0,
+   "created_at": "2026-07-13 21:31:35",
+   "id": 4,
+   "label": "Pool 5",
+   "updated_at": "2026-07-13 21:31:35"
+  },
+  {
+   "archived": 0,
+   "created_at": "2026-07-13 21:31:35",
+   "id": 5,
+   "label": "CS Pool",
+   "updated_at": "2026-07-13 21:31:35"
+  }
+ ],
+ "schema_migrations": [
+  {
+   "applied_at": "2026-07-13 19:49:00",
+   "filename": "001_initial.sql"
+  },
+  {
+   "applied_at": "2026-07-13 19:49:00",
+   "filename": "002_positions.sql"
+  },
+  {
+   "applied_at": "2026-07-13 19:49:00",
+   "filename": "003_mymix.sql"
+  },
+  {
+   "applied_at": "2026-07-13 19:57:49",
+   "filename": "004_equipment.sql"
+  },
+  {
+   "applied_at": "2026-07-13 20:30:05",
+   "filename": "005_channel_name.sql"
+  }
+ ],
+ "wireless_model": [
+  {
+   "brand": "Shure",
+   "family": "Axient Digital",
+   "id": 1,
+   "kind": "handheld",
+   "model": "AD2",
+   "sort_order": 10
+  },
+  {
+   "brand": "Shure",
+   "family": "Axient Digital",
+   "id": 2,
+   "kind": "handheld",
+   "model": "ADX2",
+   "sort_order": 11
+  },
+  {
+   "brand": "Shure",
+   "family": "Axient Digital",
+   "id": 3,
+   "kind": "handheld",
+   "model": "ADX2FD",
+   "sort_order": 12
+  },
+  {
+   "brand": "Shure",
+   "family": "ULX-D",
+   "id": 4,
+   "kind": "handheld",
+   "model": "ULXD2",
+   "sort_order": 20
+  },
+  {
+   "brand": "Shure",
+   "family": "QLX-D",
+   "id": 5,
+   "kind": "handheld",
+   "model": "QLXD2",
+   "sort_order": 30
+  },
+  {
+   "brand": "Shure",
+   "family": "SLX-D",
+   "id": 6,
+   "kind": "handheld",
+   "model": "SLXD2",
+   "sort_order": 40
+  },
+  {
+   "brand": "Shure",
+   "family": "SLX-D+",
+   "id": 7,
+   "kind": "handheld",
+   "model": "SLXD2+",
+   "sort_order": 41
+  },
+  {
+   "brand": "Shure",
+   "family": "GLX-D+",
+   "id": 8,
+   "kind": "handheld",
+   "model": "GLXD2+",
+   "sort_order": 50
+  },
+  {
+   "brand": "Shure",
+   "family": "BLX",
+   "id": 9,
+   "kind": "handheld",
+   "model": "BLX2",
+   "sort_order": 60
+  },
+  {
+   "brand": "Shure",
+   "family": "UHF-R (legacy)",
+   "id": 10,
+   "kind": "handheld",
+   "model": "UR2",
+   "sort_order": 90
+  },
+  {
+   "brand": "Shure",
+   "family": "Axient Digital",
+   "id": 11,
+   "kind": "beltpack",
+   "model": "AD1",
+   "sort_order": 10
+  },
+  {
+   "brand": "Shure",
+   "family": "Axient Digital",
+   "id": 12,
+   "kind": "beltpack",
+   "model": "ADX1",
+   "sort_order": 11
+  },
+  {
+   "brand": "Shure",
+   "family": "Axient Digital",
+   "id": 13,
+   "kind": "beltpack",
+   "model": "ADX1M",
+   "sort_order": 12
+  },
+  {
+   "brand": "Shure",
+   "family": "ULX-D",
+   "id": 14,
+   "kind": "beltpack",
+   "model": "ULXD1",
+   "sort_order": 20
+  },
+  {
+   "brand": "Shure",
+   "family": "QLX-D",
+   "id": 15,
+   "kind": "beltpack",
+   "model": "QLXD1",
+   "sort_order": 30
+  },
+  {
+   "brand": "Shure",
+   "family": "SLX-D",
+   "id": 16,
+   "kind": "beltpack",
+   "model": "SLXD1",
+   "sort_order": 40
+  },
+  {
+   "brand": "Shure",
+   "family": "GLX-D+",
+   "id": 17,
+   "kind": "beltpack",
+   "model": "GLXD1+",
+   "sort_order": 50
+  },
+  {
+   "brand": "Shure",
+   "family": "BLX",
+   "id": 18,
+   "kind": "beltpack",
+   "model": "BLX1",
+   "sort_order": 60
+  },
+  {
+   "brand": "Shure",
+   "family": "UHF-R (legacy)",
+   "id": 19,
+   "kind": "beltpack",
+   "model": "UR1",
+   "sort_order": 90
+  },
+  {
+   "brand": "Shure",
+   "family": "UHF-R (legacy)",
+   "id": 20,
+   "kind": "beltpack",
+   "model": "UR1M",
+   "sort_order": 91
+  },
+  {
+   "brand": "Shure",
+   "family": "PSM 1000",
+   "id": 21,
+   "kind": "iem",
+   "model": "P10R+",
+   "sort_order": 10
+  },
+  {
+   "brand": "Shure",
+   "family": "PSM 900",
+   "id": 22,
+   "kind": "iem",
+   "model": "P9RA",
+   "sort_order": 20
+  },
+  {
+   "brand": "Shure",
+   "family": "PSM 300",
+   "id": 23,
+   "kind": "iem",
+   "model": "P3R",
+   "sort_order": 30
+  }
+ ]
+}

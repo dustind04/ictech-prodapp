@@ -46,15 +46,21 @@ Three layers:
    ```
 
 2. **JSON snapshot in git.** `GET /admin/export.json` (behind admin auth)
-   dumps every operator-entered table — people, channels/inventory,
-   positions, slots, gear catalogs. Snapshots live in `seeds/` in this
-   repo. **After any big data-entry session (e.g. the one-time inventory
-   fill), take a fresh snapshot and commit it:**
+   dumps every operator-entered table. Snapshots live in `seeds/` in this
+   repo — but **this repo is public, so committed snapshots must exclude
+   the `person` and `slot` tables** (people's names don't belong in a
+   public repo; the box tarball covers them). **After any big data-entry
+   session (e.g. the one-time inventory fill), snapshot the inventory
+   tables and commit:**
 
    ```bash
-   curl -su admin:PASS http://localhost:8058/admin/export.json > seeds/snapshot-$(date +%F).json
+   curl -su admin:PASS localhost:8058/admin/export.json \
+     | python3 -c 'import json,sys; d=json.load(sys.stdin); [d.pop(k,None) for k in ("person","slot")]; json.dump(d, sys.stdout, indent=1, sort_keys=True)' \
+     > seeds/inventory-$(date +%F).json
    git add seeds/ && git commit -m "Inventory snapshot $(date +%F)" && git push
    ```
+
+   (If the repo ever goes private, full snapshots are fine.)
 
 3. **Restore path:** `tools/restore_snapshot.py` (ships in the image)
    reloads a snapshot into a fresh or existing DB:
