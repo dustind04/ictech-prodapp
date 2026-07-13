@@ -661,25 +661,28 @@ input:focus, select:focus {
   gap: calc(5 * var(--u));
 }
 .slot-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: calc(8 * var(--u));
-  min-height: calc(17 * var(--u));
+  text-align: center;
 }
+/* Fixed height budgets so the same row sits at the same height on
+   every tile in every zone: mic gets two value lines, the rest one. */
+.slot-row.row-mic   { min-height: calc(50 * var(--u)); }
+.slot-row.row-mymix { min-height: calc(33 * var(--u)); }
+.slot-row.row-iem   { min-height: calc(33 * var(--u)); }
 .row-label {
+  display: block;
   font-size: calc(10 * var(--u));
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #777;
-  flex-shrink: 0;
+  margin-bottom: calc(2 * var(--u));
 }
 .row-value {
+  display: block;
   font-size: calc(14 * var(--u));
   font-weight: 600;
   color: #eee;
-  text-align: right;
+  line-height: 1.2;
   min-width: 0;
   overflow-wrap: break-word;
   font-variant-numeric: tabular-nums;
