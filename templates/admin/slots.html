@@ -10,6 +10,26 @@
   <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
 </div>
 
+<section class="form-card">
+  <h2>This week</h2>
+  <form method="post" action="{{ url_for('admin_leader_update') }}">
+    <div class="form-row">
+      <label>
+        Music leader <span class="hint">(highlighted on the wall display)</span>
+        <select name="leader_person_id">
+          <option value="">— None —</option>
+          {% for p in people %}
+            <option value="{{ p.id }}" {{ 'selected' if leader_person_id == p.id }}>
+              {{ p.nickname or p.display_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>&nbsp;<button type="submit" class="btn-primary">Save leader</button></label>
+    </div>
+  </form>
+</section>
+
 <div class="slot-edit-grid">
   {% for slot in slots %}
     <form class="slot-edit {{ 'paired' if slot.kind == 'paired' else 'mic-only' }}"

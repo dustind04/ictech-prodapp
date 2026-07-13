@@ -8,10 +8,20 @@
 
 {% block content %}
 <div class="wall-header">
-  <div class="wall-brand">
-    <span class="ic">ic</span><span class="tech">Tech</span> <span class="suffix">Services</span>
+  <div class="wall-brand-block">
+    <div class="wall-brand">
+      <span class="ic">ic</span><span class="tech">Tech</span> <span class="suffix">Services</span>
+    </div>
+    <div class="wall-tagline">Immanuel Church · Welcome home.</div>
   </div>
-  <div class="wall-meta" id="wall-meta">—</div>
+  <div class="wall-greeting-block">
+    <div class="wall-greeting" id="wall-greeting">&nbsp;</div>
+    <div class="wall-leader" id="wall-leader">&nbsp;</div>
+  </div>
+  <div class="wall-meta-block">
+    <div class="wall-meta-day" id="wall-meta-day">—</div>
+    <div class="wall-meta" id="wall-meta">—</div>
+  </div>
 </div>
 
 <div class="slot-grid" id="slot-grid">
@@ -32,15 +42,27 @@
 </div>
 
 <script>
-  // Update wall meta (date/time) every second
+  // Greeting follows the band's week, not the clock: they see this
+  // screen at Tuesday rehearsal, then not again until Sunday morning.
+  //   Mon + Tue  -> "Welcome to Rehearsal"
+  //   Wed - Sun  -> "Good Morning" (next sight of it is Sunday service)
+  function greetingFor(d) {
+    const day = d.getDay();                 // 0=Sun ... 6=Sat
+    if (day === 1 || day === 2) return 'Welcome to Rehearsal';
+    return 'Good Morning';
+  }
+
+  // Update greeting + date/time every second
   function tickClock() {
-    const el = document.getElementById('wall-meta');
-    if (!el) return;
     const d = new Date();
-    const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
-    const date    = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-    const time    = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    el.textContent = `${weekday}, ${date} · ${time}`;
+    const meta = document.getElementById('wall-meta');
+    const dayEl = document.getElementById('wall-meta-day');
+    const greet = document.getElementById('wall-greeting');
+    if (dayEl) dayEl.textContent = d.toLocaleDateString(undefined,
+        { weekday: 'long', month: 'long', day: 'numeric' });
+    if (meta) meta.textContent = d.toLocaleTimeString(undefined,
+        { hour: 'numeric', minute: '2-digit' });
+    if (greet) greet.textContent = greetingFor(d);
   }
   tickClock();
   setInterval(tickClock, 1000);
@@ -52,7 +74,8 @@
       const res = await fetch('/api/state', { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
-      render(data.slots || []);
+      renderLeader(data.leader || null);
+      render(data.slots || [], data.leader || null);
     } catch (err) {
       // network blip; the next tick will retry
     }
@@ -63,7 +86,17 @@
     return name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
   }
 
-  function render(slots) {
+  // Leader chip in the header. Always rendered (blank when unset) so
+  // the header never jumps.
+  function renderLeader(leader) {
+    const el = document.getElementById('wall-leader');
+    if (!el) return;
+    if (!leader) { el.innerHTML = '&nbsp;'; return; }
+    el.innerHTML = '<span class="leader-chip">♪ Leading this week: <strong></strong></span>';
+    el.querySelector('strong').textContent = leader.name;
+  }
+
+  function render(slots, leader) {
     const grid = document.getElementById('slot-grid');
     if (!grid) return;
     for (const slot of slots) {
@@ -73,6 +106,9 @@
       el.classList.toggle('empty', !slot.person_id);
       el.classList.toggle('paired', slot.kind === 'paired');
       el.classList.toggle('mic-only', slot.kind === 'mic_only');
+      // The week's music leader gets the green treatment on their tile.
+      el.classList.toggle('leader',
+        !!(leader && slot.person_id && slot.person_id === leader.person_id));
 
       const photo = el.querySelector('.slot-photo');
       const name  = el.querySelector('.slot-name');

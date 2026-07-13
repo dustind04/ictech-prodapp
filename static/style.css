@@ -392,11 +392,68 @@ input:focus, select:focus {
 .wall-brand .ic { color: var(--green); }
 .wall-brand .tech { color: #fff; }
 .wall-brand .suffix { color: #aaa; font-weight: 500; margin-left: 8px; }
+.wall-tagline {
+  font-size: 14px;
+  font-weight: 500;
+  color: #7a7a7a;
+  margin-top: 2px;
+}
+.wall-greeting-block {
+  text-align: center;
+}
+.wall-greeting {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--green);
+}
+.wall-leader {
+  font-size: 16px;
+  margin-top: 4px;
+  min-height: 24px;
+}
+.leader-chip {
+  display: inline-block;
+  padding: 2px 14px;
+  border: 1px solid var(--green);
+  border-radius: 999px;
+  color: #ddd;
+}
+.leader-chip strong { color: var(--green); }
+.wall-meta-block {
+  text-align: right;
+}
+.wall-meta-day {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ddd;
+}
 .wall-meta {
   font-size: 18px;
   font-weight: 500;
   color: #aaa;
   font-variant-numeric: tabular-nums;
+}
+
+/* This week's music leader: green ring + corner tag on their tile.
+   Pure decoration on the existing tile — the layout must not shift. */
+.slot.leader {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green), 0 0 22px rgba(122, 182, 72, 0.35);
+  position: relative;
+}
+.slot.leader::after {
+  content: 'LEADER';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--green);
+  color: var(--charcoal);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 4px;
 }
 
 .slot-grid {

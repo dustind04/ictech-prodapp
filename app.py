@@ -168,7 +168,7 @@ def register_api_routes(app: Flask) -> None:
             d["mic_live"] = None
             d["iem_live"] = None
             rows.append(d)
-        return jsonify({"slots": rows})
+        return jsonify({"slots": rows, "leader": _current_leader(db)})
 
 
 # Single source of truth for the slot-resolution query. Used by both
@@ -547,6 +547,7 @@ def register_admin_routes(app: Flask) -> None:
         positions = db.execute(
             "SELECT id, label FROM position WHERE archived=0 ORDER BY label"
         ).fetchall()
+        leader = _current_leader(db)
         return render_template(
             "admin/slots.html",
             slots=slots,
@@ -555,7 +556,22 @@ def register_admin_routes(app: Flask) -> None:
             beltpacks=beltpacks,
             iems=iems,
             positions=positions,
+            leader_person_id=leader["person_id"] if leader else None,
         )
+
+    @app.route("/admin/leader", methods=["POST"])
+    def admin_leader_update():
+        db = get_db(db_path)
+        raw = (request.form.get("leader_person_id") or "").strip()
+        value = raw if raw.isdigit() else None
+        db.execute(
+            """INSERT INTO app_setting (key, value) VALUES ('leader_person_id', ?)
+               ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+            (value,),
+        )
+        db.commit()
+        flash("Music leader updated." if value else "Music leader cleared.", "success")
+        return redirect(url_for("admin_slots"))
 
     @app.route("/admin/slots/<int:slot_id>", methods=["POST"])
     def admin_slots_update(slot_id):
@@ -612,6 +628,23 @@ def register_photo_routes(app: Flask) -> None:
 # =============================================================
 # Helpers
 # =============================================================
+def _current_leader(db):
+    """This week's music leader, or None. Stored in app_setting because
+    the leader may have no mic-board slot (leading from an instrument)."""
+    row = db.execute(
+        "SELECT value FROM app_setting WHERE key='leader_person_id'"
+    ).fetchone()
+    if not row or not row["value"]:
+        return None
+    p = db.execute(
+        "SELECT id, display_name, nickname FROM person WHERE id=? AND archived=0",
+        (int(row["value"]),),
+    ).fetchone()
+    if p is None:
+        return None
+    return {"person_id": p["id"], "name": p["nickname"] or p["display_name"]}
+
+
 def _channel_form_values(form, label: str, kind: str) -> dict:
     """Coerce raw form values into the dict shape we insert/update with."""
     def _opt_str(name):
