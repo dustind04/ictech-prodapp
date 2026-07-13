@@ -150,6 +150,66 @@ def register_display_routes(app: Flask) -> None:
         """
         return render_template("wall.html")
 
+    @app.route("/designs/<int:variant>")
+    def design_preview(variant):
+        """Three white-sheet design candidates for the wall — static
+        renderings of the July 19 demo data with real photos. Pick one,
+        then it gets ported to the live wall. Not polled, not the DB."""
+        if variant not in (1, 2, 3):
+            abort(404)
+        db = get_db(app.config["DATABASE_PATH"])
+        photos = {r["display_name"]: r["photo_url"]
+                  for r in db.execute("SELECT display_name, photo_url FROM person")}
+        # On white sheets, "white" mics rim in warm gray so they read.
+        rim_hex = {"red": "#D64545", "wht": "#CFCFC9", "blu": "#4A90D9",
+                   "blk": "#1F1F1F", "orng": "#E8923A", "ylo": "#E3C43C"}
+
+        def s(bank_order, kind, name=None, **kw):
+            mic = kw.get("mic_label", "")
+            return {
+                "bank_order": bank_order, "kind": kind,
+                "person_id": kw.get("person_id"), "person_name": name,
+                "photo_url": photos.get(name),
+                "rim": rim_hex.get(mic.split()[0].lower()) if mic else None,
+                "slot_label": kw.get("slot_label"),
+                "position_label": kw.get("position_label"),
+                "mic_label": mic or None,
+                "mic_shure_channel_name": kw.get("chname"),
+                "mymix_channel": kw.get("mymix"), "iem_label": kw.get("iem"),
+            }
+
+        zones = [
+            {"title": "Vocals", "slots": [
+                s(1, "paired", "Chris C.", person_id=901, position_label="Pool 2",
+                  mic_label="Red HH", chname="Vox 1", mymix="Vox 1", iem="Pack 1"),
+                s(2, "paired", "Becky B.", person_id=902, position_label="Pool 3",
+                  mic_label="Wht HH", chname="Vox 2", mymix="Vox 2", iem="Pack 2"),
+                s(3, "paired", "Kiara H.", person_id=903, position_label="Pool 4",
+                  mic_label="Blu HH", chname="Vox 3", mymix="Vox 3", iem="Pack 3"),
+                s(4, "paired", "Joanna E.", person_id=904, position_label="Pool 5",
+                  mic_label="Blk HH", chname="Vox 4", mymix="Vox 4", iem="Pack 4"),
+                s(5, "paired"), s(6, "paired"),
+            ]},
+            {"title": "Band", "slots": [
+                s(11, "band", "Kyle D.", person_id=908, slot_label="Drums", mymix="Drums"),
+                s(12, "band", "Chip", person_id=909, slot_label="Bass", mymix="Bass"),
+                s(13, "band", "Jo", person_id=910, slot_label="Keys", mymix="Keys"),
+                s(14, "band", "Dave H.", person_id=911, slot_label="Elec 1",
+                  mymix="Elec 1", iem="Pack 5"),
+                s(15, "band", slot_label="Acous"), s(16, "band", slot_label="Synth"),
+            ]},
+            {"title": "Speakers", "slots": [
+                s(7, "mic_only", "Nate B.", person_id=905, position_label="CS Pool",
+                  mic_label="Orng RF", mymix="Misc"),
+                s(8, "mic_only", "Angel L.", person_id=906, position_label="CS Pool",
+                  mic_label="Ylo RF", mymix="Misc"),
+                s(9, "mic_only", "Joe B.", person_id=907, mic_label="Sermon RF", mymix="Misc"),
+                s(10, "mic_only"),
+            ]},
+        ]
+        return render_template("designs.html", v=variant, zones=zones,
+                               leader={"person_id": 901, "name": "Chris C."})
+
 
 # =============================================================
 # API routes — for the wall display to poll

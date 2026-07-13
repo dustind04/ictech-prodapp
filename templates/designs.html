@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wall design {{ v }} — icTech Services</title>
+<style>
+/* ================================================================
+   White-sheet wall design candidates. One DOM, three themes (v1/v2/
+   v3 on <body>). Brand per immanuelhome.org: white sheets, charcoal
+   type, Immanuel green #7AB648, uppercase headings that end with a
+   period, green pill buttons, "Welcome home." script accent.
+   All sizing in --u = 100vw/1920 for the 40" 4K 16:9 display.
+   ================================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --green: #7AB648;
+  --green-dark: #5E9634;
+  --charcoal: #1F1F1F;
+  --gray: #6B6B6B;
+  --line: #E2E2E0;
+  --paper: #FFFFFF;
+  --card: #F7F7F5;
+  --u: calc(100vw / 1920);
+}
+body {
+  font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background: var(--paper);
+  color: var(--charcoal);
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ----- header ----- */
+.d-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(20 * var(--u)) calc(36 * var(--u));
+  flex-shrink: 0;
+}
+.d-logo img { height: calc(48 * var(--u)); display: block; }
+.d-greet-wrap { text-align: center; }
+.d-greeting {
+  font-size: calc(46 * var(--u));
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.d-greeting::after { content: '.'; color: var(--green); }
+.d-welcome {
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  font-size: calc(22 * var(--u));
+  color: var(--green);
+  margin-top: calc(2 * var(--u));
+}
+.d-leader { font-size: calc(16 * var(--u)); margin-top: calc(6 * var(--u)); color: var(--gray); }
+.d-leader .chip {
+  display: inline-block;
+  border: calc(1 * var(--u)) solid var(--green);
+  border-radius: 999px;
+  padding: calc(2 * var(--u)) calc(14 * var(--u));
+}
+.d-leader strong { color: var(--green-dark); }
+.d-info { text-align: right; }
+.d-service { font-size: calc(22 * var(--u)); font-weight: 800; color: var(--green-dark); }
+.d-clock { font-size: calc(17 * var(--u)); color: var(--gray); margin-top: calc(2 * var(--u));
+           font-variant-numeric: tabular-nums; }
+.d-countdown {
+  display: inline-block;
+  margin-top: calc(6 * var(--u));
+  padding: calc(4 * var(--u)) calc(16 * var(--u));
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  font-size: calc(19 * var(--u));
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.d-countdown.over { background: #D64545; }
+
+/* ----- zones ----- */
+.d-zones {
+  flex: 1;
+  display: flex;
+  gap: calc(28 * var(--u));
+  padding: 0 calc(36 * var(--u)) calc(30 * var(--u));
+  align-items: stretch;
+}
+.d-zone { display: flex; flex-direction: column; min-width: 0; }
+.d-zone-title {
+  font-size: calc(15 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: calc(12 * var(--u));
+}
+.d-zone-title::after { content: '.'; color: var(--green); }
+.d-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: calc(14 * var(--u));
+  align-items: stretch;
+}
+
+/* ----- tiles (shared bones) ----- */
+.d-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 0;
+  padding: calc(18 * var(--u)) calc(12 * var(--u));
+  position: relative;
+}
+.d-num {
+  position: absolute;
+  top: calc(10 * var(--u));
+  left: calc(12 * var(--u));
+  font-size: calc(12 * var(--u));
+  font-weight: 700;
+  color: #B9B9B4;
+}
+.d-photo {
+  width: calc(100 * var(--u));
+  height: calc(100 * var(--u));
+  border-radius: 50%;
+  background: var(--green) center/cover no-repeat;
+  color: #fff;
+  font-size: calc(32 * var(--u));
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: calc(14 * var(--u)) 0 calc(12 * var(--u));
+}
+.d-name {
+  font-size: calc(23 * var(--u));
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.12;
+  overflow-wrap: break-word;
+  width: 100%;
+}
+.d-pos {
+  margin-top: calc(8 * var(--u));
+  font-size: calc(12 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.d-mic { margin-top: calc(10 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 600; }
+.d-mymix { margin-top: calc(4 * var(--u)); font-size: calc(13 * var(--u)); color: var(--gray); font-weight: 600; }
+.d-iem {
+  margin-top: auto;
+  padding-top: calc(10 * var(--u));
+  font-size: calc(13 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green-dark);
+}
+.d-tile.empty .d-photo { background: #EDEDEA; color: #C4C4BF; }
+.d-tile.empty .d-name { color: #C4C4BF; font-weight: 500; font-style: italic; }
+.d-leader-tag {
+  position: absolute;
+  top: calc(10 * var(--u));
+  right: calc(10 * var(--u));
+  background: var(--green);
+  color: #fff;
+  font-size: calc(11 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: calc(3 * var(--u)) calc(8 * var(--u));
+  border-radius: calc(4 * var(--u));
+}
+
+/* ================= V1 — THE BULLETIN (editorial print) ========= */
+.v1 .d-header { border-bottom: calc(3 * var(--u)) solid var(--charcoal); }
+.v1 .d-zone-title { border-bottom: calc(1 * var(--u)) solid var(--line);
+                    padding-bottom: calc(8 * var(--u)); }
+.v1 .d-zone-title::before {
+  content: '';
+  display: inline-block;
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  background: var(--green);
+  margin-right: calc(8 * var(--u));
+}
+.v1 .d-tile {
+  background: #fff;
+  border: calc(1 * var(--u)) solid var(--line);
+  border-top: calc(8 * var(--u)) solid var(--rim, var(--line));
+  border-radius: calc(8 * var(--u));
+}
+.v1 .d-tile.leader { border-color: var(--green); border-top-color: var(--rim, var(--green)); }
+.v1 .d-pos {
+  color: var(--green-dark);
+  border: calc(1 * var(--u)) solid var(--green);
+  border-radius: 999px;
+  padding: calc(3 * var(--u)) calc(12 * var(--u));
+}
+
+/* ================= V2 — WELCOME HOME (green banner) ============ */
+.v2 .d-header {
+  background: var(--green);
+  padding-top: calc(24 * var(--u));
+  padding-bottom: calc(24 * var(--u));
+  margin-bottom: calc(24 * var(--u));
+}
+.v2 .d-logo {
+  background: #fff;
+  border-radius: calc(12 * var(--u));
+  padding: calc(12 * var(--u)) calc(18 * var(--u));
+}
+.v2 .d-greeting { color: #fff; }
+.v2 .d-greeting::after { color: var(--charcoal); }
+.v2 .d-welcome { color: #EAF4DF; }
+.v2 .d-leader { color: #EAF4DF; }
+.v2 .d-leader .chip { border-color: #fff; }
+.v2 .d-leader strong { color: #fff; }
+.v2 .d-service { color: #fff; }
+.v2 .d-clock { color: #EAF4DF; }
+.v2 .d-countdown { background: #fff; color: var(--green-dark); }
+.v2 .d-countdown.over { background: #D64545; color: #fff; }
+.v2 .d-zone-title { color: var(--green-dark); }
+.v2 .d-tile { background: var(--card); border-radius: calc(18 * var(--u)); }
+.v2 .d-photo { box-shadow: 0 0 0 calc(5 * var(--u)) var(--rim, transparent); }
+.v2 .d-pos { background: var(--green); color: #fff; border-radius: 999px;
+             padding: calc(4 * var(--u)) calc(12 * var(--u)); }
+.v2 .d-tile.leader { background: var(--green); }
+.v2 .d-tile.leader .d-name, .v2 .d-tile.leader .d-mic { color: #fff; }
+.v2 .d-tile.leader .d-mymix { color: #EAF4DF; }
+.v2 .d-tile.leader .d-iem { color: #fff; }
+.v2 .d-tile.leader .d-pos { background: #fff; color: var(--green-dark); }
+.v2 .d-tile.leader .d-num { color: #EAF4DF; }
+.v2 .d-leader-tag { background: #fff; color: var(--green-dark); }
+
+/* ================= V3 — THE GALLERY (photo-forward) ============ */
+.v3 .d-header { border-bottom: calc(1 * var(--u)) solid var(--line); }
+.v3 .d-greeting { font-weight: 300; letter-spacing: 0.02em; }
+.v3 .d-zone-title { color: #A9A9A4; text-align: center; }
+.v3 .d-zone + .d-zone { border-left: calc(1 * var(--u)) solid var(--line);
+                        padding-left: calc(28 * var(--u)); }
+.v3 .d-tile { padding-top: calc(6 * var(--u)); }
+.v3 .d-num { display: none; }
+.v3 .d-photo {
+  width: calc(118 * var(--u));
+  height: calc(118 * var(--u));
+  box-shadow: 0 0 0 calc(6 * var(--u)) var(--rim, transparent);
+}
+.v3 .d-tile.leader .d-photo {
+  box-shadow: 0 0 0 calc(6 * var(--u)) var(--rim, var(--green)),
+              0 0 0 calc(12 * var(--u)) rgba(122, 182, 72, 0.35);
+}
+.v3 .d-tile.leader .d-name { color: var(--green-dark); }
+.v3 .d-pos { color: var(--green-dark); }
+.v3 .d-mic { color: var(--charcoal); }
+.v3 .d-leader-tag { position: static; margin-top: calc(6 * var(--u)); }
+</style>
+</head>
+<body class="v{{ v }}">
+
+<header class="d-header">
+  <div class="d-logo"><img src="/static/immanuel-logo.png" alt="Immanuel Church — Welcome home."></div>
+  <div class="d-greet-wrap">
+    <div class="d-greeting" id="d-greeting">Good Morning</div>
+    <div class="d-welcome">Welcome home.</div>
+    <div class="d-leader"><span class="chip">♪ Leading this week: <strong>{{ leader.name }}</strong></span></div>
+  </div>
+  <div class="d-info">
+    <div class="d-service" id="d-service">—</div>
+    <div class="d-clock" id="d-clock">—</div>
+    <div class="d-countdown" id="d-countdown">—</div>
+  </div>
+</header>
+
+<main class="d-zones">
+  {% for zone in zones %}
+  <section class="d-zone" style="flex: {{ zone.slots | length }}">
+    <h2 class="d-zone-title">{{ zone.title }}</h2>
+    <div class="d-grid" style="--cols: {{ zone.slots | length }}">
+      {% for s in zone.slots %}
+      <div class="d-tile {{ 'empty' if not s.person_name }} {{ 'leader' if s.person_id and s.person_id == leader.person_id }}"
+           {% if s.rim %}style="--rim: {{ s.rim }}"{% endif %}>
+        <div class="d-num">{{ '%02d' % s.bank_order }}</div>
+        {% if s.person_id and s.person_id == leader.person_id %}<div class="d-leader-tag">LEADER</div>{% endif %}
+        <div class="d-photo" {% if s.photo_url %}style="background-image:url('{{ s.photo_url }}')"{% endif %}>
+          {%- if not s.photo_url and s.person_name -%}
+            {{ s.person_name.split() | map('first') | join('') | upper }}
+          {%- endif -%}
+        </div>
+        <div class="d-name">{{ s.person_name or 'Open' }}</div>
+        {% set pos = s.slot_label or s.position_label %}
+        {% if pos %}<div class="d-pos">{{ pos }}</div>{% endif %}
+        {% if s.mic_label %}
+          <div class="d-mic">{{ s.mic_label }}{% if s.mic_shure_channel_name %} · {{ s.mic_shure_channel_name }}{% endif %}</div>
+        {% endif %}
+        {% if s.mymix_channel %}<div class="d-mymix">MyMix: {{ s.mymix_channel }}</div>{% endif %}
+        {% if s.iem_label %}<div class="d-iem">{{ s.iem_label }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</main>
+
+<script>
+  // Same week clock as the live wall (America/Chicago).
+  const REHEARSAL = { day: 2, h: 18, m: 30, endH: 21, endM: 0 };
+  function centralNow() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  }
+  function greetingFor(d) {
+    const day = d.getDay();
+    return (day === 1 || day === 2) ? 'Welcome to Rehearsal' : 'Good Morning';
+  }
+  function serviceSunday(now) {
+    const d = new Date(now);
+    let add = (7 - d.getDay()) % 7;
+    if (d.getDay() === 0) {
+      const cutoff = new Date(d); cutoff.setHours(12, 30, 0, 0);
+      if (d >= cutoff) add = 7;
+    }
+    d.setDate(d.getDate() + add);
+    return d;
+  }
+  function scheduleStatus(now) {
+    const at = (h, m) => { const d = new Date(now); d.setHours(h, m, 0, 0); return d; };
+    const nextDow = (dow, h, m) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + (dow - d.getDay() + 7) % 7); d.setHours(h, m, 0, 0);
+      if (d <= now) d.setDate(d.getDate() + 7);
+      return d;
+    };
+    const wait = (label, t) => ({ mode: 'wait', label, secs: (t - now) / 1000 });
+    const live = (label, s, over) => ({ mode: over ? 'over' : 'live', label, secs: (now - s) / 1000 });
+    const day = now.getDay();
+    if (day === 0) {
+      if (now < at(9, 0))   return wait('1st service', at(9, 0));
+      if (now < at(10, 10)) return live('Service time', at(9, 0), false);
+      if (now < at(10, 15)) return live('Service time', at(9, 0), true);
+      if (now < at(11, 0))  return wait('2nd service', at(11, 0));
+      if (now < at(12, 10)) return live('Service time', at(11, 0), false);
+      if (now < at(12, 15)) return live('Service time', at(11, 0), true);
+      return wait('Rehearsal', nextDow(REHEARSAL.day, REHEARSAL.h, REHEARSAL.m));
+    }
+    if (day === REHEARSAL.day) {
+      if (now < at(REHEARSAL.h, REHEARSAL.m)) return wait('Rehearsal', at(REHEARSAL.h, REHEARSAL.m));
+      if (now < at(REHEARSAL.endH, REHEARSAL.endM)) return live('Rehearsal', at(REHEARSAL.h, REHEARSAL.m), false);
+      return wait('1st service', nextDow(0, 9, 0));
+    }
+    if (day === 1) return wait('Rehearsal', nextDow(REHEARSAL.day, REHEARSAL.h, REHEARSAL.m));
+    return wait('1st service', nextDow(0, 9, 0));
+  }
+  function fmtDuration(secs) {
+    secs = Math.max(0, Math.floor(secs));
+    const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600);
+    const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    return d > 0 ? `${d}d ${h}:${m}:${s}` : `${h}:${m}:${s}`;
+  }
+  function tick() {
+    const now = centralNow();
+    document.getElementById('d-greeting').textContent = greetingFor(now);
+    document.getElementById('d-service').textContent = 'Service: ' +
+      serviceSunday(now).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    document.getElementById('d-clock').textContent =
+      now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ' · ' +
+      now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    const st = scheduleStatus(now);
+    const cd = document.getElementById('d-countdown');
+    cd.textContent = st.mode === 'wait' ? `${st.label} in ${fmtDuration(st.secs)}`
+                                        : `${st.label} ${fmtDuration(st.secs)}`;
+    cd.classList.toggle('over', st.mode === 'over');
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>

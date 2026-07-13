@@ -579,9 +579,8 @@ input:focus, select:focus {
   color: #fff;
   line-height: 1.15;
   margin-bottom: calc(6 * var(--u));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Never truncate — the wall exists to be read. Wrap instead. */
+  overflow-wrap: break-word;
   width: 100%;
 }
 .slot.empty .slot-name { color: #888; font-weight: 500; font-style: italic; }
@@ -598,9 +597,7 @@ input:focus, select:focus {
   margin-bottom: calc(10 * var(--u));
   line-height: 1.2;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 .slot-position:empty {
   background: transparent;
@@ -628,9 +625,7 @@ input:focus, select:focus {
   color: #aaa;
   margin-bottom: calc(4 * var(--u));
   min-height: calc(15 * var(--u));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
   width: 100%;
 }
 .slot-mymix:empty { min-height: 0; margin-bottom: 0; }
