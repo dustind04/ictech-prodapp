@@ -262,9 +262,35 @@ def register_api_routes(app: Flask) -> None:
         in commit 3; today everything is static config data."""
         db = get_db(app.config["DATABASE_PATH"])
         slots = db.execute(_SLOT_QUERY).fetchall()
+
+        # How an instrument gets into the board, from the imported patch
+        # list: prefer the specific device (Avalon DI); when the mic
+        # column is generic (XLR/DI) fall back to the rig note (IC
+        # Kemper); a multi-input source like the drum kit collapses to
+        # "Kit Mics".
+        patch_by_mymix = {}
+        for p in db.execute("SELECT mymix_ch, mic, info, snake_ch FROM patch_row"):
+            if p["mymix_ch"]:
+                patch_by_mymix.setdefault(p["mymix_ch"], []).append(p)
+        GENERIC_INPUTS = {"xlr", "di", "mono di"}
+
+        def input_label(mymix):
+            rows_ = [p for p in patch_by_mymix.get(mymix, []) if p["mic"] or p["info"]]
+            if not rows_:
+                return None
+            if len(rows_) > 2:
+                drummy = any((p["snake_ch"] or "").lower().startswith("drum") for p in rows_)
+                return "Kit Mics" if drummy else f"{len(rows_)} inputs"
+            first = rows_[0]
+            mic = (first["mic"] or "").strip()
+            if mic.lower() in GENERIC_INPUTS and first["info"]:
+                return first["info"]
+            return mic or first["info"]
+
         rows = []
         for row in slots:
             d = dict(row)
+            d["input_label"] = input_label(d["mymix_channel"]) if d["kind"] == "band" else None
             # Reserved keys for future live state overlay (commit 3).
             d["mic_live"] = None
             d["iem_live"] = None

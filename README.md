@@ -50,4 +50,4 @@ Micboard uses IP addresses to connect to RF devices.  RF devices can be addresse
 
 ## Credits
 
-Instrument artwork: [OpenMoji](https://openmoji.org) — the open-source emoji and icon project, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Guitar-family variants are body-recolored derivatives.
+Instrument artwork: [OpenMoji](https://openmoji.org) (CC BY-SA 4.0) and [Openclipart](https://openclipart.org) (CC0 / public domain: bass by "casino", acoustic guitar remix).
