@@ -146,11 +146,19 @@ def build_stage_plot(db, service_label=None, generated=None):
         digits = "".join(c for c in (p or "") if c.isdigit())
         return int(digits) if digits else 99
 
-    front = sorted([p for p in people if p["pool"] and "cs" not in p["pool"].lower()],
+    # The Speaker is pinned downstage center regardless of pool data.
+    def is_speaker(p):
+        return "speaker" in (p["role"] or "").lower()
+
+    speakers = [p for p in people if is_speaker(p)]
+    rest = [p for p in people if not is_speaker(p)]
+    front = sorted([p for p in rest if p["pool"] and "cs" not in p["pool"].lower()],
                    key=lambda p: poolnum(p["pool"]))
-    cs = sorted([p for p in people if p["pool"] and "cs" in p["pool"].lower()],
+    cs = sorted([p for p in rest if p["pool"] and "cs" in p["pool"].lower()],
                 key=lambda p: p["order"])
-    upstage = sorted([p for p in people if not p["pool"]], key=lambda p: p["order"])
+    upstage = sorted([p for p in rest if not p["pool"]], key=lambda p: p["order"])
+    mid = len(cs) // 2
+    cs = cs[:mid] + speakers + cs[mid:]
 
     W, H = 1500, 980
     CW, CH = 218, 118
