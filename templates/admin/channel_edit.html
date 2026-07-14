@@ -34,6 +34,7 @@
           {% for grp, title in [('handheld', 'Handheld transmitters'),
                                 ('beltpack', 'Bodypack transmitters'),
                                 ('plugon', 'Plug-on transmitters'),
+                                ('specialty', 'Specialty transmitters'),
                                 ('iem', 'IEM packs'),
                                 ('receiver', 'Receivers'),
                                 ('iem_tx', 'IEM rack transmitters')] %}
@@ -49,7 +50,7 @@
         Capsule model
         <select name="capsule_model_id">
           <option value="">—</option>
-          {% for brand in ['Shure', 'Sennheiser'] %}
+          {% for brand in ['Shure', 'Sennheiser', 'Countryman'] %}
             <optgroup label="{{ brand }}">
               {% for cm in capsule_models if cm.brand == brand %}
                 <option value="{{ cm.id }}" {{ 'selected' if channel.capsule_model_id == cm.id }}>{{ cm.model }} — {{ cm.description }}</option>
