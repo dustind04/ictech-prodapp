@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% block title %}Mic board — icTech Services{% endblock %}
+{% block body_class %}wall-body{% endblock %}
+{% block main_class %}wall-main{% endblock %}
+
+{# ============================================================
+   /micboard — the PINNED basic slot-view dashboard. This screen
+   sits directly above the charger banks: every slot always
+   renders in its fixed position (slot 03 on screen = charger 3),
+   empties included. Deliberately a frozen copy — evolve /dataviz
+   (wall.html), not this file.
+   ============================================================ #}
+{% block chrome %}{% endblock %}
+
+{% block content %}
+<div class="wall-header">
+  <div class="wall-logo-block">
+    <div class="wall-logo">
+      <img src="{{ url_for('static', filename='immanuel-logo.png') }}" alt="Immanuel Church — Welcome home.">
+    </div>
+    {# Static schedule reference — never changes, always this corner. #}
+    <div class="wall-sched">Sundays 9:00 &amp; 11:00 AM · Rehearsal Tue 6:30 PM</div>
+  </div>
+  <div class="wall-greeting-block">
+    <div class="wall-greeting" id="wall-greeting">&nbsp;</div>
+    <div class="wall-welcome">Welcome home.</div>
+  </div>
+  <div class="wall-meta-block">
+    {# Everything that changes week to week lives in this one panel. #}
+    <div class="this-week">
+      <div class="tw-caption">This Week</div>
+      <div class="wall-service-date" id="wall-service-date">—</div>
+      <div class="wall-leader" id="wall-leader">&nbsp;</div>
+      <div class="wall-countdown" id="wall-countdown">—</div>
+    </div>
+    <div class="wall-meta" id="wall-meta">—</div>
+  </div>
+</div>
+
+{# Slots are rendered client-side after the first /api/state call so the
+   wall view reflects fresh data within 2s of any admin edit. We render
+   a skeleton here so the page isn't blank during the first paint.
+   Three zones, one screen: wireless vocalists left, band middle,
+   wireless speakers right. #}
+{# Locked tile anatomy: every tile carries the same rows in the same
+   order, with static gray field labels and "—" for absent values —
+   nothing collapses, so the eye always knows where each fact lives.
+   Labels are the static frame; bright values are the weekly data. #}
+{% macro slot_tile(i) %}
+    <div class="slot skeleton" data-slot-id="{{ i }}">
+      <div class="slot-num">{{ '%02d' % i }}</div>
+      <div class="slot-photo"></div>
+      <div class="slot-name">—</div>
+      <div class="slot-position">&nbsp;</div>
+      <div class="slot-also"></div>
+      <div class="slot-rows">
+        <div class="slot-row row-mic"><span class="row-label">Mic</span><span class="row-value slot-channel">—</span></div>
+        <div class="slot-row row-mymix"><span class="row-label">MyMix</span><span class="row-value slot-mymix">—</span></div>
+        <div class="slot-row row-iem"><span class="row-label">IEM</span><span class="row-value slot-iem">—</span></div>
+      </div>
+    </div>
+{% endmacro %}
+<div class="wall-groups" id="slot-grid">
+  <div class="slot-group-wrap" data-zone="vocals" style="flex: 6">
+    <div class="group-title">Vocals</div>
+    <div class="slot-group" style="--cols: 6">
+      {% for i in range(1, 7) %}{{ slot_tile(i) }}{% endfor %}
+    </div>
+  </div>
+  <div class="slot-group-wrap" data-zone="band" style="flex: 6">
+    <div class="group-title">Band</div>
+    <div class="slot-group" style="--cols: 6">
+      {% for i in range(11, 17) %}{{ slot_tile(i) }}{% endfor %}
+    </div>
+  </div>
+  <div class="slot-group-wrap" data-zone="speakers" style="flex: 4">
+    <div class="group-title">Speakers</div>
+    <div class="slot-group" style="--cols: 4">
+      {% for i in range(7, 11) %}{{ slot_tile(i) }}{% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------------------------------------------------------------
+  // The week clock. Everything is America/Chicago — the room the TV
+  // hangs in — no matter where the page is viewed from.
+  //
+  // Sunday services at 9:00 and 11:00. Each runs 70 minutes on paper:
+  // count DOWN to the service, then count UP service time; at +70 min
+  // the counter goes red (you're over); at +75 min move on to the next
+  // target. After second service (12:15) the target is Tuesday
+  // rehearsal; after rehearsal it's back to Sunday 9 AM. Rinse, repeat.
+  // ---------------------------------------------------------------
+  const REHEARSAL = { day: 2, h: 18, m: 30, endH: 21, endM: 0 };  // Tue 6:30 PM
+
+  function centralNow() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  }
+
+  // Greeting follows the band's week: Mon/Tue they're coming to
+  // rehearsal; Wed onward the next sight of this screen is Sunday AM.
+  function greetingFor(d) {
+    const day = d.getDay();                 // 0=Sun ... 6=Sat
+    if (day === 1 || day === 2) return 'Welcome to Rehearsal';
+    return 'Good Morning';
+  }
+
+  // The service date on display: the coming Sunday, rolling over to
+  // next week once this Sunday is done (12:30 PM cutoff).
+  function serviceSunday(now) {
+    const d = new Date(now);
+    let add = (7 - d.getDay()) % 7;
+    if (d.getDay() === 0) {
+      const cutoff = new Date(d); cutoff.setHours(12, 30, 0, 0);
+      if (d >= cutoff) add = 7;
+    }
+    d.setDate(d.getDate() + add);
+    return d;
+  }
+
+  function scheduleStatus(now) {
+    const at = (h, m) => { const d = new Date(now); d.setHours(h, m, 0, 0); return d; };
+    const nextDow = (dow, h, m) => {
+      const d = new Date(now);
+      let add = (dow - d.getDay() + 7) % 7;
+      d.setDate(d.getDate() + add); d.setHours(h, m, 0, 0);
+      if (d <= now) d.setDate(d.getDate() + 7);
+      return d;
+    };
+    const wait = (label, target) => ({ mode: 'wait', label, secs: (target - now) / 1000 });
+    const live = (label, start, over) => ({ mode: over ? 'over' : 'live', label, secs: (now - start) / 1000 });
+    const day = now.getDay();
+
+    if (day === 0) {
+      if (now < at(9, 0))   return wait('1st service', at(9, 0));
+      if (now < at(10, 10)) return live('Service time', at(9, 0), false);
+      if (now < at(10, 15)) return live('Service time', at(9, 0), true);
+      if (now < at(11, 0))  return wait('2nd service', at(11, 0));
+      if (now < at(12, 10)) return live('Service time', at(11, 0), false);
+      if (now < at(12, 15)) return live('Service time', at(11, 0), true);
+      return wait('Rehearsal', nextDow(REHEARSAL.day, REHEARSAL.h, REHEARSAL.m));
+    }
+    if (day === REHEARSAL.day) {
+      if (now < at(REHEARSAL.h, REHEARSAL.m)) return wait('Rehearsal', at(REHEARSAL.h, REHEARSAL.m));
+      if (now < at(REHEARSAL.endH, REHEARSAL.endM))
+        return live('Rehearsal', at(REHEARSAL.h, REHEARSAL.m), false);
+      return wait('1st service', nextDow(0, 9, 0));
+    }
+    if (day === 1) return wait('Rehearsal', nextDow(REHEARSAL.day, REHEARSAL.h, REHEARSAL.m));
+    return wait('1st service', nextDow(0, 9, 0));
+  }
+
+  function fmtDuration(secs) {
+    secs = Math.max(0, Math.floor(secs));
+    const d = Math.floor(secs / 86400);
+    const h = Math.floor((secs % 86400) / 3600);
+    const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    return d > 0 ? `${d}d ${h}:${m}:${s}` : `${h}:${m}:${s}`;
+  }
+
+  function tickClock() {
+    const now = centralNow();
+    const meta = document.getElementById('wall-meta');
+    const svc = document.getElementById('wall-service-date');
+    const cd = document.getElementById('wall-countdown');
+    const greet = document.getElementById('wall-greeting');
+
+    if (svc) svc.textContent = 'Service: ' + serviceSunday(now).toLocaleDateString('en-US',
+        { weekday: 'long', month: 'long', day: 'numeric' });
+    if (meta) meta.textContent = now.toLocaleDateString('en-US',
+        { weekday: 'long', month: 'long', day: 'numeric' }) + ' · ' +
+        now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    if (greet) greet.textContent = greetingFor(now);
+
+    if (cd) {
+      const st = scheduleStatus(now);
+      cd.textContent = st.mode === 'wait'
+        ? `${st.label} in ${fmtDuration(st.secs)}`
+        : `${st.label} ${fmtDuration(st.secs)}`;
+      cd.classList.toggle('live', st.mode === 'live');
+      cd.classList.toggle('over', st.mode === 'over');
+    }
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // ---------------------------------------------------------------
+  // Demo mode (?demo=1): render a stub of Dave's July 19 Input List
+  // instead of polling the API. Screenshot/preview aid only — nothing
+  // touches the database. Remove the query param for live data.
+  // ---------------------------------------------------------------
+  const DEMO = new URLSearchParams(location.search).has('demo');
+  const DEMO_LEADER = { person_id: 901, name: 'Chris C.' };
+  const DEMO_SLOTS = [
+    { bank_order: 1, kind: 'paired', person_id: 901, person_name: 'Chris C.',
+      position_label: 'Pool 2', mic_label: 'Red HH', mic_shure_channel_name: 'Vox 1',
+      mymix_channel: 'Vox 1', iem_label: 'Pack 1' },
+    { bank_order: 2, kind: 'paired', person_id: 902, person_name: 'Becky B.',
+      position_label: 'Pool 3', mic_label: 'Wht HH', mic_shure_channel_name: 'Vox 2',
+      mymix_channel: 'Vox 2', iem_label: 'Pack 2' },
+    { bank_order: 3, kind: 'paired', person_id: 903, person_name: 'Kiara H.',
+      position_label: 'Pool 4', mic_label: 'Blu HH', mic_shure_channel_name: 'Vox 3',
+      mymix_channel: 'Vox 3', iem_label: 'Pack 3' },
+    { bank_order: 4, kind: 'paired', person_id: 904, person_name: 'Joanna E.',
+      position_label: 'Pool 5', mic_label: 'Blk HH', mic_shure_channel_name: 'Vox 4',
+      mymix_channel: 'Vox 4', iem_label: 'Pack 4' },
+    { bank_order: 5, kind: 'paired' },
+    { bank_order: 6, kind: 'paired' },
+    { bank_order: 7, kind: 'mic_only', person_id: 905, person_name: 'Nate B.',
+      position_label: 'CS Pool', mic_label: 'Orng RF', mymix_channel: 'Misc' },
+    { bank_order: 8, kind: 'mic_only', person_id: 906, person_name: 'Angel L.',
+      position_label: 'CS Pool', mic_label: 'Ylo RF', mymix_channel: 'Misc' },
+    { bank_order: 9, kind: 'mic_only', person_id: 907, person_name: 'Joe B.',
+      mic_label: 'Sermon RF', mymix_channel: 'Misc' },
+    { bank_order: 10, kind: 'mic_only' },
+    { bank_order: 11, kind: 'band', person_id: 908, person_name: 'Kyle D.',
+      slot_label: 'Drums', mymix_channel: 'Drums' },
+    { bank_order: 12, kind: 'band', person_id: 909, person_name: 'Chip',
+      slot_label: 'Bass', mymix_channel: 'Bass' },
+    { bank_order: 13, kind: 'band', person_id: 910, person_name: 'Jo',
+      slot_label: 'Keys', mymix_channel: 'Keys' },
+    { bank_order: 14, kind: 'band', person_id: 911, person_name: 'Dave H.',
+      slot_label: 'Elec 1', mymix_channel: 'Elec 1', iem_label: 'Pack 5' },
+    { bank_order: 15, kind: 'band', slot_label: 'Acous' },
+    { bank_order: 16, kind: 'band', slot_label: 'Synth' },
+  ];
+
+  // Pull /api/state and re-render the grid every 2 seconds.
+  // Vanilla fetch + DOM manipulation; no framework needed for 10 cards.
+  async function refresh() {
+    if (DEMO) {
+      renderLeader(DEMO_LEADER);
+      render(DEMO_SLOTS, DEMO_LEADER);
+      return;
+    }
+    try {
+      const res = await fetch('/api/state', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      renderLeader(data.leader || null);
+      render(data.slots || [], data.leader || null);
+    } catch (err) {
+      // network blip; the next tick will retry
+    }
+  }
+
+  function initials(name) {
+    if (!name) return '';
+    return name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  // Channel color -> tile rim. Dave names channels by capsule color
+  // ("Red HH", "Wht HH", "Orng RF"); the rim makes the grab-the-right-
+  // mic decision possible from across the room.
+  const MIC_COLORS = [
+    [['red'],            '#D64545'],
+    [['white', 'wht'],   '#F7F7F5'],
+    [['blue', 'blu'],    '#4A90D9'],
+    [['black', 'blk'],   '#050505'],
+    [['orange', 'orng'], '#E8923A'],
+    [['yellow', 'ylo'],  '#E3C43C'],
+    [['green', 'grn'],   '#7AB648'],
+  ];
+  function micColor(slot) {
+    const text = `${slot.mic_label || ''} ${slot.mic_capsule || ''}`.toLowerCase();
+    const words = text.split(/[\s/·-]+/);
+    for (const [names, hex] of MIC_COLORS) {
+      if (names.some(n => words.includes(n))) return hex;
+    }
+    return null;
+  }
+
+  // Leader line inside the This Week panel. Always rendered ("—" when
+  // unset) so the panel never jumps.
+  function renderLeader(leader) {
+    const el = document.getElementById('wall-leader');
+    if (!el) return;
+    el.innerHTML = '♪ Leader: <strong></strong>';
+    el.querySelector('strong').textContent = leader ? leader.name : '—';
+  }
+
+  function render(slots, leader) {
+    const grid = document.getElementById('slot-grid');
+    if (!grid) return;
+
+    // Someone on both a vocal slot and a speaker slot lands with the
+    // vocalists: their speaker tile is folded away and the vocal tile
+    // calls out the speaker mic they also carry.
+    const speakerByPerson = {};
+    for (const s of slots) {
+      if (s.kind === 'mic_only' && s.person_id) speakerByPerson[s.person_id] = s;
+    }
+    const alsoSinging = new Set(
+      slots.filter(s => s.kind === 'paired' && s.person_id && speakerByPerson[s.person_id])
+           .map(s => s.person_id));
+
+    for (const slot of slots) {
+      const el = grid.querySelector(`.slot[data-slot-id="${slot.bank_order}"]`);
+      if (!el) continue;
+      el.classList.remove('skeleton');
+      el.classList.toggle('empty', !slot.person_id);
+      el.classList.toggle('in-use', !!slot.person_id);
+      el.classList.toggle('paired', slot.kind === 'paired');
+      el.classList.toggle('mic-only', slot.kind === 'mic_only');
+      el.classList.toggle('band', slot.kind === 'band');
+      // Fold away a speaker tile whose person is already shown in Vocals.
+      el.classList.toggle('merged-away',
+        slot.kind === 'mic_only' && !!slot.person_id && alsoSinging.has(slot.person_id));
+      // The week's music leader gets the green treatment on their tile.
+      const isLeader = !!(leader && slot.person_id && slot.person_id === leader.person_id);
+      el.classList.toggle('leader', isLeader);
+
+      // Colored channel -> the Bulletin top bar on the tile. Every bar
+      // carries a light bottom hairline (CSS) so even black reads as a
+      // deliberate color in the dim room. Leader keeps the green border
+      // + tag; a rim-less leader gets a green bar.
+      const rim = micColor(slot);
+      el.classList.toggle('rimmed', !!rim);
+      if (rim) el.style.setProperty('--rim-color', rim);
+      else el.style.removeProperty('--rim-color');
+
+      const photo = el.querySelector('.slot-photo');
+      const name  = el.querySelector('.slot-name');
+      const pos   = el.querySelector('.slot-position');
+      const ch    = el.querySelector('.slot-channel');
+      const mymix = el.querySelector('.slot-mymix');
+      const iem   = el.querySelector('.slot-iem');
+
+      if (slot.person_id) {
+        const displayName = slot.person_nickname || slot.person_name;
+        name.textContent = displayName;
+        if (slot.photo_url) {
+          photo.style.backgroundImage = `url('${slot.photo_url}')`;
+          photo.textContent = '';
+        } else {
+          photo.style.backgroundImage = '';
+          photo.textContent = initials(displayName);
+        }
+      } else {
+        name.textContent = 'Empty';
+        photo.style.backgroundImage = '';
+        photo.textContent = '';
+      }
+
+      // Stage position pill. Band seats show their instrument here
+      // instead; blank-but-present so the layout doesn't shift.
+      pos.textContent = slot.kind === 'band'
+        ? (slot.slot_label || slot.position_label || '')
+        : (slot.position_label || '');
+
+      // Dual-role callout on the vocal tile: "+ Speaker · Orng RF".
+      const also = el.querySelector('.slot-also');
+      if (also) {
+        const spk = slot.kind === 'paired' && slot.person_id
+          ? speakerByPerson[slot.person_id] : null;
+        also.textContent = spk
+          ? `+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}` : '';
+      }
+
+      // Locked rows: the gray labels are the static frame; values are
+      // the weekly data. Absent values render as a dim "—" so every
+      // fact keeps its place — a band member with no mic still shows
+      // the Mic row, just blank.
+      const setRow = (el2, text) => {
+        el2.textContent = text || '—';
+        el2.classList.toggle('blank', !text);
+      };
+      const micParts = [];
+      if (slot.mic_label) micParts.push(slot.mic_label);
+      if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
+      else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
+      setRow(ch, micParts.join(' · '));
+      setRow(mymix, slot.mymix_channel);
+      setRow(iem, slot.iem_label);
+    }
+    // No auto-collapse here: this board mirrors the physical charger
+    // bank, so every slot keeps its place even when empty.
+  }
+
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+{% endblock %}

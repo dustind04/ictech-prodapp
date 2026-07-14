@@ -142,12 +142,25 @@ def _register_admin_auth(app: Flask) -> None:
 def register_display_routes(app: Flask) -> None:
     @app.route("/")
     def wall_display():
-        """The backstage wall display.
+        """Default display = the mic board above the charger banks."""
+        return redirect(url_for("micboard_display"))
+
+    @app.route("/micboard")
+    def micboard_display():
+        """PINNED basic slot-view dashboard for the TV directly above
+        the charger banks: every slot always renders in its physical
+        position, empties included. Frozen on purpose — new display
+        ideas go to /dataviz, not here.
 
         Renders the static page shell. All data comes from /api/state via
         client-side polling — that way the page never reloads, keeps its
         scroll position, and degrades gracefully when the server hiccups.
         """
+        return render_template("micboard.html")
+
+    @app.route("/dataviz")
+    def dataviz_display():
+        """The evolving display view (auto-collapse and onward)."""
         return render_template("wall.html")
 
     @app.route("/designs/<int:variant>")
