@@ -55,19 +55,19 @@
     </div>
 {% endmacro %}
 <div class="wall-groups" id="slot-grid">
-  <div class="slot-group-wrap" style="flex: 6">
+  <div class="slot-group-wrap" data-zone="vocals" style="flex: 6">
     <div class="group-title">Vocals</div>
     <div class="slot-group" style="--cols: 6">
       {% for i in range(1, 7) %}{{ slot_tile(i) }}{% endfor %}
     </div>
   </div>
-  <div class="slot-group-wrap" style="flex: 6">
+  <div class="slot-group-wrap" data-zone="band" style="flex: 6">
     <div class="group-title">Band</div>
     <div class="slot-group" style="--cols: 6">
       {% for i in range(11, 17) %}{{ slot_tile(i) }}{% endfor %}
     </div>
   </div>
-  <div class="slot-group-wrap" style="flex: 4">
+  <div class="slot-group-wrap" data-zone="speakers" style="flex: 4">
     <div class="group-title">Speakers</div>
     <div class="slot-group" style="--cols: 4">
       {% for i in range(7, 11) %}{{ slot_tile(i) }}{% endfor %}
@@ -295,6 +295,7 @@
       if (!el) continue;
       el.classList.remove('skeleton');
       el.classList.toggle('empty', !slot.person_id);
+      el.classList.toggle('in-use', !!slot.person_id);
       el.classList.toggle('paired', slot.kind === 'paired');
       el.classList.toggle('mic-only', slot.kind === 'mic_only');
       el.classList.toggle('band', slot.kind === 'band');
@@ -367,6 +368,30 @@
       setRow(ch, micParts.join(' · '));
       setRow(mymix, slot.mymix_channel);
       setRow(iem, slot.iem_label);
+    }
+
+    // Auto-collapse: hide unused tiles and reflow each zone to just its
+    // occupied slots (zone width stays proportional to what it shows).
+    // A fully empty zone disappears; if NOTHING is assigned anywhere,
+    // all placeholders come back so a fresh install isn't a blank TV.
+    const anyone = slots.some(s => s.person_id);
+    const ZONES = { vocals: [1, 6], band: [11, 16], speakers: [7, 10] };
+    for (const [zone, [lo, hi]] of Object.entries(ZONES)) {
+      const wrap = grid.querySelector(`.slot-group-wrap[data-zone="${zone}"]`);
+      if (!wrap) continue;
+      const zgrid = wrap.querySelector('.slot-group');
+      let count = 0;
+      for (let i = lo; i <= hi; i++) {
+        const el = zgrid.querySelector(`.slot[data-slot-id="${i}"]`);
+        if (!el) continue;
+        const show = !anyone ||
+          (el.classList.contains('in-use') && !el.classList.contains('merged-away'));
+        el.classList.toggle('collapsed', !show);
+        if (show) count++;
+      }
+      wrap.style.flex = Math.max(count, 1);
+      zgrid.style.setProperty('--cols', Math.max(count, 1));
+      wrap.classList.toggle('collapsed', anyone && count === 0);
     }
   }
 

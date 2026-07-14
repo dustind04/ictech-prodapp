@@ -559,6 +559,9 @@ input:focus, select:focus {
 }
 /* Speaker tile folded into a vocal tile (person sings AND speaks). */
 .slot.merged-away { display: none; }
+/* Auto-collapsed: unused tiles and fully empty zones take no space. */
+.slot.collapsed { display: none; }
+.slot-group-wrap.collapsed { display: none; }
 /* Dual-role callout under the position pill on the vocal tile. */
 .slot-also {
   font-size: calc(12 * var(--u));
