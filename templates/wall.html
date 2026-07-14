@@ -207,7 +207,7 @@
   // touches the database. Remove the query param for live data.
   // ---------------------------------------------------------------
   const DEMO = new URLSearchParams(location.search).has('demo');
-  const DEMO_LEADER = { person_id: 901, name: 'Chris C.' };
+  const DEMO_LEADER = { person_id: 904, name: 'Joanna E.' };
   const DEMO_SLOTS = [
     { bank_order: 1, kind: 'paired', person_id: 901, person_name: 'Chris C.',
       position_label: 'Pool 2', mic_label: 'Red HH', mic_shure_channel_name: 'Vox 1',
@@ -230,19 +230,22 @@
     { bank_order: 9, kind: 'mic_only', person_id: 907, person_name: 'Joe B.',
       mic_label: 'Sermon RF', mic_kind: 'beltpack', mymix_channel: 'Misc' },
     { bank_order: 10, kind: 'mic_only' },
-    { bank_order: 11, kind: 'band', person_id: 908, person_name: 'Kyle D.',
+    { bank_order: 11, kind: 'band', person_id: 908, person_name: 'Kyle U.',
       slot_label: 'Drums', mymix_channel: 'Drums' },
-    { bank_order: 12, kind: 'band', person_id: 909, person_name: 'Chip',
+    { bank_order: 12, kind: 'band', person_id: 909, person_name: 'Chip M.',
       slot_label: 'Bass', mymix_channel: 'Bass' },
-    { bank_order: 13, kind: 'band', person_id: 910, person_name: 'Jo',
+    { bank_order: 13, kind: 'band', person_id: 904, person_name: 'Joanna E.',
       slot_label: 'Keys', mymix_channel: 'Keys' },
     { bank_order: 14, kind: 'band', person_id: 911, person_name: 'Dave H.',
       slot_label: 'Elec 1', mymix_channel: 'Elec 1', iem_label: 'Pack 5' },
     { bank_order: 15, kind: 'band', slot_label: 'Acous' },
     { bank_order: 16, kind: 'band', slot_label: 'Synth' },
-    { bank_order: 17, kind: 'tech', person_id: 912, person_name: 'Kevin C.', slot_label: 'FOH' },
-    { bank_order: 18, kind: 'tech', person_id: 913, person_name: 'Jim R.', slot_label: 'MyMix' },
-    { bank_order: 19, kind: 'tech', person_id: 914, person_name: 'Emerick D.', slot_label: 'Lyrics' },
+    { bank_order: 17, kind: 'tech', person_id: 912, person_name: 'Peter B.', slot_label: 'Sound' },
+    { bank_order: 18, kind: 'tech', person_id: 913, person_name: 'Jim R.', slot_label: 'Backstage' },
+    { bank_order: 19, kind: 'tech', person_id: 914, person_name: 'Bart M.', slot_label: 'Service Dir' },
+    { bank_order: 20, kind: 'tech', person_id: 915, person_name: 'Ashley R.', slot_label: 'Graphics' },
+    { bank_order: 21, kind: 'tech', person_id: 916, person_name: 'Robin M.', slot_label: 'Lights' },
+    { bank_order: 22, kind: 'tech', person_id: 917, person_name: 'Jack R.', slot_label: 'Stream Dir' },
   ];
 
   // Pull /api/state and re-render the grid every 2 seconds.
