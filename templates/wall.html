@@ -359,6 +359,7 @@
       if (bandSeat) parts.push(`<div class="gear-emoji">${instrumentEmoji(bandSeat.slot_label)}</div>`);
     } else if (slot.kind === 'mic_only') {
       parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, false) : svgHandheld(color));
+      if (bandSeat) parts.push(`<div class="gear-emoji">${instrumentEmoji(bandSeat.slot_label)}</div>`);
     } else if (slot.kind === 'band') {
       if (slot.mic_label) {
         parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, false) : svgHandheld(color));
@@ -404,10 +405,15 @@
       el.classList.toggle('paired', slot.kind === 'paired');
       el.classList.toggle('mic-only', slot.kind === 'mic_only');
       el.classList.toggle('band', slot.kind === 'band');
-      // Fold away a speaker or band tile whose person is already shown
-      // in Vocals — they render once, with the vocalists.
+      // Everyone renders exactly once. Vocals wins, then Speakers: a
+      // speaker/band tile folds if its person is already in Vocals; a
+      // band seat also folds if its person holds a speaker mic (that
+      // tile shows mic + instrument together).
       el.classList.toggle('merged-away',
-        !!slot.person_id && slot.kind !== 'paired' && pairedPeople.has(slot.person_id));
+        !!slot.person_id && (
+          (slot.kind !== 'paired' && pairedPeople.has(slot.person_id)) ||
+          (slot.kind === 'band' && !!speakerByPerson[slot.person_id])
+        ));
       // The week's music leader gets the green treatment on their tile.
       const isLeader = !!(leader && slot.person_id && slot.person_id === leader.person_id);
       el.classList.toggle('leader', isLeader);
@@ -455,11 +461,13 @@
       const also = el.querySelector('.slot-also');
       if (also) {
         const extras = [];
-        if (slot.kind === 'paired' && slot.person_id) {
+        if (slot.person_id) {
           const spk = speakerByPerson[slot.person_id];
           const band = bandByPerson[slot.person_id];
-          if (spk) extras.push(`+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}`);
-          if (band && band.slot_label) extras.push(`+ ${band.slot_label}`);
+          if (slot.kind === 'paired' && spk)
+            extras.push(`+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}`);
+          if (slot.kind !== 'band' && band && band.slot_label)
+            extras.push(`+ ${band.slot_label}`);
         }
         also.textContent = extras.join('  ');
       }
@@ -470,7 +478,7 @@
       const gearEl = el.querySelector('.slot-gear');
       if (gearEl) {
         gearEl.innerHTML = gearHTML(slot,
-          slot.kind === 'paired' && slot.person_id ? bandByPerson[slot.person_id] : null);
+          slot.kind !== 'band' && slot.person_id ? bandByPerson[slot.person_id] : null);
       }
 
       // Locked rows: the gray labels are the static frame; values are
