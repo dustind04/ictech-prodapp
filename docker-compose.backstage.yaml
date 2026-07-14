@@ -31,6 +31,22 @@ services:
       ICTECH_ADMIN_PASSWORD: ${ICTECH_ADMIN_PASSWORD}
     restart: unless-stopped
 
+  # Renders the displays to JPEGs for the Roku channel (headless
+  # Chromium). Heavy image (~1GB) but idle-cheap.
+  snapshotter:
+    image: mcr.microsoft.com/playwright/python:v1.47.0-jammy
+    container_name: ictech_snapshots
+    command: python /render/render.py
+    volumes:
+      - ./snapshots:/render:ro
+      - ./data:/data
+    environment:
+      SNAP_BASE: http://ictech:8058
+    depends_on:
+      - ictech
+    init: true
+    restart: unless-stopped
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: ictech_tunnel

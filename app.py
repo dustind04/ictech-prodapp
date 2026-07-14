@@ -180,6 +180,20 @@ def register_display_routes(app: Flask) -> None:
         Each display bookmarks/lands itself from here."""
         return render_template("tv.html")
 
+    @app.route("/snapshot/<name>.jpg")
+    def snapshot(name):
+        """Latest JPEG render of a display, produced by the Playwright
+        sidecar — what the Roku channel polls. 404 until the sidecar
+        has produced its first frame."""
+        if name not in ("dashboard", "mb", "tech"):
+            abort(404)
+        snap_dir = Path(app.config["DATABASE_PATH"]).parent / "snapshots"
+        if not (snap_dir / f"{name}.jpg").exists():
+            abort(404)
+        resp = send_from_directory(snap_dir, f"{name}.jpg", max_age=0)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @app.route("/backline")
     def backline_redirect():
         return redirect(url_for("techdashboard"))
