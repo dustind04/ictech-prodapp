@@ -33,7 +33,10 @@
           <option value="">—</option>
           {% for grp, title in [('handheld', 'Handheld transmitters'),
                                 ('beltpack', 'Bodypack transmitters'),
-                                ('iem', 'IEM packs')] %}
+                                ('plugon', 'Plug-on transmitters'),
+                                ('iem', 'IEM packs'),
+                                ('receiver', 'Receivers'),
+                                ('iem_tx', 'IEM rack transmitters')] %}
             <optgroup label="{{ title }}">
               {% for m in wireless_models if m.kind == grp %}
                 <option value="{{ m.id }}" {{ 'selected' if channel.wireless_model_id == m.id }}>{{ m.model }} — {{ m.family }}</option>
