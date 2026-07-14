@@ -506,7 +506,10 @@ input:focus, select:focus {
    corner tag. A rim-less leader gets a green top bar; a rimmed one
    keeps the channel color's bar. Outer tile size never shifts. */
 .slot.leader {
-  border: calc(3 * var(--u)) solid var(--green);
+  /* longhands on purpose: the border shorthand with calc()+var() only
+     half-applies in some Chromium builds (width yes, color no) */
+  border-color: var(--green);
+  border-width: calc(3 * var(--u));
   background: linear-gradient(180deg, rgba(122, 182, 72, 0.18),
               rgba(122, 182, 72, 0.03) 60%), #262626;
   box-shadow: 0 0 0 calc(1 * var(--u)) rgba(122, 182, 72, 0.45),
