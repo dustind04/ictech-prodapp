@@ -10,13 +10,14 @@
 <div class="wall-header">
   <div class="wall-logo-block">
     <div class="wall-logo">
-      <img src="{{ url_for('static', filename='immanuel-mark.png') }}" alt="Immanuel Church">
+      <img src="{{ url_for('static', filename='immanuel-mark-white.png') }}" alt="Immanuel Church">
     </div>
     {# Static schedule reference — never changes, always this corner. #}
     <div class="wall-sched">Sundays 9:00 &amp; 11:00 AM · Rehearsal Tue 6:30 PM</div>
   </div>
   <div class="wall-greeting-block">
-    <div class="wall-greeting" id="wall-greeting">&nbsp;</div>
+    {# The main mark. The countdown pill covers rehearsal-vs-Sunday. #}
+    <div class="wall-home-mark">Welcome home</div>
   </div>
   <div class="wall-meta-block">
     {# Everything that changes week to week lives in this one panel. #}
@@ -118,14 +119,6 @@
     return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
   }
 
-  // Greeting follows the band's week: Mon/Tue they're coming to
-  // rehearsal; Wed onward the next sight of this screen is Sunday AM.
-  function greetingFor(d) {
-    const day = d.getDay();                 // 0=Sun ... 6=Sat
-    if (day === 1 || day === 2) return 'Welcome to Rehearsal';
-    return 'Good Morning';
-  }
-
   // The service date on display: the coming Sunday, rolling over to
   // next week once this Sunday is done (12:30 PM cutoff).
   function serviceSunday(now) {
@@ -185,14 +178,12 @@
     const meta = document.getElementById('wall-meta');
     const svc = document.getElementById('wall-service-date');
     const cd = document.getElementById('wall-countdown');
-    const greet = document.getElementById('wall-greeting');
 
     if (svc) svc.textContent = 'Service: ' + serviceSunday(now).toLocaleDateString('en-US',
         { weekday: 'long', month: 'long', day: 'numeric' });
     if (meta) meta.textContent = now.toLocaleDateString('en-US',
         { weekday: 'long', month: 'long', day: 'numeric' }) + ' · ' +
         now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-    if (greet) greet.textContent = greetingFor(now);
 
     if (cd) {
       const st = scheduleStatus(now);

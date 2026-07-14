@@ -368,7 +368,10 @@ input:focus, select:focus {
    sized for a 1920x1080 TV. Browser kiosk pointed here in fullscreen.
    ================================================================= */
 .wall-body {
-  background: var(--charcoal);
+  /* Deep black with a faint top-light vignette — reads glossy and
+     high-end on the 4K panel in the dim backstage room. */
+  background: radial-gradient(120% 90% at 50% -10%, #181818 0%, #0B0B0B 55%, #040404 100%)
+              fixed #060606;
   color: #fff;
   /* The wall is a fullscreen 16:9 kiosk (40" 4K TV). All wall sizing
      uses --u, one "design pixel" against a 1920-wide reference frame:
@@ -397,11 +400,8 @@ input:focus, select:focus {
 }
 .wall-logo {
   display: inline-block;
-  background: #fff;
-  border-radius: calc(10 * var(--u));
-  padding: calc(10 * var(--u)) calc(16 * var(--u));
 }
-.wall-logo img { height: calc(44 * var(--u)); display: block; }
+.wall-logo img { height: calc(48 * var(--u)); display: block; }
 /* Static schedule reference: gray = never changes. */
 .wall-sched {
   font-size: calc(13 * var(--u));
@@ -421,12 +421,16 @@ input:focus, select:focus {
   color: #fff;
 }
 .wall-greeting::after { content: '.'; color: var(--green); }
-.wall-welcome {
-  font-family: 'Brush Script MT', 'Segoe Script', cursive;
-  font-size: calc(21 * var(--u));
-  color: var(--green);
-  margin-top: calc(2 * var(--u));
+/* The main mark: "Welcome home." big and center, script per the brand.
+   The countdown pill carries the what's-next message. */
+.wall-home-mark {
+  font-family: 'Brush Script MT', 'Segoe Script', 'Snell Roundhand', cursive;
+  font-size: calc(64 * var(--u));
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 calc(2 * var(--u)) calc(18 * var(--u)) rgba(0, 0, 0, 0.6);
 }
+.wall-home-mark::after { content: '.'; color: var(--green); }
 .wall-meta-block {
   text-align: right;
 }
