@@ -16,8 +16,11 @@
     <div class="wall-sched">Sundays 9:00 &amp; 11:00 AM · Rehearsal Tue 6:30 PM</div>
   </div>
   <div class="wall-greeting-block">
-    {# The main mark. The countdown pill covers rehearsal-vs-Sunday. #}
-    <div class="wall-home-mark">Welcome home</div>
+    {# The main mark — the actual Welcome HOME wordmark from
+       immanuelhome.org, recolored warm gold for the black wall. #}
+    <div class="wall-home-mark">
+      <img src="{{ url_for('static', filename='welcome-home-mark.png') }}" alt="Welcome home.">
+    </div>
     {# The backstage manager hosts this room — the face between tech
        and everyone on stage. They get the spot under the mark. #}
     <div class="backstage-host" id="backstage-host"></div>

@@ -427,16 +427,15 @@ input:focus, select:focus {
   color: #fff;
 }
 .wall-greeting::after { content: '.'; color: var(--green); }
-/* The main mark: "Welcome home." big and center, script per the brand.
-   The countdown pill carries the what's-next message. */
-.wall-home-mark {
-  font-family: 'Brush Script MT', 'Segoe Script', 'Snell Roundhand', cursive;
-  font-size: calc(64 * var(--u));
-  line-height: 1.05;
-  color: #fff;
-  text-shadow: 0 calc(2 * var(--u)) calc(18 * var(--u)) rgba(0, 0, 0, 0.6);
+/* The main mark: the real Welcome HOME wordmark, warm champagne gold
+   (#EEC97F) — inviting on the black, and clearly distinct from the
+   lemon-yellow mic color. Countdown pill carries what's-next. */
+.wall-home-mark img {
+  height: calc(66 * var(--u));
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 calc(3 * var(--u)) calc(16 * var(--u)) rgba(0, 0, 0, 0.55));
 }
-.wall-home-mark::after { content: '.'; color: var(--green); }
 .wall-meta-block {
   text-align: right;
 }
