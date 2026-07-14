@@ -50,7 +50,7 @@
   </table>
   {% if plan.tech %}
     <p class="muted">
-      Also imports for the <a href="{{ url_for('backline') }}">backline dashboard</a>:
+      Also imports for the <a href="{{ url_for('techdashboard') }}">tech dashboard</a>:
       {{ plan.tech.patch | length }} patch rows,
       {{ plan.tech.iem_rf | length }} IEM RF assignments,
       {{ plan.tech.legend | length }} MyMix channels,

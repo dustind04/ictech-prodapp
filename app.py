@@ -164,17 +164,21 @@ def register_display_routes(app: Flask) -> None:
         return render_template("wall.html")
 
     @app.route("/backline")
-    def backline():
-        """Backline engineer dashboard: the full technical layer of the
-        weekly workbook — patch list, phantom flags, monitor routing,
-        IEM RF paths, MyMix legend, mixer ownership. Server-rendered,
+    def backline_redirect():
+        return redirect(url_for("techdashboard"))
+
+    @app.route("/techdashboard")
+    def techdashboard():
+        """Tech dashboard: the full technical layer of the weekly
+        workbook — patch list, phantom flags, monitor routing, IEM RF
+        paths, MyMix legend, mixer ownership. Server-rendered,
         auto-refreshes; deliberately dense and unpretty."""
         db = get_db(app.config["DATABASE_PATH"])
         patch = db.execute("SELECT * FROM patch_row ORDER BY sort_order").fetchall()
         settings = {r["key"]: r["value"] for r in
                     db.execute("SELECT key, value FROM app_setting")}
         return render_template(
-            "backline.html",
+            "techdashboard.html",
             patch=patch,
             iem_rf=db.execute("SELECT * FROM iem_rf ORDER BY sort_order").fetchall(),
             legend=db.execute("SELECT * FROM mymix_channel ORDER BY ch").fetchall(),
