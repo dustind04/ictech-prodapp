@@ -16,7 +16,23 @@ Layout (top-down, audience at the bottom):
 
 from __future__ import annotations
 
+import base64
+from pathlib import Path
 from xml.sax.saxutils import escape
+
+# Overhead photo of the actual stage (from Dave's immanuel-stage.pdf),
+# pre-rotated so the audience is at the bottom: pool numbers 1..6 run
+# left to right along the lip, drum kit upper stage left. Embedded as a
+# data URI so a downloaded SVG stays self-contained.
+_BG_FILE = Path(__file__).parent / "static" / "stage-bg.jpg"
+_BG_RATIO = 534 / 952   # height / width of the photo
+
+
+def _bg_datauri():
+    try:
+        return "data:image/jpeg;base64," + base64.b64encode(_BG_FILE.read_bytes()).decode()
+    except OSError:
+        return None
 
 MIC_HEX = {
     "red": "#D64545", "wht": "#B9B9B4", "white": "#B9B9B4",
@@ -160,8 +176,23 @@ def build_stage_plot(db, service_label=None, generated=None):
     mid = len(cs) // 2
     cs = cs[:mid] + speakers + cs[mid:]
 
-    W, H = 1500, 980
+    W = 1500
     CW, CH = 218, 118
+    SX, SW = 40, W - 80
+    SY = 110
+    bg = _bg_datauri()
+    if bg:
+        SH = round(SW * _BG_RATIO)          # photo fills the stage box
+        band_y, front_y = SY + 60, SY + SH - 290
+        cs_y = SY + SH + 24                  # speakers in front, on white
+        labels_y = cs_y + CH + 40
+    else:
+        SH = 700
+        band_y, front_y = SY + 60, SY + 320
+        cs_y = SY + 510
+        labels_y = SY + SH - 15
+    H = labels_y + 130
+
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
            f'font-family="Helvetica, Arial, sans-serif">',
            f'<rect width="{W}" height="{H}" fill="#FFFFFF"/>',
@@ -169,14 +200,21 @@ def build_stage_plot(db, service_label=None, generated=None):
            f'STAGE PLOT<tspan fill="#7AB648">.</tspan></text>',
            f'<text x="40" y="78" font-size="15" fill="#6B6B6B">Immanuel Church'
            + (f' · Sunday: {escape(service_label)}' if service_label else '')
-           + (f' · generated {escape(generated)}' if generated else '') + '</text>',
-           # the stage
-           f'<rect x="40" y="110" width="{W - 80}" height="700" rx="14" '
-           f'fill="#F7F7F5" stroke="#1F1F1F" stroke-width="2.5"/>',
-           f'<text x="{W / 2}" y="140" text-anchor="middle" font-size="13" '
-           f'letter-spacing="4" fill="#9A9A94">UPSTAGE</text>',
-           f'<text x="{W / 2}" y="795" text-anchor="middle" font-size="13" '
-           f'letter-spacing="4" fill="#9A9A94">DOWNSTAGE · AUDIENCE</text>']
+           + (f' · generated {escape(generated)}' if generated else '') + '</text>']
+    if bg:
+        svg.append(f'<image x="{SX}" y="{SY}" width="{SW}" height="{SH}" '
+                   f'href="{bg}" preserveAspectRatio="xMidYMid slice"/>')
+        svg.append(f'<rect x="{SX}" y="{SY}" width="{SW}" height="{SH}" rx="2" '
+                   f'fill="none" stroke="#1F1F1F" stroke-width="2.5"/>')
+        svg.append(f'<text x="{W / 2}" y="{SY + 28}" text-anchor="middle" font-size="13" '
+                   f'letter-spacing="4" fill="#FFFFFF" opacity="0.85">UPSTAGE</text>')
+    else:
+        svg.append(f'<rect x="{SX}" y="{SY}" width="{SW}" height="{SH}" rx="14" '
+                   f'fill="#F7F7F5" stroke="#1F1F1F" stroke-width="2.5"/>')
+        svg.append(f'<text x="{W / 2}" y="{SY + 30}" text-anchor="middle" font-size="13" '
+                   f'letter-spacing="4" fill="#9A9A94">UPSTAGE</text>')
+    svg.append(f'<text x="{W / 2}" y="{labels_y}" text-anchor="middle" font-size="13" '
+               f'letter-spacing="4" fill="#9A9A94">DOWNSTAGE · AUDIENCE</text>')
 
     def spread(items, y):
         if not items:
@@ -186,15 +224,15 @@ def build_stage_plot(db, service_label=None, generated=None):
             x = 60 + i * gap + (gap - CW) / 2
             svg.append(_card(x, y, CW, CH, it))
 
-    spread(upstage, 170)
-    spread(front, 430)
-    spread(cs, 620)
+    spread(upstage, band_y)
+    spread(front, front_y)
+    spread(cs, cs_y)
 
     if techs:
         line = "   ·   ".join(f'{t["role"]}: {t["name"]}' for t in techs)
-        svg.append(f'<text x="{W / 2}" y="{H - 90}" text-anchor="middle" font-size="14" '
+        svg.append(f'<text x="{W / 2}" y="{labels_y + 50}" text-anchor="middle" font-size="14" '
                    f'font-weight="700" fill="#1F1F1F">TECH — {escape(line)}</text>')
-    svg.append(f'<text x="{W / 2}" y="{H - 60}" text-anchor="middle" font-size="11" '
+    svg.append(f'<text x="{W / 2}" y="{labels_y + 80}" text-anchor="middle" font-size="11" '
                f'fill="#9A9A94">Auto-generated from the weekly Input List + Tech Report imports '
                f'· icTech Services</text>')
     svg.append("</svg>")
