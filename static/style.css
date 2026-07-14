@@ -750,6 +750,22 @@ input:focus, select:focus {
 }
 .tech-chip-lead .tech-role { color: var(--lead); }
 
+/* Planning Center position, right under the name — weekly data, so
+   it reads bright; dim em-dash when unknown. */
+.slot-role {
+  font-size: calc(12 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #D8D8D3;
+  min-height: calc(16 * var(--u));
+  margin-bottom: calc(6 * var(--u));
+  overflow-wrap: break-word;
+  width: 100%;
+}
+.slot-role.blank { color: #555; font-weight: 500; }
+.slot.empty .slot-role { color: transparent; }
+
 /* Pool then Channel: two permanent stacked rows under the name —
    where you stand, then what channel(s) you are on the desk. Locked
    anatomy: always present, dim em-dash when empty. */

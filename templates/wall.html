@@ -54,11 +54,14 @@
       <div class="slot-num">{{ '%02d' % i }}</div>
       <div class="slot-photo"></div>
       <div class="slot-name">—</div>
-      {# Two permanent stacked rows: where you stand, then what
-         channel you are. #}
+      {# Planning Center position for the week — always shown, right
+         under the name, for consistency across every tile. #}
+      <div class="slot-role">—</div>
+      {# Two permanent stacked rows: where you stand, then which IEM
+         channel(s) you're in. #}
       <div class="slot-id">
         <div class="slot-id-row"><span class="id-label">Pool</span><span class="id-value slot-pool">—</span></div>
-        <div class="slot-id-row"><span class="id-label">Channel</span><span class="id-value slot-chname">—</span></div>
+        <div class="slot-id-row"><span class="id-label">IEM Channel</span><span class="id-value slot-chname">—</span></div>
       </div>
       <div class="slot-also"></div>
       <div class="slot-gear"></div>
@@ -575,6 +578,21 @@
       };
       setCell(poolEl, slot.position_label);
       setCell(chnameEl, mixes.join(' · ') || (slot.kind === 'band' ? slot.slot_label : ''));
+
+      // PC position under the name: the anchor slot's role, falling
+      // back to any folded slot's (role rides whichever seat got it).
+      const roleEl = el.querySelector('.slot-role');
+      if (roleEl) {
+        let role = slot.pc_role;
+        if (!role && slot.person_id) {
+          const spk = speakerByPerson[slot.person_id];
+          if (spk && spk.pc_role) role = spk.pc_role;
+          for (const b of (bandSeatsByPerson[slot.person_id] || [])) {
+            if (!role && b.pc_role) role = b.pc_role;
+          }
+        }
+        setCell(roleEl, slot.person_id ? role : '');
+      }
 
       // Dual-role callout on the vocal tile: "+ Speaker · Orng RF",
       // "+ Drums", or both.

@@ -49,6 +49,12 @@
           <input name="label" value="{{ slot.slot_label or '' }}" placeholder="FOH">
         </label>
       {% endif %}
+      {% if slot.kind != 'tech' %}
+      <label>
+        PC role <span class="hint">(this week, from Planning Center)</span>
+        <input name="pc_role" value="{{ slot.pc_role or '' }}" placeholder="Vocals">
+      </label>
+      {% endif %}
       <label>
         Person
         <select name="person_id">

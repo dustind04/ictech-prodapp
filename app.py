@@ -310,6 +310,7 @@ _SLOT_QUERY = """
       s.kind          AS kind,
       s.person_id     AS person_id,
       s.label         AS slot_label,
+      s.pc_role       AS pc_role,
       p.display_name  AS person_name,
       p.nickname      AS person_nickname,
       p.photo_url     AS photo_url,
@@ -710,7 +711,7 @@ def register_admin_routes(app: Flask) -> None:
     @app.route("/admin/slots/<int:slot_id>", methods=["POST"])
     def admin_slots_update(slot_id):
         db = get_db(db_path)
-        slot = db.execute("SELECT id, kind, label FROM slot WHERE id=?", (slot_id,)).fetchone()
+        slot = db.execute("SELECT id, kind, label, pc_role FROM slot WHERE id=?", (slot_id,)).fetchone()
         if not slot:
             abort(404)
 
@@ -724,11 +725,15 @@ def register_admin_routes(app: Flask) -> None:
         position_id = _none_if_blank(request.form.get("position_id"))
         mymix_channel = (request.form.get("mymix_channel") or "").strip() or None
         # Instrument label — only the band forms post it; other slots
-        # keep whatever they had.
+        # keep whatever they had. Same guard for the PC role.
         if "label" in request.form:
             label = (request.form.get("label") or "").strip() or None
         else:
             label = slot["label"]
+        if "pc_role" in request.form:
+            pc_role = (request.form.get("pc_role") or "").strip() or None
+        else:
+            pc_role = slot["pc_role"]
 
         # mic_only slots can't have an IEM regardless of what was posted
         if slot["kind"] == "mic_only":
@@ -737,10 +742,10 @@ def register_admin_routes(app: Flask) -> None:
         db.execute(
             """UPDATE slot SET
                  person_id=?, mic_channel_id=?, iem_channel_id=?, position_id=?,
-                 mymix_channel=?, label=?,
+                 mymix_channel=?, label=?, pc_role=?,
                  updated_at=datetime('now')
                WHERE id=?""",
-            (person_id, mic_id, iem_id, position_id, mymix_channel, label, slot_id),
+            (person_id, mic_id, iem_id, position_id, mymix_channel, label, pc_role, slot_id),
         )
         db.commit()
         flash(f"Slot {slot_id} updated.", "success")
