@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Weekly import — icTech Services{% endblock %}
+{% block title %}Import / Export — icTech Services{% endblock %}
 
 {% block content %}
 <div class="page-header">
   <div>
-    <h1 class="page-title">Weekly import</h1>
-    <p class="page-lead">Upload Dave's Input List workbook; review what lands on the wall; apply.</p>
+    <h1 class="page-title">Import / Export</h1>
+    <p class="page-lead">Upload the week's files, review what lands on the wall, apply — then grab what the app builds back for you.</p>
   </div>
   <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
 </div>
@@ -32,6 +32,16 @@
     </div>
     <button type="submit" class="btn-primary">Preview</button>
   </form>
+</section>
+
+<section class="form-card">
+  <h2>Export</h2>
+  <p class="muted">
+    <a href="{{ url_for('admin_stageplot') }}" target="_blank">View stage plot</a>
+    — auto-recreated from this week's imports (pools, band, mics, IEM packs, MyMix units, tech crew).
+    <a href="{{ url_for('admin_stageplot', download=1) }}">Download SVG</a> to print or edit.
+    &nbsp;·&nbsp; <a href="{{ url_for('admin_export') }}">Full data export (JSON)</a>
+  </p>
 </section>
 
 {% if plan %}

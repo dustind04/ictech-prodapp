@@ -37,6 +37,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 import importer
+import stageplot
 from db import get_db, init_db
 
 
@@ -606,6 +607,23 @@ def register_admin_routes(app: Flask) -> None:
         count = importer.apply_tech_plan(get_db(db_path), tplan)
         flash(f"Applied Tech Report: {count} seat assignments + weekly roles.", "success")
         return redirect(url_for("admin_slots"))
+
+    @app.route("/admin/export/stageplot.svg")
+    def admin_stageplot():
+        """Dave's stage plot, auto-recreated from the week's imports.
+        Rendered fresh on every request — grab it, print it, or don't."""
+        db = get_db(db_path)
+        settings = {r["key"]: r["value"] for r in
+                    db.execute("SELECT key, value FROM app_setting")}
+        svg = stageplot.build_stage_plot(
+            db,
+            service_label=settings.get("import_source"),
+            generated=settings.get("import_at"),
+        )
+        resp = Response(svg, mimetype="image/svg+xml")
+        if request.args.get("download"):
+            resp.headers["Content-Disposition"] = "attachment; filename=stage-plot.svg"
+        return resp
 
     # --- Inventory export (backup) ---
     @app.route("/admin/export.json")
