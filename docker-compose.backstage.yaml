@@ -29,6 +29,8 @@ services:
       ICTECH_SECRET: ${ICTECH_SECRET}
       ICTECH_ADMIN_USER: ${ICTECH_ADMIN_USER}
       ICTECH_ADMIN_PASSWORD: ${ICTECH_ADMIN_PASSWORD}
+      ICTECH_PHOTO_USER: ${ICTECH_PHOTO_USER:-}
+      ICTECH_PHOTO_PASSWORD: ${ICTECH_PHOTO_PASSWORD:-}
     restart: unless-stopped
 
   # Renders the displays to JPEGs for the Roku channel (headless

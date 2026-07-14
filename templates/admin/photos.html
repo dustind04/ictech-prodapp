@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Photos — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Photos</h1>
+    <p class="page-lead">Headshots for the wall display. Pick a file and it uploads
+      right away — square-ish crops look best in the circles. JPG/PNG/WebP, 8&nbsp;MB max.</p>
+  </div>
+</div>
+
+<div class="photo-grid">
+  {% for p in people %}
+  <div class="photo-cell">
+    {% if p.photo_url %}
+      <div class="photo-thumb" style="background-image:url('{{ p.photo_url }}')"></div>
+    {% else %}
+      <div class="photo-thumb photo-thumb-empty">
+        {{ p.display_name.split() | map('first') | join('') | upper }}
+      </div>
+    {% endif %}
+    <div class="photo-name">{{ p.display_name }}</div>
+    <form method="post" action="{{ url_for('admin_photos_update', person_id=p.id) }}"
+          enctype="multipart/form-data">
+      <label class="btn-secondary btn-small photo-pick">
+        {{ 'Replace' if p.photo_url else 'Add photo' }}
+        <input type="file" name="photo_file" accept="image/*"
+               style="display:none" onchange="this.form.submit()">
+      </label>
+      {% if p.photo_url %}
+        <button type="submit" name="action" value="remove" class="btn-danger btn-small"
+                onclick="return confirm('Remove {{ p.display_name }}&#39;s photo?')">Remove</button>
+      {% endif %}
+    </form>
+  </div>
+  {% endfor %}
+</div>
+
+<style>
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 18px; }
+  .photo-cell { background: var(--surface); border: 1px solid var(--border);
+                border-radius: var(--radius); padding: 16px; text-align: center; }
+  .photo-thumb { width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 10px;
+                 background-size: cover; background-position: center; }
+  .photo-thumb-empty { background: var(--green-soft); color: var(--green-dark);
+                       display: flex; align-items: center; justify-content: center;
+                       font-weight: 800; font-size: 26px; }
+  .photo-name { font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+  .photo-pick { display: inline-block; cursor: pointer; margin-right: 4px; }
+</style>
+{% endblock %}

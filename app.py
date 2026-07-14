@@ -115,20 +115,27 @@ def create_app() -> Flask:
 def _register_admin_auth(app: Flask) -> None:
     admin_user = os.environ.get("ICTECH_ADMIN_USER")
     admin_password = os.environ.get("ICTECH_ADMIN_PASSWORD")
+    # Photographer role: valid ONLY under /admin/photos — lets a
+    # volunteer manage headshots without the keys to anything else.
+    photo_user = os.environ.get("ICTECH_PHOTO_USER")
+    photo_password = os.environ.get("ICTECH_PHOTO_PASSWORD")
     if not (admin_user and admin_password):
         return
+
+    def _ok(auth, user, password):
+        return (auth is not None and auth.type == "basic"
+                and user and password
+                and secrets.compare_digest(auth.username or "", user)
+                and secrets.compare_digest(auth.password or "", password))
 
     @app.before_request
     def require_admin_auth():
         if not request.path.startswith("/admin"):
             return None
         auth = request.authorization
-        if (
-            auth is not None
-            and auth.type == "basic"
-            and secrets.compare_digest(auth.username or "", admin_user)
-            and secrets.compare_digest(auth.password or "", admin_password)
-        ):
+        if _ok(auth, admin_user, admin_password):
+            return None
+        if request.path.startswith("/admin/photos") and _ok(auth, photo_user, photo_password):
             return None
         return Response(
             "Authentication required.",
@@ -579,6 +586,43 @@ def register_admin_routes(app: Flask) -> None:
         db.commit()
         flash(f"Updated {label}.", "success")
         return redirect(url_for("admin_channels"))
+
+    # --- Photos (photographer-accessible) ---
+    @app.route("/admin/photos")
+    def admin_photos():
+        db = get_db(db_path)
+        people = db.execute(
+            "SELECT id, display_name, photo_url FROM person WHERE archived=0 "
+            "ORDER BY display_name"
+        ).fetchall()
+        return render_template("admin/photos.html", people=people)
+
+    @app.route("/admin/photos/<int:person_id>", methods=["POST"])
+    def admin_photos_update(person_id):
+        db = get_db(db_path)
+        person = db.execute("SELECT * FROM person WHERE id=?", (person_id,)).fetchone()
+        if not person:
+            abort(404)
+        current_managed = person["photo_url"] if _is_managed_photo(person["photo_url"]) else None
+        current_filename = (
+            current_managed[len(_MANAGED_PHOTO_PREFIX):] if current_managed else None
+        )
+        if request.form.get("action") == "remove":
+            _delete_managed_photo(app, person["photo_url"])
+            photo_url = None
+            flash(f"Removed photo for {person['display_name']}.", "success")
+        else:
+            uploaded = _resolve_photo_input(app, current_filename=current_filename)
+            if uploaded is None:
+                return redirect(url_for("admin_photos"))
+            photo_url = uploaded
+            flash(f"Updated photo for {person['display_name']}.", "success")
+        db.execute(
+            "UPDATE person SET photo_url=?, updated_at=datetime('now') WHERE id=?",
+            (photo_url, person_id),
+        )
+        db.commit()
+        return redirect(url_for("admin_photos"))
 
     # --- Weekly import ---
     @app.route("/admin/import")
