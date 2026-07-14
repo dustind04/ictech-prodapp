@@ -51,6 +51,27 @@
   </section>
 
   <section class="bl-side-col">
+    <h2 class="bl-h">RECEIVER TELEMETRY</h2>
+    {# Landing spot for live receiver polling (battery/RF/audio via
+       the IPs entered on channels). Dashes until the worker exists. #}
+    {% if channels %}
+    <table class="bl-table">
+      <thead><tr><th>CHANNEL</th><th>IP</th><th>BATT</th><th>RF</th><th>AUDIO</th><th>TX</th></tr></thead>
+      <tbody>
+        {% for c in channels %}
+        <tr class="{{ 'bl-unpatched' if not c.shure_ip }}">
+          <td class="bl-src">{{ c.label }}</td>
+          <td>{{ c.shure_ip or 'no IP' }}</td>
+          <td class="bl-num">—</td><td class="bl-num">—</td>
+          <td class="bl-num">—</td><td class="bl-num">—</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="bl-empty">No channels in inventory yet.</p>
+    {% endif %}
+
     <h2 class="bl-h">IEM RF</h2>
     <table class="bl-table">
       <thead><tr><th>IEM</th><th>RF</th><th>PATH</th><th>WEARER</th></tr></thead>

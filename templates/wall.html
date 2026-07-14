@@ -66,6 +66,10 @@
         <div class="slot-row row-mic"><span class="row-label">Mic</span><span class="row-value slot-channel">—</span></div>
         <div class="slot-row row-mymix"><span class="row-label">MyMix</span><span class="row-value slot-mymix">—</span></div>
         <div class="slot-row row-iem"><span class="row-label">IEM</span><span class="row-value slot-iem">—</span></div>
+        {# Landing spot for live receiver telemetry (battery / RF /
+           TX status). Renders dormant until the polling worker feeds
+           mic_live via /api/state. #}
+        <div class="slot-row row-live"><span class="row-label">Live</span><span class="row-value slot-live"></span></div>
       </div>
     </div>
 {% endmacro %}
@@ -113,6 +117,18 @@
     <pattern id="g-mesh" width="5" height="5" patternUnits="userSpaceOnUse">
       <circle cx="2.5" cy="2.5" r="1" fill="rgba(20,20,20,0.55)"/>
     </pattern>
+    <linearGradient id="g-spruce" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D9B078"/>
+      <stop offset="100%" stop-color="#B08850"/>
+    </linearGradient>
+    <linearGradient id="g-walnut" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6E4526"/>
+      <stop offset="100%" stop-color="#472A14"/>
+    </linearGradient>
+    <radialGradient id="g-shell" cx="35%" cy="35%" r="80%">
+      <stop offset="0%" stop-color="#4A4A4A"/>
+      <stop offset="100%" stop-color="#1B1B1B"/>
+    </radialGradient>
   </defs>
 </svg>
 
@@ -344,15 +360,96 @@
     </svg>`;
   }
 
-  // Band members get a character in the space where a mic would go.
-  const INSTRUMENT_EMOJI = [
-    [/drum/i, '🥁'], [/synth/i, '🎛️'], [/bass/i, '🎸'], [/key|piano/i, '🎹'],
-    [/elec/i, '🎸'], [/acou/i, '🪕'], [/click|track|pad/i, '🎧'],
-    [/sax/i, '🎷'], [/trumpet|horn/i, '🎺'], [/violin|string/i, '🎻'],
+  // Band members get their actual instrument in the space where a mic
+  // would go — drawn in the same product-shot style as the gear.
+  // Unicode has no bass emoji and one generic guitar, so we draw.
+  function svgBass() {
+    return `<svg class="gear gear-inst-v" viewBox="0 0 60 200">
+      <path d="M24,2 L36,2 L36,26 L24,26 Z" fill="#2A2A2A"/>
+      ${[6, 12, 18, 24].map(y => `<circle cx="21" cy="${y}" r="2.6" fill="#B9B9B4"/>`).join('')}
+      <rect x="26" y="24" width="8" height="106" fill="url(#g-walnut)"/>
+      ${[9, 34, 59, 84, 106].map(y => `<rect x="26" y="${y + 24}" width="8" height="1.4" fill="#C9C9C4"/>`).join('')}
+      <path d="M30,126 Q56,128 55,156 Q54,184 32,190 Q10,186 8,160 Q7,138 22,130 Z"
+            fill="url(#g-walnut)" stroke="#2E1B0C" stroke-width="1.5"/>
+      <rect x="20" y="148" width="9" height="14" rx="2" fill="#111"/>
+      <rect x="32" y="154" width="9" height="14" rx="2" fill="#111"/>
+      <rect x="24" y="176" width="14" height="6" rx="2" fill="#8A8A84"/>
+      ${[27.2, 29, 30.8, 32.6].map(x => `<rect x="${x}" y="24" width="0.9" height="156" fill="#D8D8D3" opacity="0.8"/>`).join('')}
+    </svg>`;
+  }
+  function svgElectric() {
+    return `<svg class="gear gear-inst-v" viewBox="0 0 60 200">
+      <path d="M25,2 L37,2 L35,24 L25,24 Z" fill="#2A2A2A"/>
+      ${[5, 9, 13, 17, 21].map(y => `<circle cx="22.5" cy="${y}" r="2" fill="#B9B9B4"/>`).join('')}
+      <rect x="26" y="22" width="8" height="86" fill="#7A5A38"/>
+      ${[16, 36, 56, 74].map(y => `<rect x="26" y="${y + 22}" width="8" height="1.4" fill="#C9C9C4"/>`).join('')}
+      <path d="M30,104 Q40,100 46,108 Q60,116 56,144 Q53,170 40,182 Q31,190 24,182 Q18,174 12,178 Q2,160 6,138 Q9,118 20,110 Q25,106 30,104 Z"
+            fill="#8E2F23" stroke="#4A150D" stroke-width="1.5"/>
+      <path d="M28,116 Q44,116 46,140 Q46,164 36,172 L28,172 Z" fill="#EDE6D6" opacity="0.9"/>
+      ${[126, 140, 154].map(y => `<rect x="30" y="${y}" width="11" height="4.5" rx="2" fill="#111"/>`).join('')}
+      <rect x="28" y="164" width="15" height="4" rx="1.5" fill="#8A8A84"/>
+      ${[27.5, 29.2, 30.9, 32.6, 34.3].map(x => `<rect x="${x}" y="22" width="0.7" height="146" fill="#D8D8D3" opacity="0.8"/>`).join('')}
+    </svg>`;
+  }
+  function svgAcoustic() {
+    return `<svg class="gear gear-inst-v" viewBox="0 0 70 200">
+      <path d="M29,2 L43,2 L41,24 L31,24 Z" fill="#3A2A1A"/>
+      ${[6, 12, 18].map(y => `<circle cx="26" cy="${y}" r="2.2" fill="#B9B9B4"/>`).join('')}
+      ${[6, 12, 18].map(y => `<circle cx="46" cy="${y}" r="2.2" fill="#B9B9B4"/>`).join('')}
+      <rect x="31" y="22" width="9" height="76" fill="#5A3A20"/>
+      ${[14, 32, 50, 66].map(y => `<rect x="31" y="${y + 22}" width="9" height="1.4" fill="#C9C9C4"/>`).join('')}
+      <path d="M35.5,94 Q58,94 62,116 Q65,132 58,144 Q66,154 64,172 Q60,194 35.5,196 Q11,194 7,172 Q5,154 13,144 Q6,132 9,116 Q13,94 35.5,94 Z"
+            fill="url(#g-spruce)" stroke="#7A5A34" stroke-width="1.5"/>
+      <circle cx="35.5" cy="138" r="15" fill="#241505"/>
+      <circle cx="35.5" cy="138" r="15" fill="none" stroke="#8A6A3E" stroke-width="2.5"/>
+      <rect x="24" y="166" width="23" height="7" rx="2" fill="#3A2A1A"/>
+      ${[32.6, 34.0, 35.4, 36.8, 38.2].map(x => `<rect x="${x}" y="22" width="0.7" height="146" fill="#EDE6D6" opacity="0.85"/>`).join('')}
+    </svg>`;
+  }
+  function svgDrums() {
+    return `<svg class="gear gear-inst-h" viewBox="0 0 150 120">
+      <ellipse cx="27" cy="26" rx="24" ry="5" fill="#C9A44A"/>
+      <rect x="26" y="28" width="2.5" height="80" fill="#8A8A84"/>
+      <ellipse cx="124" cy="30" rx="18" ry="4" fill="#C9A44A"/>
+      <ellipse cx="124" cy="37" rx="18" ry="4" fill="#B08838"/>
+      <rect x="123" y="39" width="2.5" height="70" fill="#8A8A84"/>
+      <circle cx="52" cy="46" r="17" fill="url(#g-shell)" stroke="#666" stroke-width="2"/>
+      <circle cx="98" cy="46" r="17" fill="url(#g-shell)" stroke="#666" stroke-width="2"/>
+      <circle cx="75" cy="76" r="34" fill="url(#g-shell)" stroke="#8A8A84" stroke-width="3.5"/>
+      <circle cx="75" cy="76" r="26" fill="#EDEAE2"/>
+      <circle cx="75" cy="76" r="7" fill="#1B1B1B"/>
+      <rect x="40" y="106" width="10" height="10" fill="#8A8A84" transform="rotate(-30 45 111)"/>
+      <rect x="100" y="106" width="10" height="10" fill="#8A8A84" transform="rotate(30 105 111)"/>
+    </svg>`;
+  }
+  function svgKeys() {
+    return `<svg class="gear gear-inst-h" viewBox="0 0 150 90">
+      <rect x="4" y="18" width="142" height="58" rx="6" fill="url(#g-body)"/>
+      <rect x="12" y="24" width="126" height="10" fill="#161616"/>
+      ${[20, 32, 44, 56].map(x => `<circle cx="${x}" cy="29" r="3" fill="#7AB648" opacity="0.7"/>`).join('')}
+      <rect x="12" y="38" width="126" height="32" rx="2" fill="#F2F0EA"/>
+      ${Array.from({length: 13}, (_, i) => `<rect x="${12 + (i + 1) * 9.7 - 0.6}" y="38" width="1.2" height="32" fill="#B9B9B4"/>`).join('')}
+      ${[0, 1, 3, 4, 5, 7, 8, 10, 11, 12].map(i => `<rect x="${17.8 + i * 9.7}" y="38" width="5.6" height="19" fill="#141414"/>`).join('')}
+    </svg>`;
+  }
+  function svgSynth() {
+    return `<svg class="gear gear-inst-h" viewBox="0 0 140 100">
+      <rect x="6" y="10" width="128" height="82" rx="7" fill="url(#g-body)"/>
+      ${[28, 56, 84, 112].map(x => `<circle cx="${x}" cy="30" r="8" fill="#1B1B1B" stroke="#8A8A84" stroke-width="2"/>`).join('')}
+      ${[28, 56, 84, 112].map(x => `<rect x="${x - 1}" y="23" width="2" height="7" fill="#EEC97F"/>`).join('')}
+      ${[22, 46, 70, 94, 118].map(x => `<rect x="${x}" y="48" width="4" height="18" rx="2" fill="#333"/>`).join('')}
+      ${[22, 46, 70, 94, 118].map((x, i) => `<rect x="${x - 2}" y="${52 + (i % 3) * 4}" width="8" height="3.5" rx="1" fill="#7AB648"/>`).join('')}
+      <rect x="14" y="72" width="112" height="14" rx="2" fill="#F2F0EA"/>
+      ${Array.from({length: 10}, (_, i) => `<rect x="${14 + (i + 1) * 10.2 - 0.5}" y="72" width="1" height="14" fill="#B9B9B4"/>`).join('')}
+    </svg>`;
+  }
+  const INSTRUMENT_ART = [
+    [/drum/i, svgDrums], [/synth/i, svgSynth], [/bass/i, svgBass],
+    [/key|piano/i, svgKeys], [/elec/i, svgElectric], [/acou/i, svgAcoustic],
   ];
-  function instrumentEmoji(label) {
-    for (const [re, e] of INSTRUMENT_EMOJI) if (re.test(label || '')) return e;
-    return '🎵';
+  function instrumentArt(label) {
+    for (const [re, fn] of INSTRUMENT_ART) if (re.test(label || '')) return fn();
+    return `<div class="gear-emoji">${/click|track|pad/i.test(label || '') ? '🎧' : '🎵'}</div>`;
   }
 
   // What fills a tile's gear space:
@@ -365,8 +462,7 @@
     const color = micColor(slot) || NEUTRAL;
     const parts = [];
     const seatEmoji = () => {
-      for (const b of (bandSeats || []))
-        parts.push(`<div class="gear-emoji">${instrumentEmoji(b.slot_label)}</div>`);
+      for (const b of (bandSeats || [])) parts.push(instrumentArt(b.slot_label));
     };
     if (slot.kind === 'paired') {
       parts.push(svgHandheld(color));
@@ -379,7 +475,7 @@
       if (slot.mic_label) {
         parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, false) : svgHandheld(color));
       }
-      parts.push(`<div class="gear-emoji">${instrumentEmoji(slot.slot_label)}</div>`);
+      parts.push(instrumentArt(slot.slot_label));
       if (slot.iem_label) parts.push(svgPack(NEUTRAL, true).replace('gear-pack', 'gear-pack gear-small'));
     }
     return parts.join('');
@@ -573,6 +669,27 @@
       // Channel cell up top already lists every channel they occupy.
       setRow(mymix, slot.mymix_channel);
       setRow(iem, slot.iem_label);
+
+      // LIVE landing spot: battery segments, RF bars, TX status dot.
+      // Dormant (dim skeleton) until the receiver-polling worker fills
+      // mic_live = { battery: 0-5, rf: 0-5, muted: bool } per channel.
+      const liveEl = el.querySelector('.slot-live');
+      if (liveEl) {
+        const lv = slot.mic_live;
+        const batt = lv && Number.isFinite(lv.battery) ? lv.battery : null;
+        const rf = lv && Number.isFinite(lv.rf) ? lv.rf : null;
+        const battCls = batt === null ? '' : batt <= 1 ? ' crit' : batt <= 2 ? ' warn' : ' ok';
+        liveEl.innerHTML =
+          '<span class="lv-batt' + battCls + '">' +
+          [1, 2, 3, 4, 5].map(i =>
+            `<i class="${batt !== null && i <= batt ? 'on' : ''}"></i>`).join('') +
+          '</span><span class="lv-rf">' +
+          [1, 2, 3, 4, 5].map(i =>
+            `<i style="height:${28 + i * 14}%" class="${rf !== null && i <= rf ? 'on' : ''}"></i>`).join('') +
+          '</span><span class="lv-dot' +
+          (lv ? (lv.muted ? ' muted' : ' active') : '') + '"></span>';
+        liveEl.classList.toggle('dormant', !lv);
+      }
     }
 
     // Auto-collapse: hide unused tiles and reflow each zone to just its

@@ -815,6 +815,59 @@ input:focus, select:focus {
   transform: rotate(-8deg);
   filter: drop-shadow(0 calc(5 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.55));
 }
+/* Drawn instruments: vertical (guitars) vs horizontal (drums/keys). */
+.gear-inst-v { height: calc(150 * var(--u)); width: auto; }
+.gear-inst-h { height: calc(96 * var(--u)); width: auto; }
+
+/* LIVE row: battery segments + RF bars + TX dot. Dormant = dim
+   skeleton until receiver polling feeds mic_live. */
+.slot-row.row-live { min-height: calc(26 * var(--u)); }
+.slot-live {
+  display: inline-flex !important;
+  align-items: flex-end;
+  justify-content: center;
+  gap: calc(10 * var(--u));
+  padding-top: calc(2 * var(--u));
+}
+.lv-batt {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(2 * var(--u));
+  border: calc(1 * var(--u)) solid #4a4a4a;
+  border-radius: calc(2 * var(--u));
+  padding: calc(2 * var(--u));
+}
+.lv-batt i {
+  width: calc(6 * var(--u));
+  height: calc(9 * var(--u));
+  background: #333;
+  border-radius: calc(1 * var(--u));
+}
+.lv-batt.ok i.on   { background: var(--green); }
+.lv-batt.warn i.on { background: #EEC97F; }
+.lv-batt.crit i.on { background: #D64545; }
+.lv-rf {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: calc(2 * var(--u));
+  height: calc(14 * var(--u));
+}
+.lv-rf i {
+  width: calc(4 * var(--u));
+  background: #333;
+  border-radius: calc(1 * var(--u));
+}
+.lv-rf i.on { background: #4A90D9; }
+.lv-dot {
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
+  border-radius: 50%;
+  background: #333;
+  margin-bottom: calc(2 * var(--u));
+}
+.lv-dot.active { background: var(--green); box-shadow: 0 0 calc(8 * var(--u)) rgba(122, 182, 72, 0.6); }
+.lv-dot.muted  { background: #D64545; }
+.slot-live.dormant { opacity: 0.45; }
 
 /* Locked rows: fixed anatomy at the bottom of every tile. The gray
    labels never move or disappear — they are the static frame; the

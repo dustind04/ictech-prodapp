@@ -180,6 +180,9 @@ def register_display_routes(app: Flask) -> None:
         return render_template(
             "techdashboard.html",
             patch=patch,
+            channels=db.execute(
+                "SELECT * FROM channel WHERE archived=0 ORDER BY kind, label"
+            ).fetchall(),
             iem_rf=db.execute("SELECT * FROM iem_rf ORDER BY sort_order").fetchall(),
             legend=db.execute("SELECT * FROM mymix_channel ORDER BY ch").fetchall(),
             mixers=db.execute("SELECT * FROM mymix_mixer ORDER BY sort_order").fetchall(),
