@@ -34,11 +34,10 @@ services:
   # Renders the displays to JPEGs for the Roku channel (headless
   # Chromium). Heavy image (~1GB) but idle-cheap.
   snapshotter:
-    image: mcr.microsoft.com/playwright/python:v1.47.0-jammy
+    build: ./snapshots
+    image: ictech-snapshots:backstage
     container_name: ictech_snapshots
-    command: python /render/render.py
     volumes:
-      - ./snapshots:/render:ro
       - ./data:/data
     environment:
       SNAP_BASE: http://ictech:8058

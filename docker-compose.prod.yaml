@@ -24,11 +24,10 @@ services:
     restart: unless-stopped
 
   snapshotter:
-    image: mcr.microsoft.com/playwright/python:v1.47.0-jammy
+    build: ./snapshots
+    image: ictech-snapshots:prod
     container_name: ictech_snapshots
-    command: python /render/render.py
     volumes:
-      - ./snapshots:/render:ro
       - ./data:/data
     environment:
       SNAP_BASE: http://ictech:8058
