@@ -9,6 +9,12 @@
 -- migration time (stub purge), so no FK rows are at risk; the table
 -- name is restored so channel's FK reference stays valid.
 
+-- FKs must be off for this script: channel references wireless_model,
+-- and with enforcement on, dropping the parent fails even when the
+-- child table is empty. IF EXISTS recovers from a partial prior run.
+PRAGMA foreign_keys = OFF;
+DROP TABLE IF EXISTS wireless_model_new;
+
 CREATE TABLE wireless_model_new (
     id          INTEGER PRIMARY KEY,
     brand       TEXT NOT NULL DEFAULT 'Shure',
@@ -55,3 +61,5 @@ INSERT INTO wireless_model (family, model, kind, sort_order) VALUES
     ('Axient Digital', 'ADX3',  'plugon', 10),
     ('SLX-D',          'SLXD3', 'plugon', 40),
     ('UHF-R (legacy)', 'UR3',   'plugon', 90);
+
+PRAGMA foreign_keys = ON;
