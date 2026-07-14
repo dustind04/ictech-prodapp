@@ -21,6 +21,10 @@
   --green:        #7AB648;
   --green-dark:   #5E9034;
   --green-soft:   rgba(122, 182, 72, 0.12);
+  /* "In charge" accent (music leader, service director). Teal, not
+     green: green is a mic color, and teal stays distinct from every
+     mic color under red-green colorblindness. */
+  --lead:         #2EC4B6;
   --charcoal:     #1F1F1F;
   --bg:           #F7F7F5;
   --surface:      #FFFFFF;
@@ -392,10 +396,11 @@ input:focus, select:focus {
    small white chip so the lockup keeps its colors. */
 .wall-header {
   display: flex;
+  flex-wrap: wrap;               /* row 2: the tech strip, above the rule */
   align-items: center;
   justify-content: space-between;
   border-bottom: calc(3 * var(--u)) solid #F7F7F5;
-  padding-bottom: calc(16 * var(--u));
+  padding-bottom: calc(14 * var(--u));
   margin-bottom: calc(20 * var(--u));
   flex-shrink: 0;
 }
@@ -463,7 +468,7 @@ input:focus, select:focus {
   color: #ddd;
   margin-top: calc(2 * var(--u));
 }
-.wall-leader strong { color: var(--green); }
+.wall-leader strong { color: var(--lead); }
 .wall-meta {
   font-size: calc(17 * var(--u));
   font-weight: 500;
@@ -508,20 +513,20 @@ input:focus, select:focus {
 .slot.leader {
   /* longhands on purpose: the border shorthand with calc()+var() only
      half-applies in some Chromium builds (width yes, color no) */
-  border-color: var(--green);
+  border-color: var(--lead);
   border-width: calc(3 * var(--u));
-  background: linear-gradient(180deg, rgba(122, 182, 72, 0.18),
-              rgba(122, 182, 72, 0.03) 60%), #262626;
-  box-shadow: 0 0 0 calc(1 * var(--u)) rgba(122, 182, 72, 0.45),
-              0 0 calc(34 * var(--u)) rgba(122, 182, 72, 0.45);
+  background: linear-gradient(180deg, rgba(46, 196, 182, 0.18),
+              rgba(46, 196, 182, 0.03) 60%), #262626;
+  box-shadow: 0 0 0 calc(1 * var(--u)) rgba(46, 196, 182, 0.45),
+              0 0 calc(34 * var(--u)) rgba(46, 196, 182, 0.45);
 }
-.slot.leader:not(.rimmed)::before { background: var(--green); }
+.slot.leader:not(.rimmed)::before { background: var(--lead); }
 .slot.leader::after {
   content: '♪ LEADER';
   position: absolute;
   top: calc(16 * var(--u));
   right: calc(10 * var(--u));
-  background: var(--green);
+  background: var(--lead);
   color: #fff;
   font-size: calc(12 * var(--u));
   font-weight: 800;
@@ -664,15 +669,16 @@ input:focus, select:focus {
   border-color: transparent;
   color: #555;
 }
-/* Tech team strip: who's behind the controls. Slim chip row between
-   the header and the zones; hides when no tech seats are filled. */
+/* Tech team strip: who's behind the controls. Second header row —
+   all tech lives above the white line. Hides when no seats filled. */
 .tech-strip {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: calc(12 * var(--u));
-  margin: calc(-6 * var(--u)) 0 calc(16 * var(--u));
+  margin-top: calc(12 * var(--u));
   min-height: calc(38 * var(--u));
 }
 .tech-strip-label {
@@ -736,14 +742,14 @@ input:focus, select:focus {
 }
 .bs-chip .tech-name { font-size: calc(17 * var(--u)); }
 .bs-chip .tech-role { color: var(--green); font-size: calc(12 * var(--u)); }
-/* Service Director: in charge from the tech side — same green
+/* Service Director: in charge from the tech side — same teal
    highlight language as the music leader's tile. */
 .tech-chip-lead {
-  border-color: var(--green);
-  background: linear-gradient(180deg, rgba(122, 182, 72, 0.20), rgba(122, 182, 72, 0.05)), #161616;
-  box-shadow: 0 0 calc(14 * var(--u)) rgba(122, 182, 72, 0.4);
+  border-color: var(--lead);
+  background: linear-gradient(180deg, rgba(46, 196, 182, 0.20), rgba(46, 196, 182, 0.05)), #161616;
+  box-shadow: 0 0 calc(14 * var(--u)) rgba(46, 196, 182, 0.4);
 }
-.tech-chip-lead .tech-role { color: var(--green); }
+.tech-chip-lead .tech-role { color: var(--lead); }
 
 /* The gear space: fills the flexible middle of the tile with product
    renders (handheld = color band at the windscreen joint; packs =

@@ -200,7 +200,7 @@ def register_display_routes(app: Flask) -> None:
                   for r in db.execute("SELECT display_name, photo_url FROM person")}
         # On white sheets, "white" mics rim in warm gray so they read.
         rim_hex = {"red": "#D64545", "wht": "#CFCFC9", "blu": "#4A90D9",
-                   "blk": "#1F1F1F", "orng": "#E8923A", "ylo": "#E3C43C"}
+                   "blk": "#1F1F1F", "orng": "#E05A0E", "ylo": "#F6DE4C"}
 
         def s(bank_order, kind, name=None, **kw):
             mic = kw.get("mic_label", "")
