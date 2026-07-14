@@ -22,6 +22,18 @@
   </form>
 </section>
 
+<section class="form-card">
+  <form method="post" action="{{ url_for('admin_import_tech_preview') }}" enctype="multipart/form-data">
+    <div class="form-row">
+      <label>
+        Planning Center Tech Report (.pdf) <span class="hint">(tech crew, band, roles, music leader)</span>
+        <input type="file" name="file" accept=".pdf" required>
+      </label>
+    </div>
+    <button type="submit" class="btn-primary">Preview</button>
+  </form>
+</section>
+
 {% if plan %}
 <section>
   <h2>Preview{% if plan.sunday %} — Sunday {{ plan.sunday }}{% endif %}</h2>
@@ -62,6 +74,46 @@
     <button type="submit" class="btn-primary"
             onclick="return confirm('Apply these assignments to the slots? This replaces the current week.')">
       Apply to slots
+    </button>
+  </form>
+</section>
+{% endif %}
+
+{% if tplan %}
+<section>
+  <h2>Tech Report preview{% if tplan.date %} — {{ tplan.date }}{% endif %}</h2>
+  {% if tplan.warnings %}
+    <ul class="import-warnings">
+      {% for w in tplan.warnings %}<li>⚠ {{ w }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+  {% if tplan.leader %}
+    <p><strong>Music leader:</strong> {{ tplan.leader.person }}</p>
+  {% endif %}
+  <table class="data-table">
+    <thead><tr><th>Seat</th><th>Role</th><th>Person</th></tr></thead>
+    <tbody>
+      {% for t in tplan.tech_seats %}
+        <tr><td>{{ t.seat }}</td><td>{{ t.role }}</td><td>{{ t.person }}</td></tr>
+      {% endfor %}
+      {% for b in tplan.band %}
+        <tr><td>{{ b.bank_order }} ({{ b.seat_label }})</td><td>{{ b.position }}</td><td>{{ b.person }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if tplan.roles %}
+    <p class="muted">Weekly roles:
+      {% for r in tplan.roles %}{{ r.person }} → {{ r.role }}{{ '; ' if not loop.last }}{% endfor %}
+    </p>
+  {% endif %}
+  {% if tplan.info %}
+    <p class="muted">Recorded (no seat): {{ tplan.info | join(' · ') }}</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('admin_import_tech_apply') }}">
+    <input type="hidden" name="tplan_json" value='{{ tplan | tojson | forceescape }}'>
+    <button type="submit" class="btn-primary"
+            onclick="return confirm('Apply the Tech Report? Seats, roles, and leader update for this week.')">
+      Apply Tech Report
     </button>
   </form>
 </section>

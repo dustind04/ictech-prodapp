@@ -551,7 +551,7 @@ def register_admin_routes(app: Flask) -> None:
     # --- Weekly import ---
     @app.route("/admin/import")
     def admin_import():
-        return render_template("admin/import.html", plan=None)
+        return render_template("admin/import.html", plan=None, tplan=None)
 
     @app.route("/admin/import", methods=["POST"])
     def admin_import_preview():
@@ -565,7 +565,7 @@ def register_admin_routes(app: Flask) -> None:
             flash(f"Could not read that workbook: {exc}", "error")
             return redirect(url_for("admin_import"))
         plan = importer.build_plan(get_db(db_path), parsed)
-        return render_template("admin/import.html", plan=plan)
+        return render_template("admin/import.html", plan=plan, tplan=None)
 
     @app.route("/admin/import/apply", methods=["POST"])
     def admin_import_apply():
@@ -579,6 +579,32 @@ def register_admin_routes(app: Flask) -> None:
             plan = {"assignments": plan}
         count = importer.apply_plan(get_db(db_path), plan)
         flash(f"Applied weekly import to {count} slots + backline tables.", "success")
+        return redirect(url_for("admin_slots"))
+
+    @app.route("/admin/import/tech", methods=["POST"])
+    def admin_import_tech_preview():
+        f = request.files.get("file")
+        if f is None or not f.filename:
+            flash("Choose the Tech Report PDF first.", "error")
+            return redirect(url_for("admin_import"))
+        try:
+            parsed = importer.parse_tech_report(f.read())
+        except Exception as exc:
+            flash(f"Could not read that PDF: {exc}", "error")
+            return redirect(url_for("admin_import"))
+        tplan = importer.build_tech_plan(get_db(db_path), parsed)
+        return render_template("admin/import.html", plan=None, tplan=tplan)
+
+    @app.route("/admin/import/tech/apply", methods=["POST"])
+    def admin_import_tech_apply():
+        import json as _json
+        try:
+            tplan = _json.loads(request.form.get("tplan_json") or "{}")
+        except ValueError:
+            flash("Tech Report plan was malformed — re-upload and preview again.", "error")
+            return redirect(url_for("admin_import"))
+        count = importer.apply_tech_plan(get_db(db_path), tplan)
+        flash(f"Applied Tech Report: {count} seat assignments + weekly roles.", "success")
         return redirect(url_for("admin_slots"))
 
     # --- Inventory export (backup) ---

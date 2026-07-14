@@ -27,6 +27,7 @@ import re
 from io import BytesIO
 
 from openpyxl import load_workbook
+from pypdf import PdfReader
 
 
 # Mic-color words as they appear in 'Mic Assign' -> tag spellings Dave
@@ -387,3 +388,170 @@ def apply_plan(db, plan: dict) -> int:
                 (key, value))
     db.commit()
     return len(assignments)
+
+
+# =================================================================
+# Tech Report (Planning Center service-plan PDF) importer
+# =================================================================
+# Dave prints this report weekly. Page 2 carries the plan positions:
+# tech crew, band, music leader, host, speaker, vocals, stream crew.
+# Same two-step flow as the workbook: parse -> plan -> apply.
+
+TECH_POSITIONS = {
+    "backstage manager", "graphics", "lights", "service director", "sound",
+    "acoustic & vocals", "bass guitar", "drums", "electric guitar",
+    "keys", "keys & vocals", "synth", "vocals", "speaker", "host",
+    "sign language interpreter", "director/switcher",
+}
+TECH_CATEGORIES = {
+    "audio/visual", "band", "interpreters", "live stream",
+    "music leader", "preacher/speaker", "service host", "vocals",
+}
+# Position -> tech seat (bank_order), matched loosely.
+TECH_SEAT_MAP = [
+    (r"^sound$", 17), (r"backstage", 18), (r"service director", 19),
+    (r"graphic", 20), (r"^lights?$", 21), (r"switcher|stream", 22),
+]
+# Positions that imply a band seat, matched against seat labels.
+BAND_POS_MAP = [
+    (r"drum", r"drum"), (r"bass", r"bass"), (r"electric", r"elec"),
+    (r"acoustic", r"acou"), (r"keys", r"key"), (r"synth", r"synth"),
+]
+_NAME_RE = re.compile(r"^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*)+(?: \?)?$")
+
+
+def parse_tech_report(data: bytes) -> dict:
+    reader = PdfReader(BytesIO(data))
+    lines = []
+    for page in reader.pages:
+        lines.extend((page.extract_text() or "").splitlines())
+
+    date = None
+    for ln in lines:
+        m = re.search(r"([A-Z][a-z]+ \d{1,2}, \d{4})", ln)
+        if m:
+            date = m.group(1)
+            break
+
+    # Walk lines: known position names open a position, category headers
+    # set context, capitalized name-shaped lines are the open position's
+    # people. 'Vocals' is both category and position — checking position
+    # first makes the doubled line self-resolving (the first opens an
+    # empty position, the second reopens it and collects the names).
+    positions, current, category = [], None, None
+    leader_pending, leader_name = False, None
+    for raw in lines:
+        ln = raw.strip()
+        low = ln.lower()
+        if not ln:
+            continue
+        if low in TECH_POSITIONS or re.match(r"^camera \d+$", low):
+            current = {"category": category, "position": ln, "people": []}
+            positions.append(current)
+            continue
+        if low in TECH_CATEGORIES:
+            category = ln
+            leader_pending = low == "music leader"
+            current = None
+            continue
+        if current is not None and _NAME_RE.match(ln) and not any(c.isdigit() for c in ln):
+            name = ln.rstrip(" ?").strip()
+            current["people"].append({"name": name, "tentative": ln.endswith("?")})
+            if leader_pending:
+                leader_name = name
+                leader_pending = False
+    return {"date": date, "positions": positions, "leader_name": leader_name}
+
+
+def _pc_person_match(people, full_name: str):
+    """Match a PC full name against our display names: first name plus
+    last initial, with a unique-first-name fallback."""
+    parts = full_name.split()
+    display = f"{parts[0]} {parts[-1][0]}."
+    for p in people:
+        if p["display_name"].lower() == display.lower():
+            return p, None
+    first = [p for p in people if p["display_name"].split()[0].lower() == parts[0].lower()]
+    if len(first) == 1:
+        return first[0], None
+    if len(first) > 1:
+        return None, f"'{full_name}': several people share that first name."
+    return None, f"'{full_name}': no matching person (add them on the People page)."
+
+
+def build_tech_plan(db, parsed: dict) -> dict:
+    people = db.execute("SELECT id, display_name FROM person WHERE archived=0").fetchall()
+    band_slots = db.execute(
+        "SELECT id, bank_order, label FROM slot WHERE kind='band' AND archived=0").fetchall()
+
+    plan = {"date": parsed.get("date"), "leader": None, "tech_seats": [],
+            "band": [], "roles": [], "info": [], "warnings": []}
+
+    for entry in parsed["positions"]:
+        pos = entry["position"]
+        low = pos.lower()
+        for who in entry["people"]:
+            person, warn = _pc_person_match(people, who["name"])
+            if warn:
+                plan["warnings"].append(f"{pos}: {warn}")
+                continue
+
+            seat = next((s for rx, s in TECH_SEAT_MAP if re.search(rx, low)), None)
+            if seat is not None and "vocal" not in low:
+                plan["tech_seats"].append({"seat": seat, "role": pos,
+                                           "person_id": person["id"],
+                                           "person": person["display_name"]})
+                continue
+
+            if re.match(r"^camera \d+$", low) or "interpreter" in low:
+                plan["info"].append(f"{pos}: {person['display_name']}")
+                continue
+
+            band_rx = next((brx for prx, brx in BAND_POS_MAP if re.search(prx, low)), None)
+            if band_rx:
+                slot = next((s for s in band_slots
+                             if re.search(band_rx, (s["label"] or ""), re.I)), None)
+                if slot:
+                    plan["band"].append({"bank_order": slot["bank_order"],
+                                         "seat_label": slot["label"], "position": pos,
+                                         "person_id": person["id"],
+                                         "person": person["display_name"]})
+                else:
+                    plan["warnings"].append(f"{pos}: no band seat matches.")
+            plan["roles"].append({"person_id": person["id"],
+                                  "person": person["display_name"], "role": pos})
+
+    if parsed.get("leader_name"):
+        person, warn = _pc_person_match(people, parsed["leader_name"])
+        if person:
+            plan["leader"] = {"person_id": person["id"], "person": person["display_name"]}
+        elif warn:
+            plan["warnings"].append(f"Music leader: {warn}")
+    return plan
+
+
+def apply_tech_plan(db, plan: dict) -> int:
+    """Write tech seats, band assignments, weekly PC roles, the leader."""
+    changed = 0
+    for t in plan.get("tech_seats", []):
+        db.execute("UPDATE slot SET person_id=?, pc_role=?, updated_at=datetime('now') "
+                   "WHERE bank_order=? AND kind='tech'",
+                   (t["person_id"], t["role"], t["seat"]))
+        changed += 1
+    for b in plan.get("band", []):
+        db.execute("UPDATE slot SET person_id=?, pc_role=?, updated_at=datetime('now') "
+                   "WHERE bank_order=?", (b["person_id"], b["position"], b["bank_order"]))
+        changed += 1
+    for r in plan.get("roles", []):
+        db.execute("UPDATE slot SET pc_role=?, updated_at=datetime('now') "
+                   "WHERE person_id=? AND kind != 'tech'", (r["role"], r["person_id"]))
+    if plan.get("leader"):
+        db.execute("INSERT INTO app_setting (key, value) VALUES ('leader_person_id', ?) "
+                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                   (str(plan["leader"]["person_id"]),))
+    for key, value in (("tech_report_source", plan.get("date")), ("tech_report_at", None)):
+        db.execute("INSERT INTO app_setting (key, value) "
+                   "VALUES (?, COALESCE(?, datetime('now'))) "
+                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+    db.commit()
+    return changed
