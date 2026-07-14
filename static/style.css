@@ -651,6 +651,31 @@ input:focus, select:focus {
   border-color: transparent;
   color: #555;
 }
+/* The gear space: fills the flexible middle of the tile with product
+   renders (handheld = color band at the windscreen joint; packs =
+   colored tape on the battery door) and instrument characters for the
+   band. Dual-role tiles split the space. */
+.slot-gear {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(10 * var(--u));
+  min-height: calc(120 * var(--u));
+  padding: calc(8 * var(--u)) 0;
+}
+.gear { filter: drop-shadow(0 calc(6 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, 0.5)); }
+.gear-hh { height: calc(160 * var(--u)); width: auto; }
+.gear-pack { height: calc(118 * var(--u)); width: auto; }
+.gear-pack.gear-small { height: calc(84 * var(--u)); }
+.gear-emoji {
+  font-size: calc(84 * var(--u));
+  line-height: 1;
+  transform: rotate(-8deg);
+  filter: drop-shadow(0 calc(5 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.55));
+}
+
 /* Locked rows: fixed anatomy at the bottom of every tile. The gray
    labels never move or disappear — they are the static frame; the
    values beside them are the weekly data ("—" and dim when absent). */

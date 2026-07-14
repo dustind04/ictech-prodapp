@@ -47,6 +47,7 @@
       <div class="slot-name">—</div>
       <div class="slot-position">&nbsp;</div>
       <div class="slot-also"></div>
+      <div class="slot-gear"></div>
       <div class="slot-rows">
         <div class="slot-row row-mic"><span class="row-label">Mic</span><span class="row-value slot-channel">—</span></div>
         <div class="slot-row row-mymix"><span class="row-label">MyMix</span><span class="row-value slot-mymix">—</span></div>
@@ -74,6 +75,32 @@
     </div>
   </div>
 </div>
+
+{# Shared SVG gradients for the gear renders — referenced by every
+   inline mic/pack drawing below. #}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="g-grille" cx="35%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#E8E8E8"/>
+      <stop offset="55%" stop-color="#9C9C9C"/>
+      <stop offset="100%" stop-color="#4C4C4C"/>
+    </radialGradient>
+    <linearGradient id="g-body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#101010"/>
+      <stop offset="30%" stop-color="#3E3E3E"/>
+      <stop offset="55%" stop-color="#5A5A5A"/>
+      <stop offset="75%" stop-color="#2C2C2C"/>
+      <stop offset="100%" stop-color="#0C0C0C"/>
+    </linearGradient>
+    <linearGradient id="g-screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#25301F"/>
+      <stop offset="100%" stop-color="#141A10"/>
+    </linearGradient>
+    <pattern id="g-mesh" width="5" height="5" patternUnits="userSpaceOnUse">
+      <circle cx="2.5" cy="2.5" r="1" fill="rgba(20,20,20,0.55)"/>
+    </pattern>
+  </defs>
+</svg>
 
 <script>
   // ---------------------------------------------------------------
@@ -203,11 +230,11 @@
     { bank_order: 5, kind: 'paired' },
     { bank_order: 6, kind: 'paired' },
     { bank_order: 7, kind: 'mic_only', person_id: 905, person_name: 'Nate B.',
-      position_label: 'CS Pool', mic_label: 'Orng RF', mymix_channel: 'Misc' },
+      position_label: 'CS Pool', mic_label: 'Orng RF', mic_kind: 'handheld', mymix_channel: 'Misc' },
     { bank_order: 8, kind: 'mic_only', person_id: 906, person_name: 'Angel L.',
-      position_label: 'CS Pool', mic_label: 'Ylo RF', mymix_channel: 'Misc' },
+      position_label: 'CS Pool', mic_label: 'Ylo RF', mic_kind: 'handheld', mymix_channel: 'Misc' },
     { bank_order: 9, kind: 'mic_only', person_id: 907, person_name: 'Joe B.',
-      mic_label: 'Sermon RF', mymix_channel: 'Misc' },
+      mic_label: 'Sermon RF', mic_kind: 'beltpack', mymix_channel: 'Misc' },
     { bank_order: 10, kind: 'mic_only' },
     { bank_order: 11, kind: 'band', person_id: 908, person_name: 'Kyle D.',
       slot_label: 'Drums', mymix_channel: 'Drums' },
@@ -266,6 +293,82 @@
     return null;
   }
 
+  // ---------------------------------------------------------------
+  // Gear renders. Product-shot style vector drawings on transparent
+  // blocks, with the shop's color system applied exactly as the rack
+  // does it: a colored band where the windscreen meets the body on
+  // handhelds, a strip of colored tape on the battery door for packs.
+  // ---------------------------------------------------------------
+  const NEUTRAL = '#8A8A84';   // gear with no color assignment
+
+  function svgHandheld(color) {
+    return `<svg class="gear gear-hh" viewBox="0 0 60 200">
+      <ellipse cx="30" cy="33" rx="27" ry="30" fill="url(#g-grille)"/>
+      <ellipse cx="30" cy="33" rx="27" ry="30" fill="url(#g-mesh)"/>
+      <ellipse cx="21" cy="22" rx="9" ry="7" fill="rgba(255,255,255,0.35)"/>
+      <rect x="7" y="61" width="46" height="13" rx="3" fill="${color}"/>
+      <rect x="7" y="71" width="46" height="3" rx="1.5" fill="rgba(0,0,0,0.35)"/>
+      <path d="M9,74 L51,74 L45,186 Q45,196 30,196 Q15,196 15,186 Z" fill="url(#g-body)"/>
+      <rect x="22" y="80" width="4" height="100" rx="2" fill="rgba(255,255,255,0.10)"/>
+      <path d="M15,186 L45,186 L44,190 Q42,196 30,196 Q18,196 16,190 Z" fill="rgba(0,0,0,0.45)"/>
+    </svg>`;
+  }
+
+  function svgPack(color, iem) {
+    return `<svg class="gear gear-pack" viewBox="0 0 120 158">
+      ${iem ? `<path d="M28,30 Q18,10 34,6" stroke="#222" stroke-width="4" fill="none"/>
+               <circle cx="35" cy="6" r="5" fill="#2E2E2E"/>`
+            : `<rect x="16" y="2" width="6" height="34" rx="3" fill="#2A2A2A"/>
+               <circle cx="19" cy="4" r="4" fill="#3A3A3A"/>`}
+      <rect x="10" y="32" width="100" height="118" rx="12" fill="url(#g-body)"/>
+      <rect x="14" y="36" width="6" height="110" rx="3" fill="rgba(255,255,255,0.08)"/>
+      <rect x="32" y="46" width="56" height="24" rx="4" fill="url(#g-screen)"/>
+      <rect x="37" y="53" width="34" height="4" rx="2" fill="#7AB648" opacity="0.8"/>
+      <circle cx="94" cy="82" r="5" fill="#1A1A1A" stroke="#444" stroke-width="1.5"/>
+      <rect x="10" y="112" width="100" height="38" rx="12" fill="rgba(0,0,0,0.35)"/>
+      <rect x="18" y="120" width="84" height="18" rx="2" fill="${color}"
+            transform="rotate(-2.5 60 129)"/>
+      <rect x="18" y="120" width="84" height="6" rx="2" fill="rgba(255,255,255,0.18)"
+            transform="rotate(-2.5 60 129)"/>
+    </svg>`;
+  }
+
+  // Band members get a character in the space where a mic would go.
+  const INSTRUMENT_EMOJI = [
+    [/drum/i, '🥁'], [/synth/i, '🎛️'], [/bass/i, '🎸'], [/key|piano/i, '🎹'],
+    [/elec/i, '🎸'], [/acou/i, '🪕'], [/click|track|pad/i, '🎧'],
+    [/sax/i, '🎷'], [/trumpet|horn/i, '🎺'], [/violin|string/i, '🎻'],
+  ];
+  function instrumentEmoji(label) {
+    for (const [re, e] of INSTRUMENT_EMOJI) if (re.test(label || '')) return e;
+    return '🎵';
+  }
+
+  // What fills a tile's gear space:
+  //   vocalist -> handheld (+ small IEM pack, same color) | + emoji if also on a band seat
+  //   speaker  -> their RF mic (handheld or beltpack by channel kind)
+  //   band     -> instrument emoji | + mic render if they carry one (leader case),
+  //               + small IEM pack when they're on ears that week
+  function gearHTML(slot, bandSeat) {
+    if (!slot.person_id) return '';
+    const color = micColor(slot) || NEUTRAL;
+    const parts = [];
+    if (slot.kind === 'paired') {
+      parts.push(svgHandheld(color));
+      if (slot.iem_label) parts.push(svgPack(color, true).replace('gear-pack', 'gear-pack gear-small'));
+      if (bandSeat) parts.push(`<div class="gear-emoji">${instrumentEmoji(bandSeat.slot_label)}</div>`);
+    } else if (slot.kind === 'mic_only') {
+      parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, false) : svgHandheld(color));
+    } else if (slot.kind === 'band') {
+      if (slot.mic_label) {
+        parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, false) : svgHandheld(color));
+      }
+      parts.push(`<div class="gear-emoji">${instrumentEmoji(slot.slot_label)}</div>`);
+      if (slot.iem_label) parts.push(svgPack(NEUTRAL, true).replace('gear-pack', 'gear-pack gear-small'));
+    }
+    return parts.join('');
+  }
+
   // Leader line inside the This Week panel. Always rendered ("—" when
   // unset) so the panel never jumps.
   function renderLeader(leader) {
@@ -279,12 +382,14 @@
     const grid = document.getElementById('slot-grid');
     if (!grid) return;
 
-    // Someone on both a vocal slot and a speaker slot lands with the
-    // vocalists: their speaker tile is folded away and the vocal tile
-    // calls out the speaker mic they also carry.
-    const speakerByPerson = {};
+    // Someone on both a vocal slot and a speaker/band slot lands with
+    // the vocalists: their other tile folds away and the vocal tile
+    // shows both (callout + split gear space).
+    const speakerByPerson = {}, bandByPerson = {}, pairedPeople = new Set();
     for (const s of slots) {
       if (s.kind === 'mic_only' && s.person_id) speakerByPerson[s.person_id] = s;
+      if (s.kind === 'band' && s.person_id) bandByPerson[s.person_id] = s;
+      if (s.kind === 'paired' && s.person_id) pairedPeople.add(s.person_id);
     }
     const alsoSinging = new Set(
       slots.filter(s => s.kind === 'paired' && s.person_id && speakerByPerson[s.person_id])
@@ -299,9 +404,10 @@
       el.classList.toggle('paired', slot.kind === 'paired');
       el.classList.toggle('mic-only', slot.kind === 'mic_only');
       el.classList.toggle('band', slot.kind === 'band');
-      // Fold away a speaker tile whose person is already shown in Vocals.
+      // Fold away a speaker or band tile whose person is already shown
+      // in Vocals — they render once, with the vocalists.
       el.classList.toggle('merged-away',
-        slot.kind === 'mic_only' && !!slot.person_id && alsoSinging.has(slot.person_id));
+        !!slot.person_id && slot.kind !== 'paired' && pairedPeople.has(slot.person_id));
       // The week's music leader gets the green treatment on their tile.
       const isLeader = !!(leader && slot.person_id && slot.person_id === leader.person_id);
       el.classList.toggle('leader', isLeader);
@@ -344,13 +450,27 @@
         ? (slot.slot_label || slot.position_label || '')
         : (slot.position_label || '');
 
-      // Dual-role callout on the vocal tile: "+ Speaker · Orng RF".
+      // Dual-role callout on the vocal tile: "+ Speaker · Orng RF",
+      // "+ Drums", or both.
       const also = el.querySelector('.slot-also');
       if (also) {
-        const spk = slot.kind === 'paired' && slot.person_id
-          ? speakerByPerson[slot.person_id] : null;
-        also.textContent = spk
-          ? `+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}` : '';
+        const extras = [];
+        if (slot.kind === 'paired' && slot.person_id) {
+          const spk = speakerByPerson[slot.person_id];
+          const band = bandByPerson[slot.person_id];
+          if (spk) extras.push(`+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}`);
+          if (band && band.slot_label) extras.push(`+ ${band.slot_label}`);
+        }
+        also.textContent = extras.join('  ');
+      }
+
+      // The gear space: mic/pack product renders with the color band
+      // (handheld) or battery-door tape (packs); instrument characters
+      // for the band; both when someone wears two hats.
+      const gearEl = el.querySelector('.slot-gear');
+      if (gearEl) {
+        gearEl.innerHTML = gearHTML(slot,
+          slot.kind === 'paired' && slot.person_id ? bandByPerson[slot.person_id] : null);
       }
 
       // Locked rows: the gray labels are the static frame; values are

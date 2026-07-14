@@ -283,6 +283,7 @@ _SLOT_QUERY = """
       p.photo_url     AS photo_url,
       s.mic_channel_id AS mic_channel_id,
       mc.label         AS mic_label,
+      mc.kind          AS mic_kind,
       mc.shure_channel AS mic_shure_channel,
       mc.shure_channel_name AS mic_shure_channel_name,
       mc.shure_ip      AS mic_shure_ip,
