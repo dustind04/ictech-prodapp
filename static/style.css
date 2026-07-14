@@ -815,9 +815,25 @@ input:focus, select:focus {
   transform: rotate(-8deg);
   filter: drop-shadow(0 calc(5 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.55));
 }
-/* Drawn instruments: vertical (guitars) vs horizontal (drums/keys). */
-.gear-inst-v { height: calc(150 * var(--u)); width: auto; }
-.gear-inst-h { height: calc(96 * var(--u)); width: auto; }
+/* OpenMoji instruments (CC BY-SA 4.0, openmoji.org), self-hosted.
+   Caption disambiguates the guitar family. */
+.gear-oe {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2 * var(--u));
+}
+.gear-oe img {
+  height: calc(104 * var(--u));
+  width: auto;
+  filter: drop-shadow(0 calc(5 * var(--u)) calc(9 * var(--u)) rgba(0, 0, 0, 0.55));
+}
+.oe-cap {
+  font-size: calc(10 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #8a8a84;
+}
 
 /* LIVE row: battery segments + RF bars + TX dot. Dormant = dim
    skeleton until receiver polling feeds mic_live. */

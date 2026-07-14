@@ -47,3 +47,7 @@ Micboard uses IP addresses to connect to RF devices.  RF devices can be addresse
 
 ## Known Issues
 <a name="qlxd">1</a>: [QLX-D Firmware](docs/qlxd.md)
+
+## Credits
+
+Instrument artwork: [OpenMoji](https://openmoji.org) — the open-source emoji and icon project, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Guitar-family variants are body-recolored derivatives.
