@@ -288,7 +288,7 @@
       if (!res.ok) return;
       const data = await res.json();
       renderLeader(data.leader || null);
-      render(data.slots || [], data.leader || null);
+      render(data.slots || [], data.leader || null, data.mixers || []);
     } catch (err) {
       // network blip; the next tick will retry
     }
@@ -532,10 +532,17 @@
     }
   }
 
-  function render(slots, leader) {
+  function render(slots, leader, mixers) {
     const grid = document.getElementById('slot-grid');
     if (!grid) return;
     renderTech(slots);
+
+    // Which physical MyMix unit is theirs: ownership from the MyMix
+    // Mixers block of Dave's sheet, matched by first name.
+    const mixerByOwner = {};
+    for (const m of (mixers || [])) {
+      if (m.owner) mixerByOwner[m.owner.trim().toLowerCase()] = m.mixer;
+    }
 
     // Someone on multiple slots renders once (Vocals > Speakers >
     // Band); the anchor tile absorbs everything from the folded ones:
@@ -628,18 +635,12 @@
       // "+ Drums", or both.
       const also = el.querySelector('.slot-also');
       if (also) {
-        const extras = [];
-        if (slot.person_id) {
-          const spk = speakerByPerson[slot.person_id];
-          if (slot.kind === 'paired' && spk)
-            extras.push(`+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}`);
-          if (slot.kind !== 'band') {
-            for (const b of (bandSeatsByPerson[slot.person_id] || [])) {
-              if (b.slot_label) extras.push(`+ ${b.slot_label}`);
-            }
-          }
-        }
-        also.textContent = extras.join('  ');
+        // Only a second MIC earns a callout — instruments already show
+        // as art in the gear space and in the Channel row.
+        const spk = slot.kind === 'paired' && slot.person_id
+          ? speakerByPerson[slot.person_id] : null;
+        also.textContent = spk
+          ? `+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}` : '';
       }
 
       // The gear space: mic/pack product renders with the color band
@@ -665,9 +666,12 @@
       if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       setRow(ch, micParts.join(' · '));
-      // MyMix row = which personal-mix DEVICE is theirs (single). The
-      // Channel cell up top already lists every channel they occupy.
-      setRow(mymix, slot.mymix_channel);
+      // MYMIX = the physical mixer unit they walk up to (stationary
+      // all week, labeled Vox 1 / Drums / ...). Source of truth is the
+      // MyMix Mixers ownership block; the Channel rows up top tell
+      // them which channels to turn up or down.
+      const firstName = slot.person_name ? slot.person_name.split(/\s+/)[0].toLowerCase() : null;
+      setRow(mymix, (firstName && mixerByOwner[firstName]) || slot.mymix_channel);
       setRow(iem, slot.iem_label);
 
       // LIVE landing spot: battery segments, RF bars, TX status dot.

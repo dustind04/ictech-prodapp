@@ -269,7 +269,10 @@ def register_api_routes(app: Flask) -> None:
             d["mic_live"] = None
             d["iem_live"] = None
             rows.append(d)
-        return jsonify({"slots": rows, "leader": _current_leader(db)})
+        mixers = [dict(r) for r in db.execute(
+            "SELECT mixer, owner FROM mymix_mixer ORDER BY sort_order")]
+        return jsonify({"slots": rows, "leader": _current_leader(db),
+                        "mixers": mixers})
 
 
 # Single source of truth for the slot-resolution query. Used by both
