@@ -240,7 +240,8 @@
       slot_label: 'Keys', mymix_channel: 'Keys' },
     { bank_order: 14, kind: 'band', person_id: 911, person_name: 'Dave H.',
       slot_label: 'Elec 1', mymix_channel: 'Elec 1', iem_label: 'Pack 5' },
-    { bank_order: 15, kind: 'band', slot_label: 'Acous' },
+    { bank_order: 15, kind: 'band', person_id: 901, person_name: 'Chris C.',
+      slot_label: 'Acous', mymix_channel: 'Acous 1' },
     { bank_order: 16, kind: 'band', slot_label: 'Synth' },
     { bank_order: 17, kind: 'tech', person_id: 912, person_name: 'Peter B.', slot_label: 'Sound' },
     { bank_order: 18, kind: 'tech', person_id: 913, person_name: 'Jim R.', slot_label: 'Backstage' },
@@ -351,17 +352,21 @@
   //   speaker  -> their RF mic (handheld or beltpack by channel kind)
   //   band     -> instrument emoji | + mic render if they carry one (leader case),
   //               + small IEM pack when they're on ears that week
-  function gearHTML(slot, bandSeat) {
+  function gearHTML(slot, bandSeats) {
     if (!slot.person_id) return '';
     const color = micColor(slot) || NEUTRAL;
     const parts = [];
+    const seatEmoji = () => {
+      for (const b of (bandSeats || []))
+        parts.push(`<div class="gear-emoji">${instrumentEmoji(b.slot_label)}</div>`);
+    };
     if (slot.kind === 'paired') {
       parts.push(svgHandheld(color));
       if (slot.iem_label) parts.push(svgPack(color, true).replace('gear-pack', 'gear-pack gear-small'));
-      if (bandSeat) parts.push(`<div class="gear-emoji">${instrumentEmoji(bandSeat.slot_label)}</div>`);
+      seatEmoji();
     } else if (slot.kind === 'mic_only') {
       parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, false) : svgHandheld(color));
-      if (bandSeat) parts.push(`<div class="gear-emoji">${instrumentEmoji(bandSeat.slot_label)}</div>`);
+      seatEmoji();
     } else if (slot.kind === 'band') {
       if (slot.mic_label) {
         parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, false) : svgHandheld(color));
@@ -428,18 +433,17 @@
     if (!grid) return;
     renderTech(slots);
 
-    // Someone on both a vocal slot and a speaker/band slot lands with
-    // the vocalists: their other tile folds away and the vocal tile
-    // shows both (callout + split gear space).
-    const speakerByPerson = {}, bandByPerson = {}, pairedPeople = new Set();
+    // Someone on multiple slots renders once (Vocals > Speakers >
+    // Band); the anchor tile absorbs everything from the folded ones:
+    // callouts, gear, and every MyMix channel they own. A person can
+    // hold SEVERAL band seats (playing two things) — all collected.
+    const speakerByPerson = {}, bandSeatsByPerson = {}, pairedPeople = new Set();
     for (const s of slots) {
       if (s.kind === 'mic_only' && s.person_id) speakerByPerson[s.person_id] = s;
-      if (s.kind === 'band' && s.person_id) bandByPerson[s.person_id] = s;
+      if (s.kind === 'band' && s.person_id)
+        (bandSeatsByPerson[s.person_id] = bandSeatsByPerson[s.person_id] || []).push(s);
       if (s.kind === 'paired' && s.person_id) pairedPeople.add(s.person_id);
     }
-    const alsoSinging = new Set(
-      slots.filter(s => s.kind === 'paired' && s.person_id && speakerByPerson[s.person_id])
-           .map(s => s.person_id));
 
     for (const slot of slots) {
       const el = grid.querySelector(`.slot[data-slot-id="${slot.bank_order}"]`);
@@ -508,11 +512,13 @@
         const extras = [];
         if (slot.person_id) {
           const spk = speakerByPerson[slot.person_id];
-          const band = bandByPerson[slot.person_id];
           if (slot.kind === 'paired' && spk)
             extras.push(`+ Speaker${spk.mic_label ? ' · ' + spk.mic_label : ''}`);
-          if (slot.kind !== 'band' && band && band.slot_label)
-            extras.push(`+ ${band.slot_label}`);
+          if (slot.kind !== 'band') {
+            for (const b of (bandSeatsByPerson[slot.person_id] || [])) {
+              if (b.slot_label) extras.push(`+ ${b.slot_label}`);
+            }
+          }
         }
         also.textContent = extras.join('  ');
       }
@@ -523,7 +529,8 @@
       const gearEl = el.querySelector('.slot-gear');
       if (gearEl) {
         gearEl.innerHTML = gearHTML(slot,
-          slot.kind !== 'band' && slot.person_id ? bandByPerson[slot.person_id] : null);
+          slot.kind !== 'band' && slot.person_id
+            ? (bandSeatsByPerson[slot.person_id] || []) : []);
       }
 
       // Locked rows: the gray labels are the static frame; values are
@@ -539,7 +546,20 @@
       if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       setRow(ch, micParts.join(' · '));
-      setRow(mymix, slot.mymix_channel);
+
+      // Every MyMix channel they own, across all roles: singing +
+      // playing = two personal-mix sources (e.g. "Vox 1 · Acous 1").
+      const mixes = [];
+      const addMix = v => { if (v && !mixes.includes(v)) mixes.push(v); };
+      addMix(slot.mymix_channel);
+      if (slot.person_id) {
+        if (slot.kind === 'paired' && speakerByPerson[slot.person_id])
+          addMix(speakerByPerson[slot.person_id].mymix_channel);
+        if (slot.kind !== 'band') {
+          for (const b of (bandSeatsByPerson[slot.person_id] || [])) addMix(b.mymix_channel);
+        }
+      }
+      setRow(mymix, mixes.join(' · '));
       setRow(iem, slot.iem_label);
     }
 

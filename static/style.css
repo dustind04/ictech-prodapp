@@ -798,7 +798,9 @@ input:focus, select:focus {
 /* Fixed height budgets so the same row sits at the same height on
    every tile in every zone: mic gets two value lines, the rest one. */
 .slot-row.row-mic   { min-height: calc(50 * var(--u)); }
-.slot-row.row-mymix { min-height: calc(33 * var(--u)); }
+/* MyMix gets a two-line budget too: multi-role people own several
+   personal-mix channels ("Vox 1 · Acous 1"). */
+.slot-row.row-mymix { min-height: calc(50 * var(--u)); }
 .slot-row.row-iem   { min-height: calc(33 * var(--u)); }
 .row-label {
   display: block;
