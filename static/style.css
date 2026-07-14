@@ -750,6 +750,44 @@ input:focus, select:focus {
 }
 .tech-chip-lead .tech-role { color: var(--lead); }
 
+/* Pool | Channel: two permanent labeled cells under the name — where
+   you stand, and what channel(s) you are on the desk. Locked anatomy:
+   always present, dim em-dash when empty. */
+.slot-id {
+  display: flex;
+  width: 100%;
+  margin-bottom: calc(8 * var(--u));
+}
+.slot-id-cell {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.slot-id-cell + .slot-id-cell {
+  border-left: calc(1 * var(--u)) solid #383838;
+}
+.id-label {
+  display: block;
+  font-size: calc(10 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #777;
+  margin-bottom: calc(2 * var(--u));
+}
+.id-value {
+  display: block;
+  font-size: calc(14 * var(--u));
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+  min-height: calc(34 * var(--u));   /* two-line budget: "Vox 1 · Acous 1" */
+  overflow-wrap: break-word;
+  font-variant-numeric: tabular-nums;
+}
+.id-value.blank { color: #555; font-weight: 500; }
+.slot.empty .id-value { color: #555; }
+
 /* The gear space: fills the flexible middle of the tile with product
    renders (handheld = color band at the windscreen joint; packs =
    colored tape on the battery door) and instrument characters for the
@@ -797,9 +835,7 @@ input:focus, select:focus {
 /* Fixed height budgets so the same row sits at the same height on
    every tile in every zone: mic gets two value lines, the rest one. */
 .slot-row.row-mic   { min-height: calc(50 * var(--u)); }
-/* MyMix gets a two-line budget too: multi-role people own several
-   personal-mix channels ("Vox 1 · Acous 1"). */
-.slot-row.row-mymix { min-height: calc(50 * var(--u)); }
+.slot-row.row-mymix { min-height: calc(33 * var(--u)); }
 .slot-row.row-iem   { min-height: calc(33 * var(--u)); }
 .row-label {
   display: block;

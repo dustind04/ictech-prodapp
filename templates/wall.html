@@ -54,7 +54,11 @@
       <div class="slot-num">{{ '%02d' % i }}</div>
       <div class="slot-photo"></div>
       <div class="slot-name">—</div>
-      <div class="slot-position">&nbsp;</div>
+      {# Two permanent cells: where you stand, what channel you are. #}
+      <div class="slot-id">
+        <div class="slot-id-cell"><span class="id-label">Pool</span><span class="id-value slot-pool">—</span></div>
+        <div class="slot-id-cell"><span class="id-label">Channel</span><span class="id-value slot-chname">—</span></div>
+      </div>
       <div class="slot-also"></div>
       <div class="slot-gear"></div>
       <div class="slot-rows">
@@ -481,7 +485,6 @@
 
       const photo = el.querySelector('.slot-photo');
       const name  = el.querySelector('.slot-name');
-      const pos   = el.querySelector('.slot-position');
       const ch    = el.querySelector('.slot-channel');
       const mymix = el.querySelector('.slot-mymix');
       const iem   = el.querySelector('.slot-iem');
@@ -502,11 +505,27 @@
         photo.textContent = '';
       }
 
-      // Stage position pill. Band seats show their instrument here
-      // instead; blank-but-present so the layout doesn't shift.
-      pos.textContent = slot.kind === 'band'
-        ? (slot.slot_label || slot.position_label || '')
-        : (slot.position_label || '');
+      // Pool cell: where they stand. Channel cell: what they ARE on
+      // the desk — every channel name across all their roles ("Vox 1
+      // · Acous 1", "Drums"). Band falls back to the instrument label.
+      const mixes = [];
+      const addMix = v => { if (v && !mixes.includes(v)) mixes.push(v); };
+      addMix(slot.mymix_channel);
+      if (slot.person_id) {
+        if (slot.kind === 'paired' && speakerByPerson[slot.person_id])
+          addMix(speakerByPerson[slot.person_id].mymix_channel);
+        if (slot.kind !== 'band') {
+          for (const b of (bandSeatsByPerson[slot.person_id] || [])) addMix(b.mymix_channel);
+        }
+      }
+      const poolEl = el.querySelector('.slot-pool');
+      const chnameEl = el.querySelector('.slot-chname');
+      const setCell = (cell, text) => {
+        cell.textContent = text || '—';
+        cell.classList.toggle('blank', !text);
+      };
+      setCell(poolEl, slot.position_label);
+      setCell(chnameEl, mixes.join(' · ') || (slot.kind === 'band' ? slot.slot_label : ''));
 
       // Dual-role callout on the vocal tile: "+ Speaker · Orng RF",
       // "+ Drums", or both.
@@ -549,20 +568,9 @@
       if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       setRow(ch, micParts.join(' · '));
-
-      // Every MyMix channel they own, across all roles: singing +
-      // playing = two personal-mix sources (e.g. "Vox 1 · Acous 1").
-      const mixes = [];
-      const addMix = v => { if (v && !mixes.includes(v)) mixes.push(v); };
-      addMix(slot.mymix_channel);
-      if (slot.person_id) {
-        if (slot.kind === 'paired' && speakerByPerson[slot.person_id])
-          addMix(speakerByPerson[slot.person_id].mymix_channel);
-        if (slot.kind !== 'band') {
-          for (const b of (bandSeatsByPerson[slot.person_id] || [])) addMix(b.mymix_channel);
-        }
-      }
-      setRow(mymix, mixes.join(' · '));
+      // MyMix row = which personal-mix DEVICE is theirs (single). The
+      // Channel cell up top already lists every channel they occupy.
+      setRow(mymix, slot.mymix_channel);
       setRow(iem, slot.iem_label);
     }
 
