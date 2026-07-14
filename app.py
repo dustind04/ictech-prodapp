@@ -142,8 +142,8 @@ def _register_admin_auth(app: Flask) -> None:
 def register_display_routes(app: Flask) -> None:
     @app.route("/")
     def wall_display():
-        """Default display = the mic board above the charger banks."""
-        return redirect(url_for("micboard_display"))
+        """Home = the dataviz view (the evolving display)."""
+        return render_template("wall.html")
 
     @app.route("/micboard")
     def micboard_display():
