@@ -14,7 +14,9 @@
       <span class="ic">ic</span><span class="tech">Tech</span> <span class="suffix">Services</span>
     </a>
     <nav class="topnav">
-      <a href="{{ url_for('wall_display') }}" class="{{ 'active' if request.endpoint=='wall_display' }}">Wall display</a>
+      <a href="{{ url_for('wall_display') }}" class="{{ 'active' if request.endpoint=='wall_display' }}">Dashboard</a>
+      <a href="{{ url_for('micboard_display') }}" class="{{ 'active' if request.endpoint=='micboard_display' }}">Micboard</a>
+      <a href="{{ url_for('techdashboard') }}" class="{{ 'active' if request.endpoint=='techdashboard' }}">Tech dashboard</a>
       <a href="{{ url_for('admin_index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin_') }}">Admin</a>
     </nav>
   </header>
