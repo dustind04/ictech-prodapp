@@ -1,0 +1,33 @@
+# Backstage production stack: Docker Desktop on a PC that lives on the
+# church production network. 8058 is published on the LAN so the wall
+# TVs, kiosks, and anyone backstage can reach the displays directly —
+# and the app itself can reach the gear (Shure receivers, DM7, ATEM,
+# ProPresenter...) for live polling, no collector needed.
+#
+# Usage:  docker compose -f docker-compose.backstage.yaml up -d --build
+# Config: .env next to this file (see .env.example). TUNNEL_TOKEN is
+# optional here — start the cloudflared profile only if outside access
+# is wanted:  docker compose -f docker-compose.backstage.yaml --profile tunnel up -d
+services:
+  ictech:
+    build: .
+    image: ictech:backstage
+    container_name: ictech
+    ports:
+      - '8058:8058'
+    volumes:
+      - ./data:/data
+    environment:
+      ICTECH_SECRET: ${ICTECH_SECRET}
+      ICTECH_ADMIN_USER: ${ICTECH_ADMIN_USER}
+      ICTECH_ADMIN_PASSWORD: ${ICTECH_ADMIN_PASSWORD}
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ictech_tunnel
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - ictech
+    restart: unless-stopped
+    profiles: [tunnel]

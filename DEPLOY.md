@@ -1,4 +1,33 @@
-# Deploying to the Debian box (internet-facing via Cloudflare tunnel)
+# Deploying
+
+## Backstage PC — Docker Desktop (production)
+
+The real deployment: a PC on the church production network, running
+Docker Desktop. The app publishes 8058 on the LAN (TVs and kiosks
+browse straight to it) and sits on the same network as the gear, so
+live polling (Shure, DM7, ATEM, ProPresenter, ...) runs in-process —
+no collector service needed.
+
+```powershell
+git clone https://github.com/dustind04/ictech-prodapp.git
+cd ictech-prodapp
+copy .env.example .env    # set ICTECH_SECRET + admin credentials
+docker compose -f docker-compose.backstage.yaml up -d --build
+```
+
+- Displays: point each TV/kiosk browser at `http://<pc-ip>:8058/`
+  (dashboard), `/micboard`, or `/techdashboard`. Fullscreen (F11).
+- Boot survival: set Docker Desktop to "Start when you sign in" and
+  keep the PC auto-logging in; `restart: unless-stopped` handles the
+  containers from there.
+- Outside access is optional here: add `TUNNEL_TOKEN` to `.env` and
+  start with `--profile tunnel` to run the Cloudflare tunnel too.
+
+**Migrating data from the demo box:** copy the demo's `data/` directory
+(SQLite DB + photos) into the clone before first start — or restore a
+snapshot: `docker exec -i ictech python3 tools/restore_snapshot.py < snapshot.json`.
+
+## Debian box (internet-facing demo via Cloudflare tunnel)
 
 Target: any Debian/ARM64/x86 box with Docker + compose. The stack is two
 containers: the Flask app (gunicorn, port 8058, localhost-only) and a
