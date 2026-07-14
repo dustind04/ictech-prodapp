@@ -5,6 +5,19 @@
 <h1 class="page-title">Admin</h1>
 <p class="page-lead">Manage the people, channels, stage positions, and slot assignments that drive the wall display.</p>
 
+{% if update and update.update_available %}
+  <div class="flash flash-error">
+    Update available: running <code>{{ update.local }}</code>, GitHub is at
+    <code>{{ update.remote }}</code>. Run <code>scripts\update.ps1</code> on the
+    host (or <code>git pull &amp;&amp; docker compose up -d --build</code>).
+  </div>
+{% elif update and update.local_unknown %}
+  <p class="muted">Version check: GitHub is at <code>{{ update.remote }}</code>;
+    this build has no version stamp (started without the launch script).</p>
+{% elif update %}
+  <p class="muted">Up to date — running <code>{{ update.local }}</code>.</p>
+{% endif %}
+
 <div class="card-grid">
   <a class="card" href="{{ url_for('admin_people') }}">
     <div class="card-num">{{ counts.people }}</div>

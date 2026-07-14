@@ -12,11 +12,19 @@ no collector service needed.
 git clone https://github.com/dustind04/ictech-prodapp.git
 cd ictech-prodapp
 copy .env.example .env    # set ICTECH_SECRET + admin credentials
-docker compose -f docker-compose.backstage.yaml up -d --build
+powershell -ExecutionPolicy Bypass -File scripts\start-backstage.ps1
 ```
 
-- Displays: point each TV/kiosk browser at `http://<pc-ip>:8058/`
-  (dashboard), `/micboard`, or `/techdashboard`. Fullscreen (F11).
+The launch script finds a free host port (8058, or the next available
+if something already owns it), **pins it in `.env` so the TVs' URLs
+never move**, stamps the build with the git commit for the in-app
+update check, and prints the display URLs when it's up.
+
+- Displays: point each TV/kiosk browser at the printed URLs
+  (`http://<pc-ip>:<port>/`, `/micboard`, `/techdashboard`). F11.
+- **Updates**: the Admin page checks GitHub hourly and shows a banner
+  when a newer version exists; run `scripts\update.ps1` to pull and
+  relaunch (data and port are untouched).
 - Boot survival: set Docker Desktop to "Start when you sign in" and
   keep the PC auto-logging in; `restart: unless-stopped` handles the
   containers from there.

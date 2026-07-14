@@ -360,7 +360,8 @@ def register_admin_routes(app: Flask) -> None:
                 "SELECT COUNT(*) c FROM slot WHERE archived=0 AND person_id IS NOT NULL"
             ).fetchone()["c"],
         }
-        return render_template("admin/index.html", counts=counts)
+        return render_template("admin/index.html", counts=counts,
+                               update=_update_status())
 
     # --- People ---
     @app.route("/admin/people")
@@ -817,6 +818,42 @@ def register_photo_routes(app: Flask) -> None:
 # =============================================================
 # Helpers
 # =============================================================
+_UPDATE_CACHE = {"at": 0.0, "status": None}
+
+
+def _update_status() -> dict | None:
+    """Compare the running build against GitHub master, cached for an
+    hour, fail-silent (returns None offline / rate-limited / unknown).
+    The image bakes its commit in via the GIT_SHA build arg."""
+    import json
+    import time
+    import urllib.request
+
+    now = time.time()
+    if now - _UPDATE_CACHE["at"] < 3600:
+        return _UPDATE_CACHE["status"]
+    _UPDATE_CACHE["at"] = now
+    local = os.environ.get("ICTECH_VERSION", "unknown")
+    status = None
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/dustind04/ictech-prodapp/commits/master",
+            headers={"Accept": "application/vnd.github+json",
+                     "User-Agent": "ictech-prodapp"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            remote = json.load(resp)["sha"][:7]
+        status = {
+            "local": local,
+            "remote": remote,
+            "update_available": local != "unknown" and not remote.startswith(local[:7]),
+            "local_unknown": local == "unknown",
+        }
+    except Exception:  # offline, rate-limited, DNS — never break admin
+        status = None
+    _UPDATE_CACHE["status"] = status
+    return status
+
+
 def _current_leader(db):
     """This week's music leader, or None. Stored in app_setting because
     the leader may have no mic-board slot (leading from an instrument)."""
@@ -989,8 +1026,24 @@ def register_teardown(app: Flask) -> None:
         close_db()
 
 
+def _free_port(preferred: int = 8058, tries: int = 20) -> int:
+    """The preferred port, or the next free one after it. Containers
+    never collide internally — this guards bare `python app.py` runs."""
+    import socket
+    for port in range(preferred, preferred + tries):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("0.0.0.0", port))
+            except OSError:
+                continue
+        if port != preferred:
+            log.warning("Port %d busy — using %d instead", preferred, port)
+        return port
+    raise RuntimeError(f"No free port in {preferred}..{preferred + tries}")
+
+
 app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8058, debug=True)
+    app.run(host="0.0.0.0", port=_free_port(), debug=True)

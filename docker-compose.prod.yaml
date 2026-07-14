@@ -7,7 +7,10 @@
 # Config: .env next to this file (see .env.example).
 services:
   ictech:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     image: ictech:prod
     container_name: ictech
     ports:

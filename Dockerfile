@@ -15,6 +15,12 @@ COPY templates ./templates
 COPY static ./static
 COPY tools ./tools
 
+# Version stamp for the in-app update check — the launch/update scripts
+# pass the current git short SHA; a bare `docker compose build` leaves
+# it "unknown" and the admin page says so.
+ARG GIT_SHA=unknown
+ENV ICTECH_VERSION=${GIT_SHA}
+
 # Persistent data lives in /data, mounted from a volume on the host.
 # The application creates this directory if missing.
 ENV ICTECH_DB=/data/ictech.db

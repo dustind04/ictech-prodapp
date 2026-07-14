@@ -10,11 +10,16 @@
 # is wanted:  docker compose -f docker-compose.backstage.yaml --profile tunnel up -d
 services:
   ictech:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     image: ictech:backstage
     container_name: ictech
     ports:
-      - '8058:8058'
+      # Host port picked by scripts/start-backstage.ps1 (8058, or the
+      # next free one if something already owns it).
+      - '${ICTECH_PORT:-8058}:8058'
     volumes:
       - ./data:/data
     environment:
