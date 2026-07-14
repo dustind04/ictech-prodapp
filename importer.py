@@ -101,7 +101,67 @@ def parse_workbook(data: bytes) -> dict:
         warnings.append("No 'Mic Assign' sheet — positions and IEM packs unavailable.")
 
     return {"sunday": sunday, "vocals": vocals, "misc": misc,
-            "assign": assign, "warnings": warnings}
+            "assign": assign, "tech": _parse_tech(wb, ws, warnings),
+            "warnings": warnings}
+
+
+def _parse_tech(wb, input_ws, warnings: list) -> dict:
+    """The backline layer: the full patch list plus the hand-typed
+    islands of the MyMix sheet (per-input monitor routing, the IEM RF
+    assignments, the 16-channel MyMix legend, mixer ownership)."""
+    # Per-row monitor routing from the MyMix sheet, keyed by row number
+    # (its A/B/C columns are formula mirrors of Input List, same rows).
+    routing = {}
+    legend, iem_rf, mixers = [], [], []
+    if "MyMix" in wb.sheetnames:
+        mm = wb["MyMix"]
+        in_iem_block = False
+        for row in mm.iter_rows(min_row=4):
+            r = row[0].row
+            num = row[7].value if len(row) > 7 else None      # H: MyMix input #
+            route = _s(row[8].value) if len(row) > 8 else ""  # I: Mtx n / Dir
+            if isinstance(num, (int, float)) or route:
+                routing[r] = {"num": int(num) if isinstance(num, (int, float)) else None,
+                              "route": route or None}
+            k = row[10].value if len(row) > 10 else None      # K column
+            if isinstance(k, (int, float)) and 1 <= int(k) <= 16:
+                legend.append({"ch": int(k),
+                               "label": _s(row[11].value),
+                               "source": _s(row[12].value)})
+            elif _s(k).upper().startswith("IEM"):
+                if "ASSIGNMENT" in _s(k).upper():
+                    in_iem_block = True
+                else:
+                    iem_rf.append({"iem": _s(k), "rf": _s(row[11].value),
+                                   "path": _s(row[12].value),
+                                   "owner": _s(row[14].value) if len(row) > 14 else ""})
+            if not in_iem_block and len(row) > 14 and _s(row[14].value):
+                mixers.append({"mixer": _s(row[14].value),
+                               "owner": _s(row[15].value) if len(row) > 15 else ""})
+    else:
+        warnings.append("No 'MyMix' sheet — routing/IEM RF/legend unavailable.")
+
+    # Full patch list off the master sheet.
+    patch = []
+    for row in input_ws.iter_rows(min_row=4):
+        vals = [_s(c.value) for c in row[:8]]
+        if not any(vals[1:]):        # skip spacer rows
+            continue
+        foh = row[1].value
+        r = routing.get(row[0].row, {})
+        patch.append({
+            "snake_ch": vals[0] or None,
+            "foh_ch": int(foh) if isinstance(foh, (int, float)) else None,
+            "instrument": vals[2] or None,
+            "mic": vals[3] or None,
+            "phantom": 1 if vals[4].upper() == "X" else 0,
+            "mute_grp": vals[5] or None,
+            "mymix_ch": vals[6] or None,
+            "mymix_num": r.get("num"),
+            "mymix_route": r.get("route"),
+            "info": vals[7] or None,
+        })
+    return {"patch": patch, "legend": legend, "iem_rf": iem_rf, "mixers": mixers}
 
 
 def _person_key(name: str) -> str:
@@ -198,6 +258,7 @@ def build_plan(db, parsed: dict) -> dict:
     }
 
     plan = {"sunday": parsed["sunday"], "assignments": [],
+            "tech": parsed.get("tech") or {},
             "warnings": list(parsed["warnings"])}
 
     def resolve(entry, bank_order, mic_kinds):
@@ -265,9 +326,10 @@ def build_plan(db, parsed: dict) -> dict:
     return plan
 
 
-def apply_plan(db, assignments: list) -> int:
-    """Write the assignments. Creates any positions the plan flagged.
-    Returns the number of slots updated."""
+def apply_plan(db, plan: dict) -> int:
+    """Write the assignments and replace the backline tech tables.
+    Creates any positions the plan flagged. Returns slots updated."""
+    assignments = plan.get("assignments", [])
     for a in assignments:
         if a["position_id"] is None and a["position"]:
             row = db.execute(
@@ -288,5 +350,40 @@ def apply_plan(db, assignments: list) -> int:
             (a["person_id"], a["mic_channel_id"], a["iem_channel_id"],
              a["position_id"], a["mymix"], a["slot_id"]),
         )
+
+    # Backline tech tables are weekly truth: full replace on each apply.
+    tech = plan.get("tech") or {}
+    if tech:
+        db.execute("DELETE FROM patch_row")
+        for i, p in enumerate(tech.get("patch", [])):
+            db.execute(
+                """INSERT INTO patch_row (sort_order, snake_ch, foh_ch, instrument,
+                     mic, phantom, mute_grp, mymix_ch, mymix_num, mymix_route, info)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (i, p.get("snake_ch"), p.get("foh_ch"), p.get("instrument"),
+                 p.get("mic"), p.get("phantom", 0), p.get("mute_grp"),
+                 p.get("mymix_ch"), p.get("mymix_num"), p.get("mymix_route"),
+                 p.get("info")))
+        db.execute("DELETE FROM iem_rf")
+        for i, r in enumerate(tech.get("iem_rf", [])):
+            db.execute("INSERT INTO iem_rf (sort_order, iem, rf, path, owner) "
+                       "VALUES (?, ?, ?, ?, ?)",
+                       (i, r.get("iem"), r.get("rf") or None,
+                        r.get("path") or None, r.get("owner") or None))
+        db.execute("DELETE FROM mymix_channel")
+        for l in tech.get("legend", []):
+            db.execute("INSERT INTO mymix_channel (ch, label, source) VALUES (?, ?, ?)",
+                       (l["ch"], l.get("label") or None, l.get("source") or None))
+        db.execute("DELETE FROM mymix_mixer")
+        for i, m in enumerate(tech.get("mixers", [])):
+            db.execute("INSERT INTO mymix_mixer (sort_order, mixer, owner) VALUES (?, ?, ?)",
+                       (i, m["mixer"], m.get("owner") or None))
+        for key, value in (("import_source", plan.get("sunday")),
+                           ("import_at", None)):
+            db.execute(
+                """INSERT INTO app_setting (key, value)
+                   VALUES (?, COALESCE(?, datetime('now')))
+                   ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                (key, value))
     db.commit()
     return len(assignments)

@@ -163,6 +163,27 @@ def register_display_routes(app: Flask) -> None:
         """The evolving display view (auto-collapse and onward)."""
         return render_template("wall.html")
 
+    @app.route("/backline")
+    def backline():
+        """Backline engineer dashboard: the full technical layer of the
+        weekly workbook — patch list, phantom flags, monitor routing,
+        IEM RF paths, MyMix legend, mixer ownership. Server-rendered,
+        auto-refreshes; deliberately dense and unpretty."""
+        db = get_db(app.config["DATABASE_PATH"])
+        patch = db.execute("SELECT * FROM patch_row ORDER BY sort_order").fetchall()
+        settings = {r["key"]: r["value"] for r in
+                    db.execute("SELECT key, value FROM app_setting")}
+        return render_template(
+            "backline.html",
+            patch=patch,
+            iem_rf=db.execute("SELECT * FROM iem_rf ORDER BY sort_order").fetchall(),
+            legend=db.execute("SELECT * FROM mymix_channel ORDER BY ch").fetchall(),
+            mixers=db.execute("SELECT * FROM mymix_mixer ORDER BY sort_order").fetchall(),
+            phantom_count=sum(1 for p in patch if p["phantom"]),
+            import_source=settings.get("import_source"),
+            import_at=settings.get("import_at"),
+        )
+
     @app.route("/designs/<int:variant>")
     def design_preview(variant):
         """Three white-sheet design candidates for the wall — static
@@ -512,12 +533,14 @@ def register_admin_routes(app: Flask) -> None:
     def admin_import_apply():
         import json as _json
         try:
-            assignments = _json.loads(request.form.get("plan_json") or "[]")
+            plan = _json.loads(request.form.get("plan_json") or "{}")
         except ValueError:
             flash("Import plan was malformed — re-upload and preview again.", "error")
             return redirect(url_for("admin_import"))
-        count = importer.apply_plan(get_db(db_path), assignments)
-        flash(f"Applied weekly import to {count} slots.", "success")
+        if isinstance(plan, list):  # pre-backline plan format
+            plan = {"assignments": plan}
+        count = importer.apply_plan(get_db(db_path), plan)
+        flash(f"Applied weekly import to {count} slots + backline tables.", "success")
         return redirect(url_for("admin_slots"))
 
     # --- Inventory export (backup) ---

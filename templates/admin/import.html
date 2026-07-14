@@ -48,8 +48,17 @@
       {% endfor %}
     </tbody>
   </table>
+  {% if plan.tech %}
+    <p class="muted">
+      Also imports for the <a href="{{ url_for('backline') }}">backline dashboard</a>:
+      {{ plan.tech.patch | length }} patch rows,
+      {{ plan.tech.iem_rf | length }} IEM RF assignments,
+      {{ plan.tech.legend | length }} MyMix channels,
+      {{ plan.tech.mixers | length }} personal mixers.
+    </p>
+  {% endif %}
   <form method="post" action="{{ url_for('admin_import_apply') }}">
-    <input type="hidden" name="plan_json" value='{{ plan.assignments | tojson | forceescape }}'>
+    <input type="hidden" name="plan_json" value='{{ plan | tojson | forceescape }}'>
     <button type="submit" class="btn-primary"
             onclick="return confirm('Apply these assignments to the slots? This replaces the current week.')">
       Apply to slots

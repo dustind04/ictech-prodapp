@@ -706,6 +706,74 @@ input:focus, select:focus {
   .wall-groups { flex-direction: column; }
 }
 
+/* =================================================================
+   /backline — engineer dashboard. Dense, monospace, no decoration.
+   ================================================================= */
+.backline-body {
+  background: #161616;
+  color: #D8D8D3;
+  font-family: ui-monospace, 'Cascadia Mono', 'Consolas', 'JetBrains Mono', monospace;
+}
+.backline-main {
+  padding: 18px 24px 28px;
+  max-width: 1900px;
+}
+.bl-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 2px solid #D8D8D3;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bl-title { font-size: 22px; font-weight: 700; letter-spacing: 0.18em; color: #fff; }
+.bl-dot { color: var(--green); }
+.bl-meta { font-size: 13px; color: #9a9a94; }
+.bl-empty { color: #9a9a94; font-size: 14px; }
+.bl-cols { display: flex; gap: 28px; align-items: flex-start; }
+.bl-main-col { flex: 3; min-width: 0; }
+.bl-side-col { flex: 1; min-width: 260px; }
+.bl-h {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--green);
+  margin: 18px 0 6px;
+}
+.bl-main-col .bl-h:first-child, .bl-side-col .bl-h:first-child { margin-top: 0; }
+.bl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.bl-table th {
+  text-align: left;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: #77776f;
+  border-bottom: 1px solid #3A3A3A;
+  padding: 3px 8px 4px 0;
+  white-space: nowrap;
+}
+.bl-table td {
+  padding: 2.5px 8px 2.5px 0;
+  border-bottom: 1px solid #242424;
+  vertical-align: top;
+}
+.bl-table tbody tr:nth-child(even) td { background: #1B1B1A; }
+.bl-src { color: #fff; font-weight: 700; }
+.bl-num { font-variant-numeric: tabular-nums; color: #D8D8D3; }
+.bl-ph { color: var(--green); font-weight: 700; white-space: nowrap; }
+.bl-note { color: #C9A44A; }
+.bl-unpatched td { color: #55554f; }
+.bl-unpatched .bl-src { color: #55554f; font-weight: 400; }
+@media (max-width: 1100px) {
+  .bl-cols { flex-direction: column; }
+}
+
 /* ----- Photo upload widgets (person edit page) ----- */
 .photo-edit {
   display: grid;

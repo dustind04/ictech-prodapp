@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Backline — icTech Services{% endblock %}
+{% block body_class %}backline-body{% endblock %}
+{% block main_class %}backline-main{% endblock %}
+{% block chrome %}{% endblock %}
+
+{% block content %}
+{# Deliberately dense and technical: monospace, zebra tables, no photos.
+   Data comes from the weekly Input List import; this page re-renders
+   itself every 60s so a mid-week re-import shows up unattended. #}
+<meta http-equiv="refresh" content="60">
+
+<div class="bl-header">
+  <div class="bl-title">BACKLINE<span class="bl-dot">.</span></div>
+  <div class="bl-meta">
+    {% if import_source %}Sunday: {{ import_source }}{% else %}No import yet{% endif %}
+    {% if import_at %} · imported {{ import_at }} UTC{% endif %}
+    · {{ patch | length }} inputs · {{ phantom_count }} phantom
+    · <span id="bl-clock">—</span>
+  </div>
+</div>
+
+{% if not patch %}
+  <p class="bl-empty">No patch data. Run the weekly import (Admin → Weekly import) and this page fills itself.</p>
+{% else %}
+<div class="bl-cols">
+  <section class="bl-main-col">
+    <h2 class="bl-h">PATCH LIST</h2>
+    <table class="bl-table">
+      <thead>
+        <tr><th>SNAKE</th><th>FOH</th><th>SOURCE</th><th>MIC / DI</th><th>48V</th>
+            <th>MUTE</th><th>MYMIX</th><th>#</th><th>ROUTE</th><th>NOTES</th></tr>
+      </thead>
+      <tbody>
+        {% for p in patch %}
+        <tr class="{{ 'bl-unpatched' if not p.instrument }}">
+          <td>{{ p.snake_ch or '' }}</td>
+          <td class="bl-num">{{ p.foh_ch if p.foh_ch is not none else '' }}</td>
+          <td class="bl-src">{{ p.instrument or '·' }}</td>
+          <td>{{ p.mic or '' }}</td>
+          <td class="bl-ph">{{ '48V' if p.phantom else '' }}</td>
+          <td class="bl-num">{{ p.mute_grp or '' }}</td>
+          <td>{{ p.mymix_ch or '' }}</td>
+          <td class="bl-num">{{ p.mymix_num if p.mymix_num is not none else '' }}</td>
+          <td>{{ p.mymix_route or '' }}</td>
+          <td class="bl-note">{{ p.info or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bl-side-col">
+    <h2 class="bl-h">IEM RF</h2>
+    <table class="bl-table">
+      <thead><tr><th>IEM</th><th>RF</th><th>PATH</th><th>WEARER</th></tr></thead>
+      <tbody>
+        {% for r in iem_rf %}
+        <tr>
+          <td>{{ r.iem }}</td><td class="bl-ph">{{ r.rf or '' }}</td>
+          <td>{{ r.path or '' }}</td><td class="bl-src">{{ r.owner or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2 class="bl-h">MYMIX CHANNELS</h2>
+    <table class="bl-table">
+      <thead><tr><th>CH</th><th>FEED</th><th>SOURCE</th></tr></thead>
+      <tbody>
+        {% for l in legend %}
+        <tr><td class="bl-num">{{ l.ch }}</td><td class="bl-src">{{ l.label or '' }}</td>
+            <td>{{ l.source or '' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2 class="bl-h">PERSONAL MIXERS</h2>
+    <table class="bl-table">
+      <thead><tr><th>MIXER</th><th>OWNER</th></tr></thead>
+      <tbody>
+        {% for m in mixers %}
+        <tr><td>{{ m.mixer }}</td><td class="bl-src">{{ m.owner or '—' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endif %}
+
+<script>
+  setInterval(() => {
+    const el = document.getElementById('bl-clock');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-US',
+      { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  }, 1000);
+</script>
+{% endblock %}
