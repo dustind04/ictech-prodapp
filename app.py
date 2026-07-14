@@ -498,10 +498,12 @@ def register_admin_routes(app: Flask) -> None:
         db = get_db(db_path)
         channels = db.execute(
             """SELECT c.*, wm.family AS wm_family, wm.model AS wm_model,
-                      cm.brand AS cm_brand, cm.model AS cm_model
+                      cm.brand AS cm_brand, cm.model AS cm_model,
+                      rm.model AS rm_model
                  FROM channel c
                  LEFT JOIN wireless_model wm ON wm.id = c.wireless_model_id
                  LEFT JOIN capsule_model cm ON cm.id = c.capsule_model_id
+                 LEFT JOIN wireless_model rm ON rm.id = c.receiver_model_id
                 WHERE c.archived=0 ORDER BY c.kind, c.label"""
         ).fetchall()
         return render_template(
@@ -523,12 +525,15 @@ def register_admin_routes(app: Flask) -> None:
             return redirect(url_for("admin_channels"))
         values = _channel_form_values(request.form, label, kind)
         _validate_gear_ids(db, values)
+        values["shure_type"] = _derive_shure_type(db, values["receiver_model_id"])
         db.execute(
             """INSERT INTO channel
                  (label, kind, shure_ip, shure_channel_name, shure_type,
-                  capsule, frequency_mhz, wireless_model_id, capsule_model_id)
+                  capsule, frequency_mhz, wireless_model_id, capsule_model_id,
+                  receiver_model_id)
                VALUES (:label, :kind, :shure_ip, :shure_channel_name, :shure_type,
-                       :capsule, :frequency_mhz, :wireless_model_id, :capsule_model_id)""",
+                       :capsule, :frequency_mhz, :wireless_model_id, :capsule_model_id,
+                       :receiver_model_id)""",
             values,
         )
         db.commit()
@@ -572,6 +577,7 @@ def register_admin_routes(app: Flask) -> None:
             return redirect(url_for("admin_channels_edit", channel_id=channel_id))
         values = _channel_form_values(request.form, label, kind)
         _validate_gear_ids(db, values)
+        values["shure_type"] = _derive_shure_type(db, values["receiver_model_id"])
         values["id"] = channel_id
         db.execute(
             """UPDATE channel SET
@@ -579,6 +585,7 @@ def register_admin_routes(app: Flask) -> None:
                  shure_ip=:shure_ip, shure_channel_name=:shure_channel_name, shure_type=:shure_type,
                  capsule=:capsule, frequency_mhz=:frequency_mhz,
                  wireless_model_id=:wireless_model_id, capsule_model_id=:capsule_model_id,
+                 receiver_model_id=:receiver_model_id,
                  updated_at=datetime('now')
                WHERE id=:id""",
             values,
@@ -972,7 +979,28 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
         "frequency_mhz": _opt_float("frequency_mhz"),
         "wireless_model_id": _opt_int("wireless_model_id"),
         "capsule_model_id": _opt_int("capsule_model_id"),
+        "receiver_model_id": _opt_int("receiver_model_id"),
     }
+
+
+# Receiver family -> network protocol family for the polling worker.
+_FAMILY_PROTOCOL = {
+    "ULX-D": "ulxd",
+    "QLX-D": "qlxd",
+    "Axient Digital": "axtd",
+    "PSM 1000": "p10t",
+    "UHF-R (legacy)": "uhfr",
+}
+
+
+def _derive_shure_type(db, receiver_model_id):
+    """Protocol family from the chosen receiver, or None when the
+    receiver family has no network control we speak."""
+    if receiver_model_id is None:
+        return None
+    row = db.execute("SELECT family FROM wireless_model WHERE id=?",
+                     (receiver_model_id,)).fetchone()
+    return _FAMILY_PROTOCOL.get(row["family"]) if row else None
 
 
 def _validate_gear_ids(db, values: dict) -> None:
@@ -980,6 +1008,7 @@ def _validate_gear_ids(db, values: dict) -> None:
     for col, table in (
         ("wireless_model_id", "wireless_model"),
         ("capsule_model_id", "capsule_model"),
+        ("receiver_model_id", "wireless_model"),
     ):
         if values[col] is not None:
             row = db.execute(f"SELECT 1 FROM {table} WHERE id=?", (values[col],)).fetchone()

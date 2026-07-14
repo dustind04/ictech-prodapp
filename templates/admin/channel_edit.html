@@ -75,11 +75,11 @@
     <h3 class="subhead">Network info</h3>
     <div class="form-row">
       <label>
-        Shure receiver type
-        <select name="shure_type">
+        Receiver <span class="hint">(the rack unit this channel lives on)</span>
+        <select name="receiver_model_id">
           <option value="">—</option>
-          {% for t in shure_types %}
-            <option value="{{ t }}" {{ 'selected' if channel.shure_type == t }}>{{ shure_type_labels[t] }}</option>
+          {% for m in wireless_models if m.kind == 'receiver' %}
+            <option value="{{ m.id }}" {{ 'selected' if channel.receiver_model_id == m.id }}>{{ m.model }} — {{ m.family }}</option>
           {% endfor %}
         </select>
       </label>
