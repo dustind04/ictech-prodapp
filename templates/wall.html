@@ -342,6 +342,12 @@
   }
 
   function svgPack(color, iem) {
+    // MIC beltpacks and IEM receivers are visually identical hardware —
+    // stamp the role on the battery-door tape, in whichever text color
+    // contrasts with the tape.
+    const n = parseInt((color || '#8A8A84').slice(1), 16);
+    const lum = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+    const ink = lum > 145 ? '#1F1F1F' : '#FFFFFF';
     return `<svg class="gear gear-pack" viewBox="0 0 120 158">
       ${iem ? `<path d="M28,30 Q18,10 34,6" stroke="#222" stroke-width="4" fill="none"/>
                <circle cx="35" cy="6" r="5" fill="#2E2E2E"/>`
@@ -357,6 +363,9 @@
             transform="rotate(-2.5 60 129)"/>
       <rect x="18" y="120" width="84" height="6" rx="2" fill="rgba(255,255,255,0.18)"
             transform="rotate(-2.5 60 129)"/>
+      <text x="60" y="134" transform="rotate(-2.5 60 129)" text-anchor="middle"
+            font-size="13" font-weight="800" letter-spacing="3"
+            fill="${ink}">${iem ? 'IEM' : 'MIC'}</text>
     </svg>`;
   }
 
