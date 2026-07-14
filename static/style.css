@@ -615,8 +615,8 @@ input:focus, select:focus {
   align-self: flex-start;
 }
 .slot-photo {
-  width: calc(88 * var(--u));
-  height: calc(88 * var(--u));
+  width: calc(78 * var(--u));
+  height: calc(78 * var(--u));
   border-radius: 50%;
   background: var(--green);
   background-size: cover;
@@ -815,18 +815,18 @@ input:focus, select:focus {
   align-items: center;
   justify-content: center;
   gap: calc(10 * var(--u));
-  min-height: calc(120 * var(--u));
-  padding: calc(8 * var(--u)) 0;
+  min-height: calc(90 * var(--u));
+  padding: calc(6 * var(--u)) 0;
 }
 .gear {
   flex-shrink: 0;
   filter: drop-shadow(0 calc(6 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, 0.5));
 }
-.gear-hh { height: calc(160 * var(--u)); width: auto; }
-.gear-pack { height: calc(118 * var(--u)); width: auto; }
-.gear-pack.gear-small { height: calc(84 * var(--u)); }
+.gear-hh { height: calc(132 * var(--u)); width: auto; }
+.gear-pack { height: calc(100 * var(--u)); width: auto; }
+.gear-pack.gear-small { height: calc(72 * var(--u)); }
 .gear-emoji {
-  font-size: calc(84 * var(--u));
+  font-size: calc(72 * var(--u));
   line-height: 1;
   transform: rotate(-8deg);
   filter: drop-shadow(0 calc(5 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.55));
@@ -840,7 +840,7 @@ input:focus, select:focus {
   gap: calc(2 * var(--u));
 }
 .gear-oe img {
-  height: calc(104 * var(--u));
+  height: calc(88 * var(--u));
   width: auto;
   filter: drop-shadow(0 calc(5 * var(--u)) calc(9 * var(--u)) rgba(0, 0, 0, 0.55));
 }
