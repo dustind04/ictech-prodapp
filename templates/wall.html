@@ -636,10 +636,12 @@
       };
       const micParts = [];
       if (slot.mic_label) micParts.push(slot.mic_label);
-      // WWB channel name — but not when it just repeats what the IEM
-      // Channel row already says (vocalists' Vox 1..4).
+      // WWB channel name — but not when it just repeats what the tile
+      // already says: vocalists' Vox 1..4 (IEM Channel row) and the
+      // speakers' Host/Sermon names (role line) stay suppressed.
       if (slot.mic_shure_channel_name) {
-        if (!mixes.includes(slot.mic_shure_channel_name)) micParts.push(slot.mic_shure_channel_name);
+        if (slot.kind !== 'mic_only' && !mixes.includes(slot.mic_shure_channel_name))
+          micParts.push(slot.mic_shure_channel_name);
       }
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       // Instruments land in the board through a DI/rig, not a mic —
