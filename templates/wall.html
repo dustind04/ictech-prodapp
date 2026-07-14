@@ -31,6 +31,10 @@
   </div>
 </div>
 
+{# Tech team strip: who's behind the controls, visible from stage.
+   Fills from tech seats (17-22); hides itself when nobody's assigned. #}
+<div class="tech-strip" id="tech-strip"></div>
+
 {# Slots are rendered client-side after the first /api/state call so the
    wall view reflects fresh data within 2s of any admin edit. We render
    a skeleton here so the page isn't blank during the first paint.
@@ -236,6 +240,9 @@
       slot_label: 'Elec 1', mymix_channel: 'Elec 1', iem_label: 'Pack 5' },
     { bank_order: 15, kind: 'band', slot_label: 'Acous' },
     { bank_order: 16, kind: 'band', slot_label: 'Synth' },
+    { bank_order: 17, kind: 'tech', person_id: 912, person_name: 'Kevin C.', slot_label: 'FOH' },
+    { bank_order: 18, kind: 'tech', person_id: 913, person_name: 'Jim R.', slot_label: 'MyMix' },
+    { bank_order: 19, kind: 'tech', person_id: 914, person_name: 'Emerick D.', slot_label: 'Lyrics' },
   ];
 
   // Pull /api/state and re-render the grid every 2 seconds.
@@ -369,9 +376,37 @@
     el.querySelector('strong').textContent = leader ? leader.name : '—';
   }
 
+  // The tech strip under the header: photo chip + name + role for
+  // every assigned tech seat. Hidden entirely when none are filled.
+  function renderTech(slots) {
+    const strip = document.getElementById('tech-strip');
+    if (!strip) return;
+    const techs = slots.filter(s => s.kind === 'tech' && s.person_id);
+    strip.style.display = techs.length ? '' : 'none';
+    strip.innerHTML = techs.length ? '<span class="tech-strip-label">Tech</span>' : '';
+    for (const t of techs) {
+      const chip = document.createElement('span');
+      chip.className = 'tech-chip';
+      const photo = document.createElement('span');
+      photo.className = 'tech-photo';
+      const name = t.person_nickname || t.person_name;
+      if (t.photo_url) photo.style.backgroundImage = `url('${t.photo_url}')`;
+      else photo.textContent = initials(name);
+      const nm = document.createElement('span');
+      nm.className = 'tech-name';
+      nm.textContent = name;
+      const role = document.createElement('span');
+      role.className = 'tech-role';
+      role.textContent = t.slot_label || '';
+      chip.append(photo, nm, role);
+      strip.appendChild(chip);
+    }
+  }
+
   function render(slots, leader) {
     const grid = document.getElementById('slot-grid');
     if (!grid) return;
+    renderTech(slots);
 
     // Someone on both a vocal slot and a speaker/band slot lands with
     // the vocalists: their other tile folds away and the vocal tile

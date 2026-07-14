@@ -333,6 +333,7 @@ input:focus, select:focus {
 .badge-paired   { background: var(--green-soft); color: var(--green-dark); }
 .badge-mic_only { background: rgba(31, 31, 31, 0.04); color: var(--text-muted); }
 .badge-band     { background: rgba(31, 31, 31, 0.08); color: var(--text); }
+.badge-tech     { background: rgba(122, 182, 72, 0.14); color: var(--green-dark); }
 
 /* ----- Slot edit grid (admin/slots) ----- */
 .slot-edit-grid {
@@ -655,6 +656,60 @@ input:focus, select:focus {
   border-color: transparent;
   color: #555;
 }
+/* Tech team strip: who's behind the controls. Slim chip row between
+   the header and the zones; hides when no tech seats are filled. */
+.tech-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(12 * var(--u));
+  margin: calc(-6 * var(--u)) 0 calc(16 * var(--u));
+  min-height: calc(38 * var(--u));
+}
+.tech-strip-label {
+  font-size: calc(12 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-right: calc(4 * var(--u));
+}
+.tech-strip-label::after { content: '.'; color: #fff; }
+.tech-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  background: #161616;
+  border: calc(1 * var(--u)) solid #333;
+  border-radius: 999px;
+  padding: calc(3 * var(--u)) calc(14 * var(--u)) calc(3 * var(--u)) calc(4 * var(--u));
+}
+.tech-photo {
+  width: calc(30 * var(--u));
+  height: calc(30 * var(--u));
+  border-radius: 50%;
+  background: var(--green) center/cover no-repeat;
+  color: #fff;
+  font-size: calc(11 * var(--u));
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tech-name {
+  font-size: calc(14 * var(--u));
+  font-weight: 700;
+  color: #eee;
+}
+.tech-role {
+  font-size: calc(11 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a8a84;
+}
+
 /* The gear space: fills the flexible middle of the tile with product
    renders (handheld = color band at the windscreen joint; packs =
    colored tape on the battery door) and instrument characters for the
