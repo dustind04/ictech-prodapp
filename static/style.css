@@ -659,13 +659,17 @@ input:focus, select:focus {
   flex: 1;
   width: 100%;
   display: flex;
+  flex-wrap: wrap;               /* crowded tiles stack gear, never crush it */
   align-items: center;
   justify-content: center;
   gap: calc(10 * var(--u));
   min-height: calc(120 * var(--u));
   padding: calc(8 * var(--u)) 0;
 }
-.gear { filter: drop-shadow(0 calc(6 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, 0.5)); }
+.gear {
+  flex-shrink: 0;
+  filter: drop-shadow(0 calc(6 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, 0.5));
+}
 .gear-hh { height: calc(160 * var(--u)); width: auto; }
 .gear-pack { height: calc(118 * var(--u)); width: auto; }
 .gear-pack.gear-small { height: calc(84 * var(--u)); }
