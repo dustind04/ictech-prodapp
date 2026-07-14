@@ -33,6 +33,26 @@ Make the URLs permanent first, then they're typed exactly once:
    one that matches the screen, then set it as the browser home page /
    bookmark. Done forever.
 
+### Roku TVs — the icTech channel
+
+Rokus have no browser, so they get a native channel that shows live
+JPEG snapshots of the displays (rendered by the `snapshotter` container
+every 4s at 1080p).
+
+One-time per TV (~2 min): enable Developer Mode — press Home ×3,
+Up ×2, Right, Left, Right, Left, Right — set a dev password, accept
+the agreement, note the TV's IP. Then from the backstage PC:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\roku-deploy.ps1 -Password <devpass>
+```
+
+The script bakes this PC's address into the channel, finds every Roku
+on the LAN, and installs/updates the **icTech** channel tile on each.
+First launch on a TV asks "WHICH DISPLAY IS THIS?" — pick with the
+remote; the choice sticks forever (press `*` to change it). Re-run the
+same script any time to push channel updates to all TVs at once.
+
 Cheat sheet of the short URLs:
 
 | Display | URL |

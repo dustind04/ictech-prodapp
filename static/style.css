@@ -386,7 +386,7 @@ input:focus, select:focus {
 .wall-main {
   width: 100vw;
   min-height: 100vh;
-  padding: calc(24 * var(--u)) calc(32 * var(--u)) calc(32 * var(--u));
+  padding: calc(20 * var(--u)) calc(32 * var(--u)) calc(14 * var(--u));
   display: flex;
   flex-direction: column;
 }

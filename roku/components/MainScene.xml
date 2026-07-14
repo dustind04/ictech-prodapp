@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="MainScene" extends="Scene">
+  <script type="text/brightscript" uri="pkg:/components/MainScene.brs"/>
+  <script type="text/brightscript" uri="pkg:/source/config.brs"/>
+  <children>
+    <Rectangle id="bg" width="1920" height="1080" color="0x0B0B0BFF"/>
+    <!-- Double-buffered posters: the hidden one loads the next frame,
+         then they swap — no flicker between snapshots. -->
+    <Poster id="posterA" width="1920" height="1080" loadDisplayMode="scaleToFit" visible="false"/>
+    <Poster id="posterB" width="1920" height="1080" loadDisplayMode="scaleToFit" visible="false"/>
+    <Label id="status" width="1920" height="60" translation="[0,990]"
+           horizAlign="center" color="0x8A8A84FF" font="font:MediumSystemFont"/>
+    <Label id="pickerTitle" width="1920" translation="[0,220]" horizAlign="center"
+           text="WHICH DISPLAY IS THIS?" color="0xFFFFFFFF"
+           font="font:LargeBoldSystemFont" visible="false"/>
+    <LabelList id="picker" translation="[610,340]" itemSize="[700,96]" visible="false"/>
+    <Timer id="refresh" duration="4" repeat="true"/>
+  </children>
+</component>
