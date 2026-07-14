@@ -1,5 +1,6 @@
-' Server base URL — the __SERVER_BASE__ placeholder is rewritten by
-' scripts/roku-deploy.ps1 at packaging time (e.g. http://192.168.1.50).
+' Server base URL. scripts/roku-deploy.ps1 rewrites the quoted token
+' below at packaging time with the backstage PC address (plain ASCII
+' comment on purpose: the file is re-encoded during packaging).
 function GetServerBase() as String
     return "__SERVER_BASE__"
 end function
