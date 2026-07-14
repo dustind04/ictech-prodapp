@@ -45,4 +45,46 @@
     <div class="card-hint">Weekly files in · stage plot out</div>
   </a>
 </div>
+
+<section class="form-card" style="margin-top: 24px">
+  <h2>Reference — display links</h2>
+  <p class="muted">Links resolve against wherever you're viewing this page, so copies
+    from the backstage PC give LAN URLs and copies from the tunnel give shareable ones.</p>
+  <table class="data-table" id="ref-links">
+    <tbody>
+      <tr><td>TV setup picker</td><td><code data-path="/tv"></code></td><td></td></tr>
+      <tr><td>Dashboard (main wall)</td><td><code data-path="/"></code></td><td></td></tr>
+      <tr><td>Simple Micboard</td><td><code data-path="/mb"></code></td><td></td></tr>
+      <tr><td>Tech dashboard</td><td><code data-path="/tech"></code></td><td></td></tr>
+      <tr><td>Stage plot (SVG)</td><td><code data-path="/admin/export/stageplot.svg"></code></td><td></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<script>
+  // Fill each row with an absolute URL from the current origin and add
+  // a copy button. navigator.clipboard needs HTTPS; plain-HTTP LAN
+  // viewing falls back to the textarea/execCommand trick.
+  function copyText(text, btn) {
+    const done = () => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); done();
+    }
+  }
+  document.querySelectorAll('#ref-links code[data-path]').forEach(code => {
+    const url = window.location.origin + code.dataset.path;
+    code.textContent = url;
+    const btn = document.createElement('button');
+    btn.textContent = 'Copy';
+    btn.className = 'btn-secondary btn-small';
+    btn.type = 'button';
+    btn.addEventListener('click', () => copyText(url, btn));
+    code.closest('tr').lastElementChild.appendChild(btn);
+  });
+</script>
 {% endblock %}
