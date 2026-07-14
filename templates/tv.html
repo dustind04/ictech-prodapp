@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}TV setup — icTech Services{% endblock %}
+{% block body_class %}wall-body{% endblock %}
+{% block chrome %}{% endblock %}
+
+{% block content %}
+{# One-time display setup: whoever is holding the TV remote types just
+   the host, then taps one giant button. #}
+<style>
+  .tv-wrap { min-height: 100vh; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; gap: 3vh; padding: 4vh; }
+  .tv-title { font-size: 4vh; font-weight: 900; color: #fff; }
+  .tv-title span { color: var(--green); }
+  .tv-sub { color: #8a8a84; font-size: 2vh; margin-bottom: 2vh; }
+  .tv-btn { display: block; width: min(80vw, 900px); padding: 4.5vh 0;
+            border-radius: 2vh; text-align: center; text-decoration: none;
+            font-size: 4.5vh; font-weight: 800; letter-spacing: 0.04em;
+            background: #262626; color: #fff; border: 0.4vh solid #3A3A3A; }
+  .tv-btn:hover, .tv-btn:focus { border-color: var(--green); }
+  .tv-btn small { display: block; font-size: 1.8vh; font-weight: 600;
+                  color: #8a8a84; margin-top: 0.6vh; letter-spacing: 0.1em; }
+</style>
+<div class="tv-wrap">
+  <div class="tv-title">WHICH DISPLAY IS THIS<span>?</span></div>
+  <div class="tv-sub">Tap one — then bookmark it or set it as the browser home page.</div>
+  <a class="tv-btn" href="{{ url_for('wall_display') }}">DASHBOARD
+    <small>MAIN BACKSTAGE WALL</small></a>
+  <a class="tv-btn" href="{{ url_for('micboard_display') }}">SIMPLE MICBOARD
+    <small>ABOVE THE CHARGER BANKS</small></a>
+  <a class="tv-btn" href="{{ url_for('techdashboard') }}">TECH DASHBOARD
+    <small>PATCH · RF · ROUTING</small></a>
+</div>
+{% endblock %}

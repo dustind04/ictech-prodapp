@@ -17,9 +17,12 @@ services:
     image: ictech:backstage
     container_name: ictech
     ports:
-      # Host port picked by scripts/start-backstage.ps1 (8058, or the
-      # next free one if something already owns it).
-      - '${ICTECH_PORT:-8058}:8058'
+      # Primary = port 80 so TV URLs need no port at all
+      # (http://ictech/micboard). start-backstage.ps1 probes and pins
+      # an alternative in .env only if 80 is taken. 8058 stays mapped
+      # as a permanent secondary so that URL always works too.
+      - '${ICTECH_PORT:-80}:8058'
+      - '8058:8058'
     volumes:
       - ./data:/data
     environment:

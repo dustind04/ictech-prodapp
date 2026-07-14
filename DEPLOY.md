@@ -20,8 +20,29 @@ if something already owns it), **pins it in `.env` so the TVs' URLs
 never move**, stamps the build with the git commit for the in-app
 update check, and prints the display URLs when it's up.
 
-- Displays: point each TV/kiosk browser at the printed URLs
-  (`http://<pc-ip>:<port>/`, `/micboard`, `/techdashboard`). F11.
+### One-time TV setup
+
+Make the URLs permanent first, then they're typed exactly once:
+
+1. **Rename the PC to `ictech`** (Settings → System → Rename) and give
+   it a **static IP or DHCP reservation** — the two things that would
+   ever break a bookmarked TV.
+2. The stack serves on **port 80**, so URLs need no port number.
+3. On each TV, type just: **`http://ictech/tv`** (or the IP if the name
+   doesn't resolve: `http://<pc-ip>/tv`). Big buttons come up — tap the
+   one that matches the screen, then set it as the browser home page /
+   bookmark. Done forever.
+
+Cheat sheet of the short URLs:
+
+| Display | URL |
+|---|---|
+| Setup picker | `http://ictech/tv` |
+| Dashboard (main wall) | `http://ictech/` |
+| Simple Micboard | `http://ictech/mb` |
+| Tech dashboard | `http://ictech/tech` |
+
+(`/micboard`, `/techdashboard`, and `:8058` also always work.)
 - **Updates**: the Admin page checks GitHub hourly and shows a banner
   when a newer version exists; run `scripts\update.ps1` to pull and
   relaunch (data and port are untouched).

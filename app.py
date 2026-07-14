@@ -164,6 +164,22 @@ def register_display_routes(app: Flask) -> None:
         """The evolving display view (auto-collapse and onward)."""
         return render_template("wall.html")
 
+    # Short aliases — every character hurts on a TV remote.
+    @app.route("/mb")
+    def mb_alias():
+        return redirect(url_for("micboard_display"))
+
+    @app.route("/tech")
+    @app.route("/td")
+    def tech_alias():
+        return redirect(url_for("techdashboard"))
+
+    @app.route("/tv")
+    def tv_picker():
+        """One-time TV setup page: type the host, tap a big button.
+        Each display bookmarks/lands itself from here."""
+        return render_template("tv.html")
+
     @app.route("/backline")
     def backline_redirect():
         return redirect(url_for("techdashboard"))
