@@ -626,7 +626,11 @@
       };
       const micParts = [];
       if (slot.mic_label) micParts.push(slot.mic_label);
-      if (slot.mic_shure_channel_name) micParts.push(slot.mic_shure_channel_name);
+      // WWB channel name — but not when it just repeats what the IEM
+      // Channel row already says (vocalists' Vox 1..4).
+      if (slot.mic_shure_channel_name) {
+        if (!mixes.includes(slot.mic_shure_channel_name)) micParts.push(slot.mic_shure_channel_name);
+      }
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
       // Instruments land in the board through a DI/rig, not a mic —
       // show that input (Kemper, Avalon DI, Kit Mics) from the patch.
