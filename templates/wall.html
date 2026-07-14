@@ -18,6 +18,9 @@
   <div class="wall-greeting-block">
     {# The main mark. The countdown pill covers rehearsal-vs-Sunday. #}
     <div class="wall-home-mark">Welcome home</div>
+    {# The backstage manager hosts this room — the face between tech
+       and everyone on stage. They get the spot under the mark. #}
+    <div class="backstage-host" id="backstage-host"></div>
   </div>
   <div class="wall-meta-block">
     {# Everything that changes week to week lives in this one panel. #}
@@ -379,30 +382,45 @@
     el.querySelector('strong').textContent = leader ? leader.name : '—';
   }
 
-  // The tech strip under the header: photo chip + name + role for
-  // every assigned tech seat. Hidden entirely when none are filled.
+  // Tech team, two tiers. The Backstage manager hosts this room — they
+  // sit alone under the Welcome home mark. The rest of the crew rides
+  // the strip below, with the Service Director highlighted: in charge
+  // from the tech side the way the music leader is on stage.
+  function techChip(t, big) {
+    const chip = document.createElement('span');
+    chip.className = big ? 'tech-chip bs-chip' : 'tech-chip';
+    if (!big && /service/i.test(t.slot_label || '')) chip.classList.add('tech-chip-lead');
+    const photo = document.createElement('span');
+    photo.className = 'tech-photo';
+    const name = t.person_nickname || t.person_name;
+    if (t.photo_url) photo.style.backgroundImage = `url('${t.photo_url}')`;
+    else photo.textContent = initials(name);
+    const nm = document.createElement('span');
+    nm.className = 'tech-name';
+    nm.textContent = name;
+    const role = document.createElement('span');
+    role.className = 'tech-role';
+    role.textContent = t.slot_label || '';
+    chip.append(photo, nm, role);
+    return chip;
+  }
+
   function renderTech(slots) {
     const strip = document.getElementById('tech-strip');
-    if (!strip) return;
+    const host = document.getElementById('backstage-host');
     const techs = slots.filter(s => s.kind === 'tech' && s.person_id);
-    strip.style.display = techs.length ? '' : 'none';
-    strip.innerHTML = techs.length ? '<span class="tech-strip-label">Tech</span>' : '';
-    for (const t of techs) {
-      const chip = document.createElement('span');
-      chip.className = 'tech-chip';
-      const photo = document.createElement('span');
-      photo.className = 'tech-photo';
-      const name = t.person_nickname || t.person_name;
-      if (t.photo_url) photo.style.backgroundImage = `url('${t.photo_url}')`;
-      else photo.textContent = initials(name);
-      const nm = document.createElement('span');
-      nm.className = 'tech-name';
-      nm.textContent = name;
-      const role = document.createElement('span');
-      role.className = 'tech-role';
-      role.textContent = t.slot_label || '';
-      chip.append(photo, nm, role);
-      strip.appendChild(chip);
+    const isBackstage = t => /backstage/i.test(t.slot_label || '');
+    const bs = techs.find(isBackstage);
+    const rest = techs.filter(t => !isBackstage(t));
+    if (host) {
+      host.innerHTML = '';
+      host.style.display = bs ? '' : 'none';
+      if (bs) host.appendChild(techChip(bs, true));
+    }
+    if (strip) {
+      strip.style.display = rest.length ? '' : 'none';
+      strip.innerHTML = rest.length ? '<span class="tech-strip-label">Tech</span>' : '';
+      for (const t of rest) strip.appendChild(techChip(t, false));
     }
   }
 

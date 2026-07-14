@@ -501,26 +501,31 @@ input:focus, select:focus {
 .slot.rimmed::before {
   box-shadow: inset 0 calc(-1 * var(--u)) 0 rgba(255, 255, 255, 0.22);
 }
-/* This week's music leader: green border, subtle glow, corner tag.
-   A rim-less leader gets a green top bar; a rimmed one keeps the
-   channel color's bar. Layout never shifts. */
+/* This week's music leader: unmissable. Wide green border, green
+   interior highlight falling off toward the bottom, strong glow, big
+   corner tag. A rim-less leader gets a green top bar; a rimmed one
+   keeps the channel color's bar. Outer tile size never shifts. */
 .slot.leader {
-  border-color: var(--green);
-  box-shadow: 0 0 calc(18 * var(--u)) rgba(122, 182, 72, 0.30);
+  border: calc(3 * var(--u)) solid var(--green);
+  background: linear-gradient(180deg, rgba(122, 182, 72, 0.18),
+              rgba(122, 182, 72, 0.03) 60%), #262626;
+  box-shadow: 0 0 0 calc(1 * var(--u)) rgba(122, 182, 72, 0.45),
+              0 0 calc(34 * var(--u)) rgba(122, 182, 72, 0.45);
 }
 .slot.leader:not(.rimmed)::before { background: var(--green); }
 .slot.leader::after {
-  content: 'LEADER';
+  content: '♪ LEADER';
   position: absolute;
   top: calc(16 * var(--u));
   right: calc(10 * var(--u));
   background: var(--green);
   color: #fff;
-  font-size: calc(11 * var(--u));
+  font-size: calc(12 * var(--u));
   font-weight: 800;
   letter-spacing: 0.08em;
-  padding: calc(2 * var(--u)) calc(7 * var(--u));
+  padding: calc(3 * var(--u)) calc(9 * var(--u));
   border-radius: calc(4 * var(--u));
+  box-shadow: 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.4);
 }
 
 /* Three zones, one screen: Vocals | Band | Speakers. Zone widths are
@@ -709,6 +714,33 @@ input:focus, select:focus {
   text-transform: uppercase;
   color: #8a8a84;
 }
+/* The backstage host: alone under the Welcome home mark, larger. */
+.backstage-host {
+  display: flex;
+  justify-content: center;
+  margin-top: calc(8 * var(--u));
+  min-height: calc(44 * var(--u));
+}
+.tech-chip.bs-chip {
+  gap: calc(10 * var(--u));
+  padding: calc(4 * var(--u)) calc(18 * var(--u)) calc(4 * var(--u)) calc(5 * var(--u));
+  border-color: #4a4a4a;
+}
+.bs-chip .tech-photo {
+  width: calc(38 * var(--u));
+  height: calc(38 * var(--u));
+  font-size: calc(13 * var(--u));
+}
+.bs-chip .tech-name { font-size: calc(17 * var(--u)); }
+.bs-chip .tech-role { color: var(--green); font-size: calc(12 * var(--u)); }
+/* Service Director: in charge from the tech side — same green
+   highlight language as the music leader's tile. */
+.tech-chip-lead {
+  border-color: var(--green);
+  background: linear-gradient(180deg, rgba(122, 182, 72, 0.20), rgba(122, 182, 72, 0.05)), #161616;
+  box-shadow: 0 0 calc(14 * var(--u)) rgba(122, 182, 72, 0.4);
+}
+.tech-chip-lead .tech-role { color: var(--green); }
 
 /* The gear space: fills the flexible middle of the tile with product
    renders (handheld = color band at the windscreen joint; packs =
