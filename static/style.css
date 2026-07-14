@@ -750,21 +750,21 @@ input:focus, select:focus {
 }
 .tech-chip-lead .tech-role { color: var(--lead); }
 
-/* Pool | Channel: two permanent labeled cells under the name — where
-   you stand, and what channel(s) you are on the desk. Locked anatomy:
-   always present, dim em-dash when empty. */
+/* Pool then Channel: two permanent stacked rows under the name —
+   where you stand, then what channel(s) you are on the desk. Locked
+   anatomy: always present, dim em-dash when empty. */
 .slot-id {
-  display: flex;
   width: 100%;
   margin-bottom: calc(8 * var(--u));
 }
-.slot-id-cell {
-  flex: 1;
-  min-width: 0;
+.slot-id-row {
   text-align: center;
+  min-height: calc(34 * var(--u));
 }
-.slot-id-cell + .slot-id-cell {
-  border-left: calc(1 * var(--u)) solid #383838;
+.slot-id-row + .slot-id-row {
+  border-top: calc(1 * var(--u)) solid #383838;
+  padding-top: calc(4 * var(--u));
+  margin-top: calc(4 * var(--u));
 }
 .id-label {
   display: block;
@@ -777,11 +777,10 @@ input:focus, select:focus {
 }
 .id-value {
   display: block;
-  font-size: calc(14 * var(--u));
+  font-size: calc(15 * var(--u));
   font-weight: 800;
   color: #fff;
   line-height: 1.2;
-  min-height: calc(34 * var(--u));   /* two-line budget: "Vox 1 · Acous 1" */
   overflow-wrap: break-word;
   font-variant-numeric: tabular-nums;
 }
