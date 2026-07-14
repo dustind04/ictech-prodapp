@@ -433,6 +433,15 @@ def parse_tech_report(data: bytes) -> dict:
             date = m.group(1)
             break
 
+    # The service rundown (page 1) reuses words like 'Host' as section
+    # headers, so only harvest from the assignments region — it always
+    # opens with the 'Audio/Visual' category. Fall back to the whole
+    # document if the marker is ever missing.
+    for i, ln in enumerate(lines):
+        if ln.strip().lower() == "audio/visual":
+            lines = lines[i:]
+            break
+
     # Walk lines: known position names open a position, category headers
     # set context, capitalized name-shaped lines are the open position's
     # people. 'Vocals' is both category and position — checking position
