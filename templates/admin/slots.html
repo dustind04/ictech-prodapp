@@ -89,7 +89,8 @@
               <option value="{{ c.id }}" {{ 'selected' if slot.mic_channel_id == c.id }}>{{ c.label }}</option>
             {% endfor %}
           {% else %}
-            {% for c in beltpacks %}
+            {# Speakers use handhelds as often as beltpacks. #}
+            {% for c in handhelds + beltpacks %}
               <option value="{{ c.id }}" {{ 'selected' if slot.mic_channel_id == c.id }}>{{ c.label }}</option>
             {% endfor %}
           {% endif %}
