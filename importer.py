@@ -227,16 +227,19 @@ def _match_channel_by_tag(channels, tag: str, kinds: tuple):
 
 
 def _match_iem(channels, pack: str):
-    """'Pack 1' -> the IEM channel whose label carries the same number."""
+    """'Pack 1' -> the IEM channel whose label ENDS with that number.
+    The last number is the pack number — labels like 'IEM 900 Pack 1'
+    carry the PSM series number first."""
     digits = re.findall(r"\d+", pack)
     if not digits:
         return None
-    n = digits[0]
+    n = digits[-1]
     pool = [c for c in channels if c["kind"] == "iem"]
     for c in pool:
         if c["label"].lower() == pack.lower():
             return c
-    hits = [c for c in pool if re.findall(r"\d+", c["label"])[:1] == [n]]
+    hits = [c for c in pool
+            if (re.findall(r"\d+", c["label"]) or [None])[-1] == n]
     if len(hits) == 1:
         return hits[0]
     return None
