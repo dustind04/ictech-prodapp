@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.tag }} · {{ asset.name }} — icTech{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><code>{{ asset.tag }}</code></h1>
+    <p class="page-lead">{{ asset.name }}</p>
+  </div>
+  <span class="badge badge-{{ asset.status }}" style="font-size: 15px">{{ statuses[asset.status] }}</span>
+</div>
+
+<section class="form-card">
+  <table class="data-table">
+    <tbody>
+      <tr><td>Category</td><td>{{ asset.category }}</td></tr>
+      {% if asset.brand or asset.model %}
+        <tr><td>Make / model</td><td>{{ [asset.brand, asset.model]|select|join(' ') }}</td></tr>
+      {% endif %}
+      {% if asset.serial_number %}<tr><td>Serial</td><td><code>{{ asset.serial_number }}</code></td></tr>{% endif %}
+      {% if asset.location %}<tr><td>Location</td><td>{{ asset.location }}</td></tr>{% endif %}
+      {% if asset.channel_label %}<tr><td>Wireless channel</td><td>{{ asset.channel_label }}</td></tr>{% endif %}
+      {% if asset.purchase_date %}<tr><td>Purchased</td><td>{{ asset.purchase_date }}</td></tr>{% endif %}
+      {% if asset.notes %}<tr><td>Notes</td><td>{{ asset.notes }}</td></tr>{% endif %}
+      {% if asset.archived %}<tr><td>Archived</td><td>This asset has been retired from tracking.</td></tr>{% endif %}
+    </tbody>
+  </table>
+  <p style="margin-top: 12px">
+    <a class="btn-secondary" href="{{ url_for('admin_assets_edit', asset_id=asset.id) }}">Edit in admin</a>
+  </p>
+</section>
+{% endblock %}

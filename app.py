@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+from io import BytesIO
 from pathlib import Path
 
 from flask import (
@@ -34,6 +35,7 @@ from flask import (
     send_from_directory,
     url_for,
 )
+import segno
 from werkzeug.utils import secure_filename
 
 import importer
@@ -59,6 +61,24 @@ SHURE_TYPE_LABELS = {
     "p10t": "PSM 1000",
     "uhfr": "UHF-R",
 }
+
+# ---------------------------------------------------------------
+# Asset management. Statuses are the DB CHECK's values; categories
+# are only suggestions (free text in the schema by design).
+# ---------------------------------------------------------------
+ASSET_STATUSES = {
+    "in_service": "In service",
+    "storage":    "In storage",
+    "repair":     "In repair",
+    "loaned":     "Loaned out",
+    "missing":    "Missing",
+    "retired":    "Retired",
+}
+ASSET_CATEGORIES = [
+    "wireless", "iem", "microphone", "receiver", "console", "stagebox",
+    "di", "speaker", "monitor", "computer", "video", "lighting",
+    "cable", "stand", "case", "other",
+]
 
 # ---------------------------------------------------------------
 # Photo upload constraints.
@@ -204,6 +224,36 @@ def register_display_routes(app: Flask) -> None:
     @app.route("/backline")
     def backline_redirect():
         return redirect(url_for("techdashboard"))
+
+    # --- Asset scan targets (public: a phone scanning a gear label
+    # lands here; the LAN deployment has no auth in the way) ---
+    @app.route("/a/<tag>")
+    def asset_card(tag):
+        db = get_db(app.config["DATABASE_PATH"])
+        asset = db.execute(
+            """SELECT a.*, c.label AS channel_label FROM asset a
+               LEFT JOIN channel c ON c.id = a.channel_id
+               WHERE upper(a.tag)=upper(?)""", (tag,)).fetchone()
+        if not asset:
+            abort(404)
+        return render_template("asset_card.html", asset=asset,
+                               statuses=ASSET_STATUSES)
+
+    @app.route("/a/<tag>.svg")
+    def asset_qr(tag):
+        """QR code for a gear label. Encodes the absolute /a/<tag> URL
+        against whatever host serves the request, so labels printed off
+        the Pi point phones at the Pi."""
+        db = get_db(app.config["DATABASE_PATH"])
+        if not db.execute("SELECT 1 FROM asset WHERE upper(tag)=upper(?)",
+                          (tag,)).fetchone():
+            abort(404)
+        url = url_for("asset_card", tag=tag, _external=True)
+        buf = BytesIO()
+        segno.make(url, error="m").save(buf, kind="svg", scale=4, border=1,
+                                        dark="#1F1F1F")
+        return Response(buf.getvalue(), mimetype="image/svg+xml",
+                        headers={"Cache-Control": "max-age=86400"})
 
     @app.route("/techdashboard")
     def techdashboard():
@@ -393,6 +443,7 @@ def register_admin_routes(app: Flask) -> None:
             "people":   db.execute("SELECT COUNT(*) c FROM person  WHERE archived=0").fetchone()["c"],
             "channels": db.execute("SELECT COUNT(*) c FROM channel WHERE archived=0").fetchone()["c"],
             "positions": db.execute("SELECT COUNT(*) c FROM position WHERE archived=0").fetchone()["c"],
+            "assets":   db.execute("SELECT COUNT(*) c FROM asset   WHERE archived=0").fetchone()["c"],
             "assigned_slots": db.execute(
                 "SELECT COUNT(*) c FROM slot WHERE archived=0 AND person_id IS NOT NULL"
             ).fetchone()["c"],
@@ -726,6 +777,7 @@ def register_admin_routes(app: Flask) -> None:
             "slot": rows("slot"),
             "wireless_model": rows("wireless_model"),
             "capsule_model": rows("capsule_model"),
+            "asset": rows("asset"),
         })
 
     # --- Positions ---
@@ -876,6 +928,180 @@ def register_admin_routes(app: Flask) -> None:
         db.commit()
         flash(f"Slot {slot_id} updated.", "success")
         return redirect(url_for("admin_slots"))
+
+    # --- Assets ---
+    def _next_asset_tag(db) -> str:
+        """ICT-0001, ICT-0002, ... — highest existing number + 1,
+        archived rows included so a tag is never reissued."""
+        n = 0
+        for r in db.execute("SELECT tag FROM asset WHERE tag LIKE 'ICT-%'"):
+            digits = r["tag"][4:]
+            if digits.isdigit():
+                n = max(n, int(digits))
+        return f"ICT-{n + 1:04d}"
+
+    def _asset_form_values(form) -> dict:
+        def txt(name):
+            return (form.get(name) or "").strip() or None
+        price = txt("purchase_price")
+        try:
+            price = float(price) if price else None
+        except ValueError:
+            price = None
+        status = form.get("status") or "in_service"
+        if status not in ASSET_STATUSES:
+            status = "in_service"
+        return {
+            "name": txt("name"),
+            "category": (txt("category") or "other").lower(),
+            "brand": txt("brand"),
+            "model": txt("model"),
+            "serial_number": txt("serial_number"),
+            "status": status,
+            "location": txt("location"),
+            "channel_id": int(form["channel_id"]) if (form.get("channel_id") or "").isdigit() else None,
+            "purchase_date": txt("purchase_date"),
+            "purchase_price": price,
+            "notes": txt("notes"),
+        }
+
+    @app.route("/admin/assets")
+    def admin_assets():
+        db = get_db(db_path)
+        q = (request.args.get("q") or "").strip()
+        status = request.args.get("status") or ""
+        category = request.args.get("category") or ""
+        sql = """SELECT a.*, c.label AS channel_label FROM asset a
+                 LEFT JOIN channel c ON c.id = a.channel_id
+                 WHERE a.archived=0"""
+        params: list = []
+        if q:
+            sql += """ AND (a.tag LIKE ? OR a.name LIKE ? OR a.model LIKE ?
+                       OR a.serial_number LIKE ? OR a.location LIKE ?)"""
+            params += [f"%{q}%"] * 5
+        if status in ASSET_STATUSES:
+            sql += " AND a.status=?"
+            params.append(status)
+        if category:
+            sql += " AND a.category=?"
+            params.append(category)
+        assets = db.execute(sql + " ORDER BY a.tag", params).fetchall()
+        categories = [r["category"] for r in db.execute(
+            "SELECT DISTINCT category FROM asset WHERE archived=0 ORDER BY category")]
+        channels = db.execute(
+            "SELECT id, label FROM channel WHERE archived=0 ORDER BY label").fetchall()
+        unseeded = db.execute(
+            """SELECT COUNT(*) c FROM channel WHERE archived=0
+               AND id NOT IN (SELECT channel_id FROM asset WHERE channel_id IS NOT NULL)"""
+        ).fetchone()["c"]
+        return render_template(
+            "admin/assets.html", assets=assets, q=q, status=status,
+            category=category, categories=categories, channels=channels,
+            statuses=ASSET_STATUSES, category_suggestions=ASSET_CATEGORIES,
+            unseeded=unseeded, next_tag=_next_asset_tag(db))
+
+    @app.route("/admin/assets", methods=["POST"])
+    def admin_assets_create():
+        db = get_db(db_path)
+        v = _asset_form_values(request.form)
+        if not v["name"]:
+            flash("Name is required.", "error")
+            return redirect(url_for("admin_assets"))
+        tag = (request.form.get("tag") or "").strip().upper() or _next_asset_tag(db)
+        if db.execute("SELECT 1 FROM asset WHERE tag=?", (tag,)).fetchone():
+            flash(f"Tag {tag} is already in use.", "error")
+            return redirect(url_for("admin_assets"))
+        db.execute(
+            """INSERT INTO asset (tag, name, category, brand, model, serial_number,
+                 status, location, channel_id, purchase_date, purchase_price, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (tag, v["name"], v["category"], v["brand"], v["model"],
+             v["serial_number"], v["status"], v["location"], v["channel_id"],
+             v["purchase_date"], v["purchase_price"], v["notes"]))
+        db.commit()
+        flash(f"Added {tag} — {v['name']}.", "success")
+        return redirect(url_for("admin_assets"))
+
+    @app.route("/admin/assets/seed", methods=["POST"])
+    def admin_assets_seed():
+        """One asset per wireless channel that doesn't have one yet —
+        the transmitter/IEM pack IS the per-channel physical unit.
+        (Receivers are shared across channels; add those by hand.)"""
+        db = get_db(db_path)
+        rows = db.execute(
+            """SELECT c.id, c.label, c.kind, w.model AS wmodel
+               FROM channel c LEFT JOIN wireless_model w ON w.id = c.wireless_model_id
+               WHERE c.archived=0
+               AND c.id NOT IN (SELECT channel_id FROM asset WHERE channel_id IS NOT NULL)
+               ORDER BY c.label""").fetchall()
+        for c in rows:
+            db.execute(
+                """INSERT INTO asset (tag, name, category, brand, model,
+                     status, location, channel_id)
+                   VALUES (?, ?, ?, 'Shure', ?, 'in_service', 'Mic rack', ?)""",
+                (_next_asset_tag(db), c["label"],
+                 "iem" if c["kind"] == "iem" else "wireless", c["wmodel"], c["id"]))
+        db.commit()
+        flash(f"Created {len(rows)} assets from the wireless inventory.", "success")
+        return redirect(url_for("admin_assets"))
+
+    @app.route("/admin/assets/<int:asset_id>/edit")
+    def admin_assets_edit(asset_id):
+        db = get_db(db_path)
+        asset = db.execute("SELECT * FROM asset WHERE id=?", (asset_id,)).fetchone()
+        if not asset:
+            abort(404)
+        channels = db.execute(
+            "SELECT id, label FROM channel WHERE archived=0 ORDER BY label").fetchall()
+        return render_template("admin/asset_edit.html", asset=asset,
+                               channels=channels, statuses=ASSET_STATUSES,
+                               category_suggestions=ASSET_CATEGORIES)
+
+    @app.route("/admin/assets/<int:asset_id>", methods=["POST"])
+    def admin_assets_update(asset_id):
+        db = get_db(db_path)
+        asset = db.execute("SELECT * FROM asset WHERE id=?", (asset_id,)).fetchone()
+        if not asset:
+            abort(404)
+        if request.form.get("action") == "archive":
+            db.execute("UPDATE asset SET archived=1, updated_at=datetime('now') WHERE id=?",
+                       (asset_id,))
+            db.commit()
+            flash(f"Archived {asset['tag']}.", "success")
+            return redirect(url_for("admin_assets"))
+        v = _asset_form_values(request.form)
+        if not v["name"]:
+            flash("Name is required.", "error")
+            return redirect(url_for("admin_assets_edit", asset_id=asset_id))
+        db.execute(
+            """UPDATE asset SET name=?, category=?, brand=?, model=?,
+                 serial_number=?, status=?, location=?, channel_id=?,
+                 purchase_date=?, purchase_price=?, notes=?,
+                 updated_at=datetime('now')
+               WHERE id=?""",
+            (v["name"], v["category"], v["brand"], v["model"], v["serial_number"],
+             v["status"], v["location"], v["channel_id"], v["purchase_date"],
+             v["purchase_price"], v["notes"], asset_id))
+        db.commit()
+        flash(f"{asset['tag']} updated.", "success")
+        return redirect(url_for("admin_assets"))
+
+    @app.route("/admin/assets/labels")
+    def admin_asset_labels():
+        """Printable QR label sheet. ?ids=1,2,3 for a selection (default
+        all active), ?size=large for big case/rack labels; the default
+        grid matches Avery 5160 address-label stock (30 per sheet)."""
+        db = get_db(db_path)
+        ids = request.args.get("ids") or ""
+        sql = "SELECT * FROM asset WHERE archived=0"
+        params: list = []
+        id_list = [int(i) for i in ids.split(",") if i.strip().isdigit()]
+        if id_list:
+            sql += f" AND id IN ({','.join('?' * len(id_list))})"
+            params += id_list
+        assets = db.execute(sql + " ORDER BY tag", params).fetchall()
+        return render_template("admin/asset_labels.html", assets=assets,
+                               size=request.args.get("size", "small"))
 
 
 # =============================================================

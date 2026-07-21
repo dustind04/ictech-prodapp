@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Asset labels — icTech Services{% endblock %}
+{% block body_class %}labels-page{% endblock %}
+
+{% block head %}
+<style>
+  /* Screen preview chrome — hidden when printing. */
+  .labels-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+
+  /* Small = Avery 5160 address labels: 30/sheet, 2.625in x 1in,
+     0.5in top margin, 0.1875in side margins, 0.125in column gap.
+     Large = 2 x 5 grid of 3.5in x 2in labels for cases and racks. */
+  .label-sheet { display: grid; background: #fff; margin: 0 auto; }
+  .label-sheet.small {
+    grid-template-columns: repeat(3, 2.625in);
+    grid-auto-rows: 1in;
+    column-gap: 0.125in;
+    width: 8in;
+  }
+  .label-sheet.large {
+    grid-template-columns: repeat(2, 3.5in);
+    grid-auto-rows: 2in;
+    column-gap: 0.25in;
+    row-gap: 0.1in;
+    width: 7.5in;
+  }
+  .label {
+    display: flex; align-items: center; gap: 0.08in;
+    padding: 0.06in 0.1in; overflow: hidden;
+    border: 1px dashed #ccc; /* cut guides on plain paper; hidden on print */
+  }
+  .label img { flex-shrink: 0; }
+  .small .label img { width: 0.82in; height: 0.82in; }
+  .large .label img { width: 1.7in; height: 1.7in; }
+  .label .meta { min-width: 0; color: #1F1F1F; }
+  .label .tag { font-weight: 700; font-family: ui-monospace, monospace; }
+  .small .label .tag { font-size: 13px; }
+  .large .label .tag { font-size: 24px; }
+  .label .name { overflow: hidden; text-overflow: ellipsis; }
+  .small .label .name { font-size: 10px; white-space: nowrap; }
+  .large .label .name { font-size: 15px; }
+  .label .org { color: #7AB648; font-weight: 600; }
+  .small .label .org { font-size: 8px; }
+  .large .label .org { font-size: 11px; }
+
+  @media print {
+    .topbar, .flash-wrap, .labels-toolbar { display: none !important; }
+    .main { margin: 0 !important; padding: 0 !important; }
+    .label { border: none; }
+    @page { margin: 0.5in 0.1875in; }
+    body { background: #fff; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="labels-toolbar">
+  <h1 class="page-title">Asset labels <span class="muted">({{ assets|length }})</span></h1>
+  <a class="btn-secondary" href="?{{ request.query_string.decode()|replace('size=large','')|replace('size=small','') }}&size={{ 'small' if size == 'large' else 'large' }}">
+    Switch to {{ 'small (Avery 5160)' if size == 'large' else 'large (case)' }} labels
+  </a>
+  <button class="btn-primary" onclick="window.print()">Print</button>
+  <span class="muted">Small fits Avery 5160 address stock; plain paper works too — dashed lines are cut guides.</span>
+</div>
+
+<div class="label-sheet {{ size }}">
+  {% for a in assets %}
+    <div class="label">
+      <img src="{{ url_for('asset_qr', tag=a.tag) }}" alt="{{ a.tag }}">
+      <div class="meta">
+        <div class="org">icTech · Immanuel</div>
+        <div class="tag">{{ a.tag }}</div>
+        <div class="name">{{ a.name }}</div>
+        {% if size == 'large' and a.serial_number %}
+          <div class="name muted">SN {{ a.serial_number }}</div>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

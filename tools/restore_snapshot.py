@@ -18,8 +18,9 @@ import os
 import sqlite3
 import sys
 
-TABLES = ["slot", "channel", "person", "position", "wireless_model", "capsule_model"]
-# ^ delete order: slot references the others. Insert happens reversed.
+TABLES = ["slot", "asset", "channel", "person", "position", "wireless_model", "capsule_model"]
+# ^ delete order: slot/asset reference the others. Insert happens reversed.
+# Snapshots taken before a table existed simply restore it empty.
 
 
 def main() -> int:

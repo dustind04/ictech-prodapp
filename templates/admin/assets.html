@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Assets — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Tech assets</h1>
+    <p class="page-lead">Every physical thing the tech ministry owns — tagged, tracked, and QR-labeled.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<section class="form-card">
+  <h2>Add an asset</h2>
+  <form method="post" action="{{ url_for('admin_assets_create') }}">
+    <div class="form-row">
+      <label>
+        Name
+        <input name="name" required placeholder="ULXD2 Handheld — Red">
+      </label>
+      <label>
+        Tag <span class="muted">(blank = {{ next_tag }})</span>
+        <input name="tag" placeholder="{{ next_tag }}">
+      </label>
+      <label>
+        Category
+        <input name="category" list="category-list" placeholder="wireless">
+        <datalist id="category-list">
+          {% for c in category_suggestions %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </label>
+      <label>
+        Status
+        <select name="status">
+          {% for k, v in statuses.items() %}
+            <option value="{{ k }}">{{ v }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Brand <input name="brand" placeholder="Shure"></label>
+      <label>Model <input name="model" placeholder="ULXD2/B87A"></label>
+      <label>Serial number <input name="serial_number"></label>
+      <label>Location <input name="location" placeholder="Mic rack"></label>
+    </div>
+    <button type="submit" class="btn-primary">Add asset</button>
+  </form>
+</section>
+
+{% if unseeded %}
+  <section class="form-card">
+    <form method="post" action="{{ url_for('admin_assets_seed') }}">
+      <p>{{ unseeded }} wireless channel{{ 's' if unseeded != 1 }} in inventory
+        {{ 'have' if unseeded != 1 else 'has' }} no asset record yet.</p>
+      <button type="submit" class="btn-secondary">Create assets from wireless inventory</button>
+    </form>
+  </section>
+{% endif %}
+
+<section>
+  <div class="page-header">
+    <h2>Assets <span class="muted">({{ assets|length }})</span></h2>
+    <div>
+      <a class="btn-secondary" href="{{ url_for('admin_asset_labels') }}" target="_blank">Print all labels</a>
+      {% if assets and (q or status or category) %}
+        <a class="btn-secondary"
+           href="{{ url_for('admin_asset_labels', ids=assets|map(attribute='id')|join(',')) }}"
+           target="_blank">Print these {{ assets|length }}</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="get" class="form-row" style="margin-bottom: 12px">
+    <label>Search <input name="q" value="{{ q }}" placeholder="tag, name, model, serial, location"></label>
+    <label>Status
+      <select name="status">
+        <option value="">All</option>
+        {% for k, v in statuses.items() %}
+          <option value="{{ k }}" {{ 'selected' if status == k }}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Category
+      <select name="category">
+        <option value="">All</option>
+        {% for c in categories %}
+          <option value="{{ c }}" {{ 'selected' if category == c }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn-secondary">Filter</button>
+  </form>
+
+  {% if assets %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Tag</th><th>Name</th><th>Category</th><th>Model</th>
+            <th>Status</th><th>Location</th><th>Channel</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for a in assets %}
+          <tr>
+            <td><a href="{{ url_for('asset_card', tag=a.tag) }}"><code>{{ a.tag }}</code></a></td>
+            <td>{{ a.name }}</td>
+            <td>{{ a.category }}</td>
+            <td class="muted">{{ [a.brand, a.model]|select|join(' ') }}</td>
+            <td><span class="badge badge-{{ a.status }}">{{ statuses[a.status] }}</span></td>
+            <td>{{ a.location or '' }}</td>
+            <td class="muted">{{ a.channel_label or '' }}</td>
+            <td class="actions"><a href="{{ url_for('admin_assets_edit', asset_id=a.id) }}">Edit</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No assets{{ ' match' if q or status or category else ' yet — add one above, or seed from the wireless inventory' }}.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -39,6 +39,11 @@
     <div class="card-label">Slots assigned</div>
     <div class="card-hint">Sunday rack layout</div>
   </a>
+  <a class="card" href="{{ url_for('admin_assets') }}">
+    <div class="card-num">{{ counts.assets }}</div>
+    <div class="card-label">Assets</div>
+    <div class="card-hint">All tech gear · QR labels</div>
+  </a>
   <a class="card" href="{{ url_for('admin_import') }}">
     <div class="card-num">⇅</div>
     <div class="card-label">Import / Export</div>

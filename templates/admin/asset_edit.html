@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.tag }} — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ asset.tag }}</h1>
+    <p class="page-lead">{{ asset.name }}</p>
+  </div>
+  <div>
+    <a class="btn-secondary" href="{{ url_for('admin_asset_labels', ids=asset.id) }}" target="_blank">Print label</a>
+    <a class="btn-secondary" href="{{ url_for('admin_assets') }}">← Assets</a>
+  </div>
+</div>
+
+<div class="form-row" style="align-items: flex-start; gap: 24px">
+<section class="form-card" style="flex: 1">
+  <form method="post" action="{{ url_for('admin_assets_update', asset_id=asset.id) }}">
+    <div class="form-row">
+      <label>Name <input name="name" required value="{{ asset.name }}"></label>
+      <label>
+        Category
+        <input name="category" list="category-list" value="{{ asset.category }}">
+        <datalist id="category-list">
+          {% for c in category_suggestions %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </label>
+      <label>
+        Status
+        <select name="status">
+          {% for k, v in statuses.items() %}
+            <option value="{{ k }}" {{ 'selected' if asset.status == k }}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Brand <input name="brand" value="{{ asset.brand or '' }}"></label>
+      <label>Model <input name="model" value="{{ asset.model or '' }}"></label>
+      <label>Serial number <input name="serial_number" value="{{ asset.serial_number or '' }}"></label>
+    </div>
+    <div class="form-row">
+      <label>Location <input name="location" value="{{ asset.location or '' }}"></label>
+      <label>
+        Wireless channel <span class="muted">(transmitters/IEMs only)</span>
+        <select name="channel_id">
+          <option value="">—</option>
+          {% for c in channels %}
+            <option value="{{ c.id }}" {{ 'selected' if asset.channel_id == c.id }}>{{ c.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Purchase date <input name="purchase_date" type="date" value="{{ asset.purchase_date or '' }}"></label>
+      <label>Purchase price <input name="purchase_price" type="number" step="0.01" min="0"
+             value="{{ asset.purchase_price if asset.purchase_price is not none else '' }}"></label>
+    </div>
+    <label>Notes <textarea name="notes" rows="3">{{ asset.notes or '' }}</textarea></label>
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Save</button>
+      <button type="submit" name="action" value="archive" class="btn-danger"
+              onclick="return confirm('Archive {{ asset.tag }}? Its tag is never reused.')">
+        Archive
+      </button>
+    </div>
+  </form>
+</section>
+
+<section class="form-card" style="text-align: center">
+  <h2>Label QR</h2>
+  <img src="{{ url_for('asset_qr', tag=asset.tag) }}" alt="QR for {{ asset.tag }}"
+       style="width: 160px; height: 160px">
+  <p><code>{{ asset.tag }}</code></p>
+  <p class="muted">Scans to <a href="{{ url_for('asset_card', tag=asset.tag) }}">{{ url_for('asset_card', tag=asset.tag) }}</a></p>
+</section>
+</div>
+{% endblock %}

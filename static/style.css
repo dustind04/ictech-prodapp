@@ -338,6 +338,13 @@ input:focus, select:focus {
 .badge-mic_only { background: rgba(31, 31, 31, 0.04); color: var(--text-muted); }
 .badge-band     { background: rgba(31, 31, 31, 0.08); color: var(--text); }
 .badge-tech     { background: rgba(122, 182, 72, 0.14); color: var(--green-dark); }
+/* Asset statuses */
+.badge-in_service { background: var(--green-soft); color: var(--green-dark); }
+.badge-storage    { background: rgba(31, 31, 31, 0.06); color: var(--text); }
+.badge-repair     { background: rgba(224, 90, 14, 0.14); color: #A54100; }
+.badge-loaned     { background: rgba(74, 144, 217, 0.14); color: #2A64A0; }
+.badge-missing    { background: rgba(214, 69, 69, 0.16); color: #A02525; }
+.badge-retired    { background: rgba(31, 31, 31, 0.04); color: var(--text-muted); }
 
 /* ----- Slot edit grid (admin/slots) ----- */
 .slot-edit-grid {
