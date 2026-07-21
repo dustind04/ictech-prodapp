@@ -467,6 +467,13 @@ def parse_tech_report(data: bytes) -> dict:
             current = None
             continue
         if current is not None and _NAME_RE.match(ln) and not any(c.isdigit() for c in ln):
+            # Some report layouts interleave the call-time column with
+            # the assignments — schedule vocabulary is never a name.
+            SCHED_WORDS = {"call", "reh", "rehearsal", "through", "doors",
+                           "open", "singing", "worship", "stream", "run",
+                           "soundcheck", "time", "band", "tech"}
+            if any(w.lower() in SCHED_WORDS for w in ln.split()):
+                continue
             name = ln.rstrip(" ?").strip()
             current["people"].append({"name": name, "tentative": ln.endswith("?")})
             if leader_pending:
