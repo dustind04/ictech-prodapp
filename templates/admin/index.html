@@ -57,6 +57,23 @@
 </div>
 
 <section class="form-card" style="margin-top: 24px">
+  <h2>Displays</h2>
+  <form method="post" action="{{ url_for('admin_displays_update') }}">
+    <div class="form-row" style="align-items: flex-end">
+      <label>
+        Micboard column width (px)
+        <span class="hint">— line the columns up with the chargers under the TV; blank = automatic</span>
+        <input name="micboard_col_width" type="number" min="40" max="1000"
+               value="{{ micboard_col_width }}" placeholder="auto">
+      </label>
+      <button type="submit" class="btn-primary">Save</button>
+    </div>
+    <p class="muted">The TV picks the change up within 2 seconds — adjust from a phone
+      while standing at the rack.</p>
+  </form>
+</section>
+
+<section class="form-card" style="margin-top: 24px">
   <h2>Reference — display links</h2>
   <p class="muted">Links resolve against wherever you're viewing this page, so copies
     from the backstage PC give LAN URLs and copies from the tunnel give shareable ones.</p>

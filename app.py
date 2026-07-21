@@ -186,16 +186,12 @@ def register_display_routes(app: Flask) -> None:
 
     @app.route("/micboard")
     def micboard_display():
-        """PINNED basic slot-view dashboard for the TV directly above
-        the charger banks: every slot always renders in its physical
-        position, empties included. Frozen on purpose — new display
-        ideas go to /dataviz, not here.
-
-        Renders the static page shell. All data comes from /api/state via
-        client-side polling — that way the page never reloads, keeps its
-        scroll position, and degrades gracefully when the server hiccups.
-        """
-        return render_template("micboard.html")
+        """The TV directly above the charger banks. Same design as the
+        home wall, pinned to physical reality: every slot renders in
+        its fixed position (slot 03 on screen = charger 3), empties
+        included, no collapse/merge, and an admin-set column width so
+        the on-screen columns line up with the chargers below."""
+        return render_template("wall.html", pinned=True)
 
     @app.route("/dataviz")
     def dataviz_display():
@@ -398,8 +394,15 @@ def register_api_routes(app: Flask) -> None:
             rows.append(d)
         mixers = [dict(r) for r in db.execute(
             "SELECT mixer, owner FROM mymix_mixer ORDER BY sort_order")]
+        # Display knobs ride the poll: change a value in admin and the
+        # TVs pick it up on the next 2s tick — no kiosk fiddling.
+        width = db.execute(
+            "SELECT value FROM app_setting WHERE key='micboard_col_width'"
+        ).fetchone()
         return jsonify({"slots": rows, "leader": _current_leader(db),
-                        "mixers": mixers})
+                        "mixers": mixers,
+                        "settings": {"micboard_col_width":
+                                     width["value"] if width else None}})
 
 
 # Single source of truth for the slot-resolution query. Used by both
@@ -461,7 +464,11 @@ def register_admin_routes(app: Flask) -> None:
                 "SELECT COUNT(*) c FROM slot WHERE archived=0 AND person_id IS NOT NULL"
             ).fetchone()["c"],
         }
+        width = db.execute(
+            "SELECT value FROM app_setting WHERE key='micboard_col_width'"
+        ).fetchone()
         return render_template("admin/index.html", counts=counts,
+                               micboard_col_width=width["value"] if width else "",
                                update=_update_status())
 
     # --- People ---
@@ -847,6 +854,27 @@ def register_admin_routes(app: Flask) -> None:
         db.commit()
         flash(f"Updated {label}.", "success")
         return redirect(url_for("admin_positions"))
+
+    # --- Display settings ---
+    @app.route("/admin/displays", methods=["POST"])
+    def admin_displays_update():
+        """Micboard column width in px. The TV above the chargers picks
+        the change up within 2s (it rides /api/state) — stand at the
+        rack, nudge the number on your phone, watch the columns move."""
+        db = get_db(db_path)
+        raw = (request.form.get("micboard_col_width") or "").strip()
+        if raw and not (raw.isdigit() and 40 <= int(raw) <= 1000):
+            flash("Column width must be 40–1000 px (or blank for automatic).", "error")
+            return redirect(url_for("admin_index"))
+        if raw:
+            db.execute("""INSERT INTO app_setting (key, value)
+                          VALUES ('micboard_col_width', ?)
+                          ON CONFLICT(key) DO UPDATE SET value=excluded.value""", (raw,))
+        else:
+            db.execute("DELETE FROM app_setting WHERE key='micboard_col_width'")
+        db.commit()
+        flash("Micboard columns set to " + (f"{raw} px." if raw else "automatic."), "success")
+        return redirect(url_for("admin_index"))
 
     # --- Slots ---
     @app.route("/admin/slots/clear", methods=["POST"])

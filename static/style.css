@@ -581,6 +581,13 @@ input:focus, select:focus {
   gap: calc(12 * var(--u));
   align-items: stretch;
 }
+/* Pinned micboard: columns take the admin-set fixed width (--tile-w,
+   set from /api/state) so they line up with the chargers under the
+   TV; unset falls back to the normal fluid columns. */
+.wall-main.pinned .slot-group {
+  grid-template-columns: repeat(var(--cols, 6), var(--tile-w, 1fr));
+  justify-content: center;
+}
 /* Speaker tile folded into a vocal tile (person sings AND speaks). */
 .slot.merged-away { display: none; }
 /* Auto-collapsed: unused tiles and fully empty zones take no space. */

@@ -1,9 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Wall display — icTech Services{% endblock %}
+{% block title %}{{ 'Mic board' if pinned else 'Wall display' }} — icTech Services{% endblock %}
 {% block body_class %}wall-body{% endblock %}
-{% block main_class %}wall-main{% endblock %}
+{% block main_class %}wall-main{{ ' pinned' if pinned }}{% endblock %}
 
-{# The wall display hides the chrome so the TV shows nothing but slots. #}
+{# The wall display hides the chrome so the TV shows nothing but slots.
+   `pinned` = the /micboard variant above the charger banks: identical
+   design, but every slot stays in its physical position (no collapse,
+   no merge) and columns take an admin-set fixed width so they line up
+   with the chargers below the TV. #}
 {% block chrome %}{% endblock %}
 
 {% block content %}
@@ -236,6 +240,9 @@
   // touches the database. Remove the query param for live data.
   // ---------------------------------------------------------------
   const DEMO = new URLSearchParams(location.search).has('demo');
+  // Pinned (/micboard): tiles stay in their physical positions —
+  // no collapse, no merge — and the admin-set column width applies.
+  const PINNED = {{ 'true' if pinned else 'false' }};
   const DEMO_LEADER = { person_id: 904, name: 'Joanna E.' };
   const DEMO_SLOTS = [
     { bank_order: 1, kind: 'paired', person_id: 901, person_name: 'Chris C.',
@@ -290,6 +297,11 @@
       const res = await fetch('/api/state', { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
+      if (PINNED) {
+        const w = parseInt((data.settings || {}).micboard_col_width, 10);
+        document.getElementById('slot-grid').style.setProperty(
+          '--tile-w', w > 0 ? w + 'px' : '');
+      }
       renderLeader(data.leader || null);
       render(data.slots || [], data.leader || null, data.mixers || []);
     } catch (err) {
@@ -528,7 +540,7 @@
       // band seat also folds if its person holds a speaker mic (that
       // tile shows mic + instrument together).
       el.classList.toggle('merged-away',
-        !!slot.person_id && (
+        !PINNED && !!slot.person_id && (
           (slot.kind !== 'paired' && pairedPeople.has(slot.person_id)) ||
           (slot.kind === 'band' && !!speakerByPerson[slot.person_id])
         ));
@@ -687,6 +699,8 @@
     // occupied slots (zone width stays proportional to what it shows).
     // A fully empty zone disappears; if NOTHING is assigned anywhere,
     // all placeholders come back so a fresh install isn't a blank TV.
+    // Pinned display: never — the screen mirrors the physical rack.
+    if (PINNED) return;
     const anyone = slots.some(s => s.person_id);
     const ZONES = { vocals: [1, 6], band: [11, 16], speakers: [7, 10] };
     for (const [zone, [lo, hi]] of Object.entries(ZONES)) {
