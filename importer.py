@@ -343,10 +343,13 @@ def apply_plan(db, plan: dict) -> int:
                 a["position_id"] = cur.lastrowid
             else:
                 a["position_id"] = row["id"]
+        # pc_role is cleared here and re-stamped by the Tech Report
+        # import (step 2) — stale roles must not survive a people swap.
         db.execute(
             """UPDATE slot SET
                  person_id=?, mic_channel_id=?, iem_channel_id=?,
-                 position_id=?, mymix_channel=?, updated_at=datetime('now')
+                 position_id=?, mymix_channel=?, pc_role=NULL,
+                 updated_at=datetime('now')
                WHERE id=?""",
             (a["person_id"], a["mic_channel_id"], a["iem_channel_id"],
              a["position_id"], a["mymix"], a["slot_id"]),
@@ -474,17 +477,14 @@ def parse_tech_report(data: bytes) -> dict:
 
 def _pc_person_match(people, full_name: str):
     """Match a PC full name against our display names: first name plus
-    last initial, with a unique-first-name fallback."""
+    last initial, EXACT only. PC always prints full names, so a loose
+    first-name fallback is how 'Dave Geer' once became Dave H. —
+    unknown people warn instead of guessing."""
     parts = full_name.split()
     display = f"{parts[0]} {parts[-1][0]}."
     for p in people:
         if p["display_name"].lower() == display.lower():
             return p, None
-    first = [p for p in people if p["display_name"].split()[0].lower() == parts[0].lower()]
-    if len(first) == 1:
-        return first[0], None
-    if len(first) > 1:
-        return None, f"'{full_name}': several people share that first name."
     return None, f"'{full_name}': no matching person (add them on the People page)."
 
 
@@ -540,7 +540,16 @@ def build_tech_plan(db, parsed: dict) -> dict:
 
 
 def apply_tech_plan(db, plan: dict) -> int:
-    """Write tech seats, band assignments, weekly PC roles, the leader."""
+    """Write tech seats, band assignments, weekly PC roles, the leader.
+
+    Starts by clearing everything this import owns — tech seats and
+    band seats — so last week's people can never linger on a seat the
+    new plan doesn't mention (the Dave-on-two-seats bug)."""
+    db.execute("UPDATE slot SET person_id=NULL, pc_role=NULL, "
+               "updated_at=datetime('now') WHERE kind='tech' AND archived=0")
+    db.execute("UPDATE slot SET person_id=NULL, pc_role=NULL, iem_channel_id=NULL, "
+               "mymix_channel=NULL, updated_at=datetime('now') "
+               "WHERE kind='band' AND archived=0")
     changed = 0
     for t in plan.get("tech_seats", []):
         db.execute("UPDATE slot SET person_id=?, pc_role=?, updated_at=datetime('now') "
