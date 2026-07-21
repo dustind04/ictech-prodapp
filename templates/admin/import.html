@@ -5,37 +5,118 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Import / Export</h1>
-    <p class="page-lead">Two steps each week, <strong>in this order</strong>:
-      1) Input List workbook (who's on which slot), then 2) Tech Report PDF
-      (roles, band seats, tech crew, leader — it stamps roles onto the people
-      step 1 seated). Then grab what the app builds back for you.</p>
+    <p class="page-lead">Drop the week's files, check the preview, apply. That's the whole job.</p>
   </div>
   <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
 </div>
 
 <section class="form-card">
+  <h2>Load the week</h2>
   <form method="post" action="{{ url_for('admin_import_preview') }}" enctype="multipart/form-data">
     <div class="form-row">
       <label>
-        Input List workbook (.xlsx)
-        <input type="file" name="file" accept=".xlsx" required>
+        Input List workbook (.xlsx) <span class="hint">— who's on which slot, patch, MyMix</span>
+        <input type="file" name="input_list" accept=".xlsx">
+      </label>
+      <label>
+        Tech Report (.pdf) <span class="hint">— tech crew, band seats, roles, music leader</span>
+        <input type="file" name="tech_report" accept=".pdf">
       </label>
     </div>
-    <button type="submit" class="btn-primary">Preview</button>
+    <button type="submit" class="btn-primary">Preview the week</button>
+    <p class="muted" style="margin-top: 8px">Both at once is the normal path — one file
+      alone works when that's all you have.</p>
   </form>
 </section>
 
-<section class="form-card">
-  <form method="post" action="{{ url_for('admin_import_tech_preview') }}" enctype="multipart/form-data">
-    <div class="form-row">
-      <label>
-        Planning Center Tech Report (.pdf) <span class="hint">(tech crew, band, roles, music leader)</span>
-        <input type="file" name="file" accept=".pdf" required>
-      </label>
-    </div>
-    <button type="submit" class="btn-primary">Preview</button>
+{% if plan or tplan %}
+<section>
+  <h2>Preview
+    {%- if plan and plan.sunday %} — Sunday {{ plan.sunday }}{% elif tplan and tplan.date %} — {{ tplan.date }}{% endif %}</h2>
+
+  {% set all_warnings = (plan.warnings if plan else []) + (tplan.warnings if tplan else []) %}
+  {% if all_warnings %}
+    <ul class="import-warnings">
+      {% for w in all_warnings %}<li>⚠ {{ w }}</li>{% endfor %}
+    </ul>
+    <p class="muted">Fix what matters (add people on the <a href="{{ url_for('admin_people') }}">People page</a>,
+      channels on the <a href="{{ url_for('admin_channels') }}">Inventory page</a>), re-upload, and preview again —
+      or apply as-is and tidy on the <a href="{{ url_for('admin_slots') }}">Slots page</a>.</p>
+  {% endif %}
+
+  {% if plan %}
+    <h3>Rack slots <span class="muted">(Input List)</span></h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>Slot</th><th>Person</th><th>Mic</th><th>IEM</th><th>Position</th><th>MyMix</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        {% for a in plan.assignments %}
+          <tr>
+            <td>{{ a.bank_order }}</td>
+            <td>{{ a.person or ('—' if a['clear'] else '?') }}</td>
+            <td>{{ a.mic or '—' }}</td>
+            <td>{{ a.iem or '—' }}</td>
+            <td>{{ a.position or '—' }}</td>
+            <td>{{ a.mymix or '—' }}</td>
+            <td class="muted">{{ a.notes | join(' ') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if plan.tech %}
+      <p class="muted">
+        Also loads the <a href="{{ url_for('techdashboard') }}">tech dashboard</a>:
+        {{ plan.tech.patch | length }} patch rows,
+        {{ plan.tech.iem_rf | length }} IEM RF assignments,
+        {{ plan.tech.legend | length }} MyMix channels,
+        {{ plan.tech.mixers | length }} personal mixers.
+      </p>
+    {% endif %}
+  {% endif %}
+
+  {% if tplan %}
+    <h3>Crew &amp; band seats <span class="muted">(Tech Report)</span></h3>
+    {% if tplan.leader %}
+      <p><strong>Music leader:</strong> {{ tplan.leader.person }}</p>
+    {% endif %}
+    <table class="data-table">
+      <thead><tr><th>Seat</th><th>Role</th><th>Person</th></tr></thead>
+      <tbody>
+        {% for t in tplan.tech_seats %}
+          <tr><td>Tech {{ t.seat }}</td><td>{{ t.role }}</td><td>{{ t.person }}</td></tr>
+        {% endfor %}
+        {% for b in tplan.band %}
+          <tr><td>{{ b.bank_order }} ({{ b.seat_label }})</td><td>{{ b.position }}</td><td>{{ b.person }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if tplan.roles %}
+      <p class="muted">Weekly roles:
+        {% for r in tplan.roles %}{{ r.person }} → {{ r.role }}{{ '; ' if not loop.last }}{% endfor %}
+      </p>
+    {% endif %}
+    {% if tplan.info %}
+      <p class="muted">Recorded (no seat): {{ tplan.info | join(' · ') }}</p>
+    {% endif %}
+  {% endif %}
+
+  {% if not plan %}
+    <p class="muted">No Input List this time — rack slots 1–10, patch, and MyMix stay as they are.</p>
+  {% elif not tplan %}
+    <p class="muted">No Tech Report this time — crew seats, band seats, roles, and leader stay as they are.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('admin_import_apply') }}" style="margin-top: 12px">
+    {% if plan %}<input type="hidden" name="plan_json" value='{{ plan | tojson | forceescape }}'>{% endif %}
+    {% if tplan %}<input type="hidden" name="tplan_json" value='{{ tplan | tojson | forceescape }}'>{% endif %}
+    <button type="submit" class="btn-primary"
+            onclick="return confirm('Apply this week? The files are the weekly truth — people and seats not in them are cleared.')">
+      Apply the week
+    </button>
   </form>
 </section>
+{% endif %}
 
 <section class="form-card">
   <h2>Export</h2>
@@ -46,89 +127,4 @@
     &nbsp;·&nbsp; <a href="{{ url_for('admin_export') }}">Full data export (JSON)</a>
   </p>
 </section>
-
-{% if plan %}
-<section>
-  <h2>Preview{% if plan.sunday %} — Sunday {{ plan.sunday }}{% endif %}</h2>
-  {% if plan.warnings %}
-    <ul class="import-warnings">
-      {% for w in plan.warnings %}<li>⚠ {{ w }}</li>{% endfor %}
-    </ul>
-  {% endif %}
-  <table class="data-table">
-    <thead>
-      <tr><th>Slot</th><th>Person</th><th>Mic</th><th>IEM</th><th>Position</th><th>MyMix</th><th>Notes</th></tr>
-    </thead>
-    <tbody>
-      {% for a in plan.assignments %}
-        <tr>
-          <td>{{ a.bank_order }}</td>
-          <td>{{ a.person or ('—' if a['clear'] else '?') }}</td>
-          <td>{{ a.mic or '—' }}</td>
-          <td>{{ a.iem or '—' }}</td>
-          <td>{{ a.position or '—' }}</td>
-          <td>{{ a.mymix or '—' }}</td>
-          <td class="muted">{{ a.notes | join(' ') }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% if plan.tech %}
-    <p class="muted">
-      Also imports for the <a href="{{ url_for('techdashboard') }}">tech dashboard</a>:
-      {{ plan.tech.patch | length }} patch rows,
-      {{ plan.tech.iem_rf | length }} IEM RF assignments,
-      {{ plan.tech.legend | length }} MyMix channels,
-      {{ plan.tech.mixers | length }} personal mixers.
-    </p>
-  {% endif %}
-  <form method="post" action="{{ url_for('admin_import_apply') }}">
-    <input type="hidden" name="plan_json" value='{{ plan | tojson | forceescape }}'>
-    <button type="submit" class="btn-primary"
-            onclick="return confirm('Apply these assignments to the slots? This replaces the current week.')">
-      Apply to slots
-    </button>
-  </form>
-</section>
-{% endif %}
-
-{% if tplan %}
-<section>
-  <h2>Tech Report preview{% if tplan.date %} — {{ tplan.date }}{% endif %}</h2>
-  {% if tplan.warnings %}
-    <ul class="import-warnings">
-      {% for w in tplan.warnings %}<li>⚠ {{ w }}</li>{% endfor %}
-    </ul>
-  {% endif %}
-  {% if tplan.leader %}
-    <p><strong>Music leader:</strong> {{ tplan.leader.person }}</p>
-  {% endif %}
-  <table class="data-table">
-    <thead><tr><th>Seat</th><th>Role</th><th>Person</th></tr></thead>
-    <tbody>
-      {% for t in tplan.tech_seats %}
-        <tr><td>{{ t.seat }}</td><td>{{ t.role }}</td><td>{{ t.person }}</td></tr>
-      {% endfor %}
-      {% for b in tplan.band %}
-        <tr><td>{{ b.bank_order }} ({{ b.seat_label }})</td><td>{{ b.position }}</td><td>{{ b.person }}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% if tplan.roles %}
-    <p class="muted">Weekly roles:
-      {% for r in tplan.roles %}{{ r.person }} → {{ r.role }}{{ '; ' if not loop.last }}{% endfor %}
-    </p>
-  {% endif %}
-  {% if tplan.info %}
-    <p class="muted">Recorded (no seat): {{ tplan.info | join(' · ') }}</p>
-  {% endif %}
-  <form method="post" action="{{ url_for('admin_import_tech_apply') }}">
-    <input type="hidden" name="tplan_json" value='{{ tplan | tojson | forceescape }}'>
-    <button type="submit" class="btn-primary"
-            onclick="return confirm('Apply the Tech Report? Seats, roles, and leader update for this week.')">
-      Apply Tech Report
-    </button>
-  </form>
-</section>
-{% endif %}
 {% endblock %}

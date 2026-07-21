@@ -682,63 +682,62 @@ def register_admin_routes(app: Flask) -> None:
         db.commit()
         return redirect(url_for("admin_photos"))
 
-    # --- Weekly import ---
+    # --- Weekly import: ONE step ---
+    # Drop both weekly files in a single form; one preview shows the
+    # whole week; one Apply lands it (workbook first, then Tech Report
+    # — the order that used to be a documented footgun is now just
+    # code). Either file alone still works, but the wall is only fully
+    # right once both have been applied.
     @app.route("/admin/import")
     def admin_import():
         return render_template("admin/import.html", plan=None, tplan=None)
 
     @app.route("/admin/import", methods=["POST"])
     def admin_import_preview():
-        f = request.files.get("file")
-        if f is None or not f.filename:
-            flash("Choose an .xlsx file first.", "error")
+        xf = request.files.get("input_list")
+        pf = request.files.get("tech_report")
+        have_x = xf is not None and xf.filename
+        have_p = pf is not None and pf.filename
+        if not (have_x or have_p):
+            flash("Choose the week's files first (either or both).", "error")
             return redirect(url_for("admin_import"))
-        try:
-            parsed = importer.parse_workbook(f.read())
-        except Exception as exc:  # bad zip, wrong sheet names, etc.
-            flash(f"Could not read that workbook: {exc}", "error")
-            return redirect(url_for("admin_import"))
-        plan = importer.build_plan(get_db(db_path), parsed)
-        return render_template("admin/import.html", plan=plan, tplan=None)
+        db = get_db(db_path)
+        plan = tplan = None
+        if have_x:
+            try:
+                plan = importer.build_plan(db, importer.parse_workbook(xf.read()))
+            except Exception as exc:  # bad zip, wrong sheet names, etc.
+                flash(f"Could not read the Input List workbook: {exc}", "error")
+                return redirect(url_for("admin_import"))
+        if have_p:
+            try:
+                tplan = importer.build_tech_plan(db, importer.parse_tech_report(pf.read()))
+            except Exception as exc:
+                flash(f"Could not read the Tech Report PDF: {exc}", "error")
+                return redirect(url_for("admin_import"))
+        return render_template("admin/import.html", plan=plan, tplan=tplan)
 
     @app.route("/admin/import/apply", methods=["POST"])
     def admin_import_apply():
         import json as _json
         try:
-            plan = _json.loads(request.form.get("plan_json") or "{}")
+            plan = _json.loads(request.form.get("plan_json") or "null")
+            tplan = _json.loads(request.form.get("tplan_json") or "null")
         except ValueError:
             flash("Import plan was malformed — re-upload and preview again.", "error")
             return redirect(url_for("admin_import"))
         if isinstance(plan, list):  # pre-backline plan format
             plan = {"assignments": plan}
-        count = importer.apply_plan(get_db(db_path), plan)
-        flash(f"Applied weekly import to {count} slots + backline tables.", "success")
-        return redirect(url_for("admin_slots"))
-
-    @app.route("/admin/import/tech", methods=["POST"])
-    def admin_import_tech_preview():
-        f = request.files.get("file")
-        if f is None or not f.filename:
-            flash("Choose the Tech Report PDF first.", "error")
+        db = get_db(db_path)
+        done = []
+        if plan:
+            done.append(f"{importer.apply_plan(db, plan)} slots from the Input List")
+        if tplan:
+            done.append(f"{importer.apply_tech_plan(db, tplan)} seats from the Tech Report")
+        if not done:
+            flash("Nothing to apply — upload and preview first.", "error")
             return redirect(url_for("admin_import"))
-        try:
-            parsed = importer.parse_tech_report(f.read())
-        except Exception as exc:
-            flash(f"Could not read that PDF: {exc}", "error")
-            return redirect(url_for("admin_import"))
-        tplan = importer.build_tech_plan(get_db(db_path), parsed)
-        return render_template("admin/import.html", plan=None, tplan=tplan)
-
-    @app.route("/admin/import/tech/apply", methods=["POST"])
-    def admin_import_tech_apply():
-        import json as _json
-        try:
-            tplan = _json.loads(request.form.get("tplan_json") or "{}")
-        except ValueError:
-            flash("Tech Report plan was malformed — re-upload and preview again.", "error")
-            return redirect(url_for("admin_import"))
-        count = importer.apply_tech_plan(get_db(db_path), tplan)
-        flash(f"Applied Tech Report: {count} seat assignments + weekly roles.", "success")
+        flash("Applied " + " and ".join(done) + ".", "success")
         return redirect(url_for("admin_slots"))
 
     @app.route("/admin/export/stageplot.svg")
