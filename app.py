@@ -20,8 +20,10 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -74,6 +76,15 @@ ASSET_STATUSES = {
     "missing":    "Missing",
     "retired":    "Retired",
 }
+# ---------------------------------------------------------------
+# Weekly reset: the wall must not keep showing last Sunday's roster.
+# Every week is cleared automatically at 1 PM Sunday (church local
+# time) unless the new week's files were already imported.
+# ---------------------------------------------------------------
+CHURCH_TZ = ZoneInfo("America/Chicago")
+WEEKLY_CLEAR_WEEKDAY = 6   # Sunday (Monday=0)
+WEEKLY_CLEAR_HOUR = 13     # 1 PM
+
 ASSET_CATEGORIES = [
     "wireless", "iem", "microphone", "receiver", "console", "stagebox",
     "di", "speaker", "monitor", "computer", "video", "lighting",
@@ -262,6 +273,7 @@ def register_display_routes(app: Flask) -> None:
         paths, MyMix legend, mixer ownership. Server-rendered,
         auto-refreshes; deliberately dense and unpretty."""
         db = get_db(app.config["DATABASE_PATH"])
+        _maybe_weekly_clear(db)
         patch = db.execute("SELECT * FROM patch_row ORDER BY sort_order").fetchall()
         settings = {r["key"]: r["value"] for r in
                     db.execute("SELECT key, value FROM app_setting")}
@@ -349,6 +361,7 @@ def register_api_routes(app: Flask) -> None:
         """Snapshot of slot assignments. Live receiver data will be added
         in commit 3; today everything is static config data."""
         db = get_db(app.config["DATABASE_PATH"])
+        _maybe_weekly_clear(db)
         slots = db.execute(_SLOT_QUERY).fetchall()
 
         # How an instrument gets into the board, from the imported patch
@@ -836,6 +849,13 @@ def register_admin_routes(app: Flask) -> None:
         return redirect(url_for("admin_positions"))
 
     # --- Slots ---
+    @app.route("/admin/slots/clear", methods=["POST"])
+    def admin_slots_clear():
+        """Manual version of the Sunday-1-PM automatic clear."""
+        _weekly_clear(get_db(db_path))
+        flash("Week cleared — every seat is empty, inventory untouched.", "success")
+        return redirect(url_for("admin_slots"))
+
     @app.route("/admin/slots")
     def admin_slots():
         db = get_db(db_path)
@@ -1158,6 +1178,62 @@ def _update_status() -> dict | None:
         status = None
     _UPDATE_CACHE["status"] = status
     return status
+
+
+def _weekly_clear(db) -> None:
+    """Empty the week: people off every seat, roles, leader, backline
+    tables. Inventory (channels, positions, assets, photos) is
+    untouched — this is the Sunday-afternoon blank slate."""
+    db.execute("""UPDATE slot SET person_id=NULL, mic_channel_id=NULL,
+                    iem_channel_id=NULL, position_id=NULL, mymix_channel=NULL,
+                    pc_role=NULL, updated_at=datetime('now')
+                  WHERE kind IN ('paired', 'mic_only') AND archived=0""")
+    db.execute("""UPDATE slot SET person_id=NULL, pc_role=NULL,
+                    iem_channel_id=NULL, mymix_channel=NULL,
+                    updated_at=datetime('now')
+                  WHERE kind='band' AND archived=0""")
+    db.execute("""UPDATE slot SET person_id=NULL, pc_role=NULL,
+                    updated_at=datetime('now')
+                  WHERE kind='tech' AND archived=0""")
+    for table in ("patch_row", "iem_rf", "mymix_channel", "mymix_mixer"):
+        db.execute(f"DELETE FROM {table}")
+    db.execute("DELETE FROM app_setting WHERE key='leader_person_id'")
+    db.execute("""INSERT INTO app_setting (key, value)
+                  VALUES ('week_cleared_at', datetime('now'))
+                  ON CONFLICT(key) DO UPDATE SET value=excluded.value""")
+    db.commit()
+
+
+def _last_clear_boundary(now=None) -> datetime:
+    """The most recent Sunday 1 PM church time at or before `now`."""
+    now = now or datetime.now(CHURCH_TZ)
+    b = now.replace(hour=WEEKLY_CLEAR_HOUR, minute=0, second=0, microsecond=0)
+    b -= timedelta(days=(now.weekday() - WEEKLY_CLEAR_WEEKDAY) % 7)
+    if b > now:
+        b -= timedelta(days=7)
+    return b
+
+
+def _maybe_weekly_clear(db) -> None:
+    """Piggybacks on the wall's poll loop — no scheduler process to
+    babysit, and a Pi that was off at 1 PM clears on next boot. Runs
+    the clear once per Sunday-1-PM boundary; files imported AFTER the
+    boundary are the new week and are left alone."""
+    boundary = (_last_clear_boundary().astimezone(timezone.utc)
+                .strftime("%Y-%m-%d %H:%M:%S"))
+    s = {r["key"]: r["value"] for r in db.execute(
+        "SELECT key, value FROM app_setting WHERE key IN "
+        "('week_cleared_at', 'import_at', 'tech_report_at')")}
+    if (s.get("week_cleared_at") or "") >= boundary:
+        return
+    if max(s.get("import_at") or "", s.get("tech_report_at") or "") >= boundary:
+        db.execute("""INSERT INTO app_setting (key, value)
+                      VALUES ('week_cleared_at', datetime('now'))
+                      ON CONFLICT(key) DO UPDATE SET value=excluded.value""")
+        db.commit()
+        return
+    log.info("Weekly clear: emptying last week (boundary %s UTC)", boundary)
+    _weekly_clear(db)
 
 
 def _current_leader(db):

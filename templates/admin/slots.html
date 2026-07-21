@@ -5,9 +5,18 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Slot assignments</h1>
-    <p class="page-lead">Slots 1–6: vocalist handheld + IEM (charger bank). Slots 7–10: wireless speaker mics. Seats 11–16: band members — instrument, optional IEM/mic.</p>
+    <p class="page-lead">Slots 1–6: vocalist handheld + IEM (charger bank). Slots 7–10: wireless speaker mics. Seats 11–16: band members — instrument, optional IEM/mic.
+      Auto-clears every Sunday at 1 PM; the button empties it now.</p>
   </div>
-  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+  <div>
+    <form method="post" action="{{ url_for('admin_slots_clear') }}" style="display:inline">
+      <button type="submit" class="btn-danger"
+              onclick="return confirm('Clear the whole week? Every seat empties; inventory and people are untouched.')">
+        Clear the week
+      </button>
+    </form>
+    <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+  </div>
 </div>
 
 <section class="form-card">
