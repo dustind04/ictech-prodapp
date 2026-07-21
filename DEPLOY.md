@@ -1,5 +1,33 @@
 # Deploying
 
+## Raspberry Pi — server + main TV in one box (production)
+
+A Pi 5 hardwired to the production network AND to the main TV over
+HDMI: it hosts the site for every other screen on the LAN and drives
+the main TV itself in kiosk mode.
+
+**OS:** Raspberry Pi OS **64-bit with desktop** (Bookworm), flashed
+with Raspberry Pi Imager — the desktop is what runs the kiosk browser,
+so don't go headless/Lite. In the Imager's settings: hostname
+`ictech`, user `audio`, enable SSH, skip Wi-Fi (it's hardwired).
+After first boot: `sudo raspi-config` → Boot → Desktop Autologin, and
+`sudo apt install -y docker.io docker-compose-plugin chromium-browser`
+(add the user to the `docker` group).
+
+```bash
+git clone https://github.com/dustind04/ictech-prodapp.git ~/ictech-prodapp
+cd ~/ictech-prodapp
+# copy the data/ bundle (ictech.db + photos/) in now, then:
+bash scripts/pi-setup.sh     # .env + docker compose up, prints URLs
+bash scripts/pi-kiosk.sh     # HDMI output -> http://localhost/ kiosk
+sudo reboot
+```
+
+Give the Pi a **DHCP reservation** so `http://ictech/...` URLs on the
+other TVs never move. Roku TVs: `scripts/roku-deploy.ps1` still works
+from any Windows box, or sideload per DEPLOY notes below — the
+snapshotter container runs on the Pi.
+
 ## Backstage PC — Docker Desktop (production)
 
 The real deployment: a PC on the church production network, running

@@ -19,17 +19,9 @@ An admin UI (light mode) manages the data behind it. The wall display is dark mo
 - Forked from **micboard** (karlcswanson). The `py/` directory is retained as a **reference for the Shure wireless protocol only** — the frontend is fully replaced.
 - Branch: `master`
 
-### Commit history (5 commits, all landed)
+### History
 
-| # | SHA | What |
-|---|-----|------|
-| 1 | `38a5a14` | Flask skeleton + 3-table schema |
-| 2 | `6b40336` | Admin CRUD + branded wall display |
-| 3 | `97b3064` | Photo upload for people |
-| 4 | `70c5825` | Stage positions + mic label fix |
-| 5 | `6bf4ba6` | MyMix channel on slot |
-
-Work was explicitly stopped at commit 5.
+~70 fork commits on `master` (see `git log upstream/master..master`). Major arcs, oldest first: Flask skeleton → admin CRUD + wall display → photos/positions/MyMix → Cloudflare-tunnel deploy → equipment catalog + weekly Input List importer → wall design iterations (designs 1–3, dark "Bulletin" port) → split displays (`/micboard` pinned, `/dataviz` evolving) → `/techdashboard` → Planning Center Tech Report PDF import → Roku channel + Playwright snapshot sidecar → deep Shure/Countryman gear catalog (migrations 011–013).
 
 ## Data model
 
@@ -78,7 +70,7 @@ Font: **Inter**. Admin = light mode. Wall display = dark mode.
 
 ## Environments
 
-**Dev:** Windows 11 (no WSL/Docker/Python on the current machine — the old `D2Surface` WSL2 environment is gone). Work happens against the git clone at `C:\ICT\ictech-prodapp`; deploys go to Linux boxes via `git pull`. Git identity `dustind04`.
+**Dev:** macOS (as of July 2026) — clone at `/Users/dustindubois/ICT/ictech-prodapp`, Python 3.12 venv at `.venv/` (`pip install -r requirements.txt`; app boots and all migrations apply clean). Deploys go to the Windows/Linux boxes via `git pull`. Git identity `dustind04`.
 
 **Internet-facing deployment:** Debian box running `docker-compose.prod.yaml` — app + `cloudflared` sidecar publishing it via a Cloudflare tunnel. Port 8058 is localhost-only on the box; the tunnel is the sole public path. `/admin` gets HTTP Basic Auth via `ICTECH_ADMIN_USER`/`ICTECH_ADMIN_PASSWORD` (auth is off when unset). See `DEPLOY.md`.
 
