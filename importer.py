@@ -23,6 +23,7 @@ the weekly truth, including who ISN'T on this week.
 
 from __future__ import annotations
 
+import difflib
 import re
 from io import BytesIO
 
@@ -174,25 +175,42 @@ def _person_key(name: str) -> str:
     return name.strip().lower()
 
 
+def _looks_like_typo(a: str, b: str) -> bool:
+    """Close-but-not-equal names — one or two characters apart."""
+    return a.lower() != b.lower() and \
+        difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio() >= 0.84
+
+
 def _match_person(people, raw_name: str):
     """Match a sheet name against person rows. Exact display-name match
     (ignoring a trailing initial's dot) wins; then unique first-name
-    match. Returns (person_row_or_None, warning_or_None)."""
+    match. Returns (person, warning, create_name) — at most one set.
+    A name nobody matches becomes create_name (the person is added on
+    apply) UNLESS it reads like a typo of someone existing, which
+    warns instead of minting a duplicate."""
     key = _person_key(raw_name)
     if not key:
-        return None, None
+        return None, None, None
     for p in people:
         if p["display_name"].rstrip(".").lower() == key:
-            return p, None
+            return p, None, None
     first_matches = [
         p for p in people
         if p["display_name"].split()[0].lower() == key.split()[0]
     ]
     if len(first_matches) == 1:
-        return first_matches[0], None
+        return first_matches[0], None, None
     if len(first_matches) > 1:
-        return None, f"'{raw_name}': several people share that first name — pick manually."
-    return None, f"'{raw_name}': no matching person (add them on the People page, then re-import)."
+        return None, f"'{raw_name}': several people share that first name — pick manually.", None
+    near = [p for p in people
+            if _looks_like_typo(key.split()[0], p["display_name"].split()[0])]
+    if near:
+        return None, (f"'{raw_name}': looks like a typo of {near[0]['display_name']}"
+                      f" — fix the sheet, or add them yourself if they're real."), None
+    name = raw_name.strip()
+    if name.lower().endswith(" vox"):
+        name = name[:-4].strip()
+    return None, None, name
 
 
 def _match_channel_by_tag(channels, tag: str, kinds: tuple):
@@ -277,9 +295,12 @@ def build_plan(db, parsed: dict) -> dict:
             a["notes"].append("No row this week — slot will be emptied.")
             return a
 
-        person, warn = _match_person(people, entry["instrument"])
+        person, warn, create = _match_person(people, entry["instrument"])
         if person is not None:
             a["person_id"], a["person"] = person["id"], person["display_name"]
+        elif create:
+            a["person_create"], a["person"] = create, f"{create} (new)"
+            a["notes"].append(f"'{create}' will be added to People.")
         elif warn:
             a["notes"].append(warn)
 
@@ -330,11 +351,28 @@ def build_plan(db, parsed: dict) -> dict:
     return plan
 
 
+def _ensure_person(db, name: str, cache: dict) -> int:
+    """Find-or-create a person by display name (case-insensitive).
+    The cache keeps one import from creating the same name twice."""
+    key = name.lower()
+    if key not in cache:
+        row = db.execute(
+            "SELECT id FROM person WHERE archived=0 AND lower(display_name)=?",
+            (key,)).fetchone()
+        cache[key] = row["id"] if row else db.execute(
+            "INSERT INTO person (display_name) VALUES (?)", (name,)).lastrowid
+    return cache[key]
+
+
 def apply_plan(db, plan: dict) -> int:
     """Write the assignments and replace the backline tech tables.
-    Creates any positions the plan flagged. Returns slots updated."""
+    Creates any positions and people the plan flagged. Returns slots
+    updated."""
     assignments = plan.get("assignments", [])
+    created: dict = {}
     for a in assignments:
+        if a.get("person_id") is None and a.get("person_create"):
+            a["person_id"] = _ensure_person(db, a["person_create"], created)
         if a["position_id"] is None and a["position"]:
             row = db.execute(
                 "SELECT id FROM position WHERE archived=0 AND lower(label)=lower(?)",
@@ -488,14 +526,27 @@ def parse_tech_report(data: bytes) -> dict:
 def _pc_person_match(people, full_name: str):
     """Match a PC full name against our display names: first name plus
     last initial, EXACT only. PC always prints full names, so a loose
-    first-name fallback is how 'Dave Geer' once became Dave H. —
-    unknown people warn instead of guessing."""
+    first-name fallback is how 'Dave Geer' once became Dave H.
+
+    Returns (person, warning, create_name) — at most one set. An
+    unknown name becomes create_name ('Dave Geer' -> 'Dave G.', added
+    on apply) UNLESS it reads like a typo of an existing person with
+    the same last initial, which warns instead: a DIFFERENT last
+    initial is a different human, a garbled first name over the same
+    initial is probably a misspelling."""
     parts = full_name.split()
     display = f"{parts[0]} {parts[-1][0]}."
     for p in people:
         if p["display_name"].lower() == display.lower():
-            return p, None
-    return None, f"'{full_name}': no matching person (add them on the People page)."
+            return p, None, None
+    for p in people:
+        pp = p["display_name"].split()
+        if (len(pp) > 1 and pp[-1].rstrip(".").lower() == parts[-1][0].lower()
+                and _looks_like_typo(parts[0], pp[0])):
+            return None, (f"'{full_name}': looks like a typo of {p['display_name']}"
+                          f" — fix it in Planning Center, or add them yourself "
+                          f"if they're real."), None
+    return None, None, display
 
 
 def build_tech_plan(db, parsed: dict) -> dict:
@@ -510,20 +561,27 @@ def build_tech_plan(db, parsed: dict) -> dict:
         pos = entry["position"]
         low = pos.lower()
         for who in entry["people"]:
-            person, warn = _pc_person_match(people, who["name"])
+            person, warn, create = _pc_person_match(people, who["name"])
             if warn:
                 plan["warnings"].append(f"{pos}: {warn}")
                 continue
+            # Either a matched row or a to-be-created name; downstream
+            # entries carry person_create so apply can mint the person.
+            pid = person["id"] if person else None
+            pname = person["display_name"] if person else f"{create} (new)"
+            ref = {"person_id": pid, "person": pname}
+            if create:
+                ref["person_create"] = create
 
             seat = next((s for rx, s in TECH_SEAT_MAP if re.search(rx, low)), None)
             if seat is not None and "vocal" not in low:
-                plan["tech_seats"].append({"seat": seat, "role": pos,
-                                           "person_id": person["id"],
-                                           "person": person["display_name"]})
+                plan["tech_seats"].append({"seat": seat, "role": pos, **ref})
                 continue
 
             if re.match(r"^camera \d+$", low) or "interpreter" in low:
-                plan["info"].append(f"{pos}: {person['display_name']}")
+                plan["info"].append(f"{pos}: {pname}")
+                if create:
+                    plan["extra_people"] = plan.get("extra_people", []) + [create]
                 continue
 
             band_rx = next((brx for prx, brx in BAND_POS_MAP if re.search(prx, low)), None)
@@ -532,18 +590,19 @@ def build_tech_plan(db, parsed: dict) -> dict:
                              if re.search(band_rx, (s["label"] or ""), re.I)), None)
                 if slot:
                     plan["band"].append({"bank_order": slot["bank_order"],
-                                         "seat_label": slot["label"], "position": pos,
-                                         "person_id": person["id"],
-                                         "person": person["display_name"]})
+                                         "seat_label": slot["label"],
+                                         "position": pos, **ref})
                 else:
                     plan["warnings"].append(f"{pos}: no band seat matches.")
-            plan["roles"].append({"person_id": person["id"],
-                                  "person": person["display_name"], "role": pos})
+            plan["roles"].append({"role": pos, **ref})
 
     if parsed.get("leader_name"):
-        person, warn = _pc_person_match(people, parsed["leader_name"])
+        person, warn, create = _pc_person_match(people, parsed["leader_name"])
         if person:
             plan["leader"] = {"person_id": person["id"], "person": person["display_name"]}
+        elif create:
+            plan["leader"] = {"person_id": None, "person": f"{create} (new)",
+                              "person_create": create}
         elif warn:
             plan["warnings"].append(f"Music leader: {warn}")
     return plan
@@ -560,6 +619,16 @@ def apply_tech_plan(db, plan: dict) -> int:
     db.execute("UPDATE slot SET person_id=NULL, pc_role=NULL, iem_channel_id=NULL, "
                "mymix_channel=NULL, updated_at=datetime('now') "
                "WHERE kind='band' AND archived=0")
+    # Mint any new people the plan carries (find-or-create; one row per
+    # name even if they hold several positions).
+    created: dict = {}
+    for entry in (plan.get("tech_seats", []) + plan.get("band", [])
+                  + plan.get("roles", [])
+                  + ([plan["leader"]] if plan.get("leader") else [])):
+        if entry.get("person_id") is None and entry.get("person_create"):
+            entry["person_id"] = _ensure_person(db, entry["person_create"], created)
+    for name in plan.get("extra_people", []):
+        _ensure_person(db, name, created)
     changed = 0
     for t in plan.get("tech_seats", []):
         db.execute("UPDATE slot SET person_id=?, pc_role=?, updated_at=datetime('now') "
