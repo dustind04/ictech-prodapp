@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ dash.name }} — icTech Services{% endblock %}
+{% block body_class %}wall-body{% endblock %}
+{% block main_class %}dash-main{% endblock %}
+{% block chrome %}{% endblock %}
+
+{% block content %}
+{# Custom dashboard shell. The widget grid is a server-rendered
+   fragment swapped in every 10s; clocks and countdowns tick locally
+   every second so they never look frozen between swaps. #}
+<div class="dash-grid" id="dash-root">
+  {% include "_dash_widgets.html" %}
+</div>
+
+<script>
+  const PARTIAL_URL = location.pathname + '?partial=1';
+
+  async function swap() {
+    try {
+      const res = await fetch(PARTIAL_URL, { cache: 'no-store' });
+      if (!res.ok) return;
+      document.getElementById('dash-root').innerHTML = await res.text();
+      tick();  // repaint clocks immediately, no 1s flash of '—'
+    } catch (e) { /* network blip; next swap retries */ }
+  }
+
+  function fmt(secs) {
+    secs = Math.max(0, Math.floor(secs));
+    const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600);
+    const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    return d > 0 ? `${d}d ${h}:${m}:${s}` : `${h}:${m}:${s}`;
+  }
+
+  function tick() {
+    const now = new Date();
+    const chi = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    for (const el of document.querySelectorAll('[data-clock]')) {
+      el.textContent = chi.toLocaleTimeString('en-US',
+        { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    }
+    for (const el of document.querySelectorAll('[data-clock-date]')) {
+      el.textContent = chi.toLocaleDateString('en-US',
+        { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+    for (const el of document.querySelectorAll('[data-countdown]')) {
+      const mode = el.dataset.mode, label = el.dataset.label;
+      if (mode === 'wait' && el.dataset.target) {
+        el.textContent = `${label} in ${fmt((+el.dataset.target - now) / 1000)}`;
+      } else if (el.dataset.start) {
+        el.textContent = `${label} ${fmt((now - +el.dataset.start) / 1000)}`;
+      }
+      el.classList.toggle('live', mode === 'live');
+      el.classList.toggle('over', mode === 'over');
+    }
+  }
+
+  tick();
+  setInterval(tick, 1000);
+  setInterval(swap, 10000);
+</script>
+{% endblock %}

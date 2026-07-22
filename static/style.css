@@ -1119,3 +1119,72 @@ input[type=file]::file-selector-button:hover {
   font-size: 14px;
   color: var(--text-faint);
 }
+
+/* =================================================================
+   /d/<slug> — build-your-own dashboards. Dark, TV-first, 6-col grid.
+   ================================================================= */
+.dash-main { background: #0B0B0B; min-height: 100vh; padding: 2vh 2vw; }
+.dash-grid { display: grid; grid-template-columns: repeat(6, 1fr);
+             gap: 1.6vh 1vw; align-items: start; }
+.dw { min-width: 0; color: #F2F2EF; }
+.dw-card { background: #161616; border: 1px solid #262626; border-radius: 12px;
+           padding: 2vh 1.4vw; }
+.dw-center { text-align: center; }
+.dw-muted { color: #8a8a84; }
+.dw-caption { font-size: 1.6vh; font-weight: 800; letter-spacing: 0.18em;
+              text-transform: uppercase; color: var(--green); }
+.dw-big { font-size: 3.2vh; font-weight: 900; margin: 0.6vh 0; }
+.dw-leader { color: #CFCFC9; font-size: 2vh; }
+.dw-countdown { display: inline-block; margin-top: 1vh; padding: 0.8vh 1.6vw;
+                border-radius: 999px; background: var(--green); color: #10230A;
+                font-size: 2.4vh; font-weight: 900; font-variant-numeric: tabular-nums; }
+.dw-countdown.live { background: #F6DE4C; color: #231F05; }
+.dw-countdown.over { background: #D64545; color: #fff; }
+.dw-clock { font-size: 6vh; font-weight: 900; font-variant-numeric: tabular-nums; }
+.dw-header { display: flex; align-items: center; gap: 2vw; }
+.dw-logo { height: 6vh; }
+.dw-mark { height: 7vh; margin: 0 auto; }
+.dw-sched { color: #8a8a84; font-size: 1.7vh; }
+.dw-zone-title { font-size: 1.8vh; font-weight: 800; letter-spacing: 0.16em;
+                 text-transform: uppercase; margin-bottom: 1vh;
+                 border-bottom: 1px solid #2A2A2A; padding-bottom: 0.6vh; }
+.dw-zone-title i { color: var(--green); font-style: normal; }
+.dw-tiles { display: grid; gap: 0.8vw;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.dw-tile { background: #161616; border: 1px solid #262626; border-radius: 10px;
+           padding: 1.2vh 0.6vw; text-align: center; position: relative; }
+.dw-tile.dw-empty { opacity: 0.42; }
+.dw-tile-num { position: absolute; top: 0.6vh; left: 0.8vw; color: #6b6b66;
+               font-size: 1.4vh; font-weight: 700; }
+.dw-photo { width: 7vh; height: 7vh; border-radius: 50%; overflow: hidden;
+            margin: 1vh auto 0.6vh; background: var(--green);
+            display: flex; align-items: center; justify-content: center; }
+.dw-photo img { width: 100%; height: 100%; object-fit: cover; }
+.dw-initials { color: #10230A; font-weight: 900; font-size: 2.4vh; }
+.dw-name { font-weight: 800; font-size: 2vh; }
+.dw-role { color: #9a9a94; font-size: 1.4vh; text-transform: uppercase;
+           letter-spacing: 0.08em; margin-bottom: 0.8vh; }
+.dw-rows div { display: flex; justify-content: space-between; gap: 6px;
+               font-size: 1.5vh; border-top: 1px solid #222; padding: 0.4vh 0; }
+.dw-rows span { color: #7a7a74; text-transform: uppercase; font-size: 1.2vh;
+                letter-spacing: 0.1em; }
+.dw-rows b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-crew { display: flex; flex-wrap: wrap; gap: 0.8vw; }
+.dw-crew-chip { display: inline-flex; align-items: center; gap: 0.5vw;
+                background: #161616; border: 1px solid #262626;
+                border-radius: 999px; padding: 0.6vh 1vw; font-size: 1.8vh; }
+.dw-crew-chip img { width: 3.4vh; height: 3.4vh; border-radius: 50%;
+                    object-fit: cover; }
+.dw-table { width: 100%; border-collapse: collapse; font-size: 1.6vh;
+            font-variant-numeric: tabular-nums; }
+.dw-table th { text-align: left; color: #8a8a84; text-transform: uppercase;
+               font-size: 1.2vh; letter-spacing: 0.1em; padding: 0.4vh 0.5vw;
+               border-bottom: 1px solid #2A2A2A; }
+.dw-table td { padding: 0.42vh 0.5vw; border-bottom: 1px solid #1D1D1D; }
+.dw-legend { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.5vw; }
+.dw-legend-cell { background: #161616; border: 1px solid #262626;
+                  border-radius: 8px; padding: 0.8vh 0.5vw; text-align: center; }
+.dw-legend-cell b { display: block; color: var(--green); font-size: 2vh; }
+.dw-legend-cell span { font-size: 1.4vh; color: #CFCFC9; }
+.dw-stageplot { width: 100%; border-radius: 12px; background: #fff; }
+.dw-notes { font-size: 2vh; white-space: pre-wrap; line-height: 1.5; }

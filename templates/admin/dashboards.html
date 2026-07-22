@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Dashboards — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Dashboards</h1>
+    <p class="page-lead">Build your own display out of widgets — each one gets a
+      TV-ready URL and shows up on the <a href="{{ url_for('tv_picker') }}">/tv picker</a>.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<section class="form-card">
+  <h2>New dashboard</h2>
+  <form method="post" action="{{ url_for('admin_dashboards_create') }}">
+    <div class="form-row" style="align-items: flex-end">
+      <label>Name <input name="name" required placeholder="Green Room"></label>
+      <button type="submit" class="btn-primary">Create &amp; build</button>
+    </div>
+  </form>
+</section>
+
+<section>
+  <h2>Your dashboards <span class="muted">({{ dashboards|length }})</span></h2>
+  {% if dashboards %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>URL</th><th>Widgets</th><th></th></tr></thead>
+      <tbody>
+        {% for d in dashboards %}
+          <tr>
+            <td>{{ d.name }}</td>
+            <td><a href="{{ url_for('dashboard_display', slug=d.slug) }}" target="_blank">
+              <code>/d/{{ d.slug }}</code></a></td>
+            <td>{{ d.widget_count }}</td>
+            <td class="actions">
+              <a href="{{ url_for('admin_dashboards_edit', dashboard_id=d.id) }}">Build</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">None yet — name one above and start stacking widgets.</p>
+  {% endif %}
+</section>
+{% endblock %}

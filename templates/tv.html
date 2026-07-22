@@ -29,5 +29,9 @@
     <small>ABOVE THE CHARGER BANKS</small></a>
   <a class="tv-btn" href="{{ url_for('techdashboard') }}">TECH DASHBOARD
     <small>PATCH · RF · ROUTING</small></a>
+  {% for d in dashboards %}
+    <a class="tv-btn" href="{{ url_for('dashboard_display', slug=d.slug) }}">
+      {{ d.name | upper }}<small>CUSTOM DASHBOARD</small></a>
+  {% endfor %}
 </div>
 {% endblock %}

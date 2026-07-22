@@ -1,0 +1,137 @@
+{# The widget grid for /d/<slug>. Server-rendered; the shell swaps
+   this fragment in every 10s. Clock/countdown elements carry data-
+   attributes and are re-ticked client-side by the shell's 1s timer. #}
+{% macro tile(s) %}
+  <div class="dw-tile {{ 'dw-empty' if not s.person_id }}">
+    <div class="dw-tile-num">{{ '%02d' % s.bank_order }}</div>
+    {% if s.photo_url %}
+      <div class="dw-photo"><img src="{{ s.photo_url }}" alt=""></div>
+    {% else %}
+      <div class="dw-photo dw-initials">{{ (s.person_name or '')
+          .split() | map('first') | join('') | upper or '—' }}</div>
+    {% endif %}
+    <div class="dw-name">{{ s.person_name or 'Empty' }}</div>
+    <div class="dw-role">{{ s.pc_role or s.slot_label or '' }}&nbsp;</div>
+    <div class="dw-rows">
+      <div><span>Mic</span><b>{{ s.mic_label or '—' }}</b></div>
+      <div><span>MyMix</span><b>{{ s.mymix_channel or '—' }}</b></div>
+      <div><span>IEM</span><b>{{ s.iem_label or '—' }}</b></div>
+    </div>
+  </div>
+{% endmacro %}
+
+{% for w in widgets %}
+<section class="dw dw-{{ w.type }}" style="grid-column: span {{ widths[w.width] }}">
+  {% if w.type == 'header' %}
+    <div class="dw-header">
+      <img class="dw-logo" src="{{ url_for('static', filename='immanuel-mark-white.png') }}" alt="Immanuel Church">
+      <img class="dw-mark" src="{{ url_for('static', filename='welcome-home-mark.png') }}" alt="Welcome home.">
+      <div class="dw-sched">Sundays 9:00 &amp; 11:00 AM · Rehearsal Tue 6:30 PM</div>
+    </div>
+
+  {% elif w.type == 'thisweek' %}
+    <div class="dw-card dw-center">
+      <div class="dw-caption">This Week</div>
+      <div class="dw-big">Service: {{ service_date }}</div>
+      {% if leader %}<div class="dw-leader">♪ Leader: {{ leader.name }}</div>{% endif %}
+      <div class="dw-countdown"
+           data-countdown data-mode="{{ schedule.mode }}"
+           data-label="{{ schedule.label }}"
+           data-target="{{ schedule.target_ms or '' }}"
+           data-start="{{ schedule.start_ms or '' }}">—</div>
+    </div>
+
+  {% elif w.type == 'clock' %}
+    <div class="dw-card dw-center">
+      <div class="dw-clock" data-clock>—</div>
+      <div class="dw-caption" data-clock-date></div>
+    </div>
+
+  {% elif w.type in ('vocals', 'band', 'speakers') %}
+    <div class="dw-zone-title">{{ {'vocals': 'Vocals', 'band': 'Band',
+                                   'speakers': 'Speakers'}[w.type] }}<i>.</i></div>
+    <div class="dw-tiles">
+      {% for s in zone_slots[w.type]
+           if not (w.opts.get('occupied_only') and not s.person_id) %}
+        {{ tile(s) }}
+      {% endfor %}
+    </div>
+
+  {% elif w.type == 'techcrew' %}
+    <div class="dw-zone-title">Tech<i>.</i></div>
+    <div class="dw-crew">
+      {% for s in zone_slots.techcrew if s.person_id %}
+        <span class="dw-crew-chip">
+          {% if s.photo_url %}<img src="{{ s.photo_url }}" alt="">{% endif %}
+          <b>{{ s.person_name }}</b> {{ s.pc_role or s.slot_label }}
+        </span>
+      {% else %}
+        <span class="dw-muted">No crew assigned yet.</span>
+      {% endfor %}
+    </div>
+
+  {% elif w.type == 'patch' %}
+    <div class="dw-zone-title">Patch<i>.</i></div>
+    <table class="dw-table">
+      <thead><tr><th>Snake</th><th>FOH</th><th>Input</th><th>Mic</th>
+        <th>48V</th><th>Mute</th><th>MyMix</th><th>Route</th><th>Info</th></tr></thead>
+      <tbody>
+        {% for p in patch %}
+          <tr>
+            <td>{{ p.snake_ch or '' }}</td><td>{{ p.foh_ch or '' }}</td>
+            <td>{{ p.instrument or '' }}</td><td>{{ p.mic or '' }}</td>
+            <td>{{ '48V' if p.phantom }}</td><td>{{ p.mute_grp or '' }}</td>
+            <td>{{ p.mymix_ch or '' }}</td><td>{{ p.mymix_route or '' }}</td>
+            <td class="dw-muted">{{ p.info or '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  {% elif w.type == 'iemrf' %}
+    <div class="dw-zone-title">IEM RF<i>.</i></div>
+    <table class="dw-table">
+      <thead><tr><th>IEM</th><th>RF</th><th>Path</th><th>Owner</th></tr></thead>
+      <tbody>
+        {% for r in iem_rf %}
+          <tr><td>{{ r.iem }}</td><td>{{ r.rf or '' }}</td>
+              <td>{{ r.path or '' }}</td><td>{{ r.owner or '' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  {% elif w.type == 'mymixlegend' %}
+    <div class="dw-zone-title">MyMix<i>.</i></div>
+    <div class="dw-legend">
+      {% for l in legend %}
+        <div class="dw-legend-cell"><b>{{ l.ch }}</b>
+          <span>{{ l.label or '—' }}</span></div>
+      {% endfor %}
+    </div>
+
+  {% elif w.type == 'mixers' %}
+    <div class="dw-zone-title">Mixers<i>.</i></div>
+    <table class="dw-table">
+      <tbody>
+        {% for m in mixers %}
+          <tr><td>{{ m.mixer }}</td><td>{{ m.owner or '—' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  {% elif w.type == 'stageplot' %}
+    <img class="dw-stageplot" src="{{ url_for('stageplot_svg') }}" alt="Stage plot">
+
+  {% elif w.type == 'notes' %}
+    <div class="dw-card">
+      {% if w.opts.get('title') %}<div class="dw-caption">{{ w.opts.title }}</div>{% endif %}
+      <div class="dw-notes">{{ w.opts.get('text') or '' }}</div>
+    </div>
+  {% endif %}
+</section>
+{% else %}
+<section class="dw dw-card dw-center" style="grid-column: span 6">
+  <div class="dw-muted">This dashboard has no widgets yet — add some in
+    Admin → Dashboards.</div>
+</section>
+{% endfor %}

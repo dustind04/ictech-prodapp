@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Build: {{ dash.name }} — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ dash.name }}</h1>
+    <p class="page-lead">Stack widgets top-to-bottom; widths flow left-to-right on a
+      6-column grid. Drag to reorder. The TV picks up saves within 10 seconds.</p>
+  </div>
+  <div>
+    <a class="btn-secondary" href="{{ url_for('dashboard_display', slug=dash.slug) }}"
+       target="_blank">Open /d/{{ dash.slug }}</a>
+    <a class="btn-secondary" href="{{ url_for('admin_dashboards') }}">← Dashboards</a>
+  </div>
+</div>
+
+<div class="form-row" style="align-items: flex-start; gap: 24px">
+<section class="form-card" style="flex: 0 0 260px">
+  <h2>Widgets</h2>
+  {% for type, (label, hint) in widget_types.items() %}
+    <button type="button" class="btn-secondary dash-add" data-type="{{ type }}"
+            data-label="{{ label }}" style="display:block; width:100%; margin-bottom:6px; text-align:left">
+      + {{ label }} <span class="hint" style="display:block">{{ hint }}</span>
+    </button>
+  {% endfor %}
+</section>
+
+<section class="form-card" style="flex: 1">
+  <form method="post" action="{{ url_for('admin_dashboards_update', dashboard_id=dash.id) }}"
+        id="dash-form">
+    <label>Name <input name="name" value="{{ dash.name }}"></label>
+    <h2 style="margin-top: 16px">Layout</h2>
+    <div id="dash-layout"></div>
+    <p class="muted" id="dash-empty-note">Nothing here yet — add widgets from the left.</p>
+    <input type="hidden" name="config_json" id="config-json">
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Save dashboard</button>
+      <button type="submit" name="action" value="archive" class="btn-danger"
+              onclick="return confirm('Archive {{ dash.name }}? Its URL stops working.')">
+        Archive
+      </button>
+    </div>
+  </form>
+</section>
+</div>
+
+<script>
+  const LABELS = {{ widget_types | tojson }};
+  const WIDTHS = [['full', 'Full width'], ['twothirds', '2/3'],
+                  ['half', '1/2'], ['third', '1/3']];
+  const layout = document.getElementById('dash-layout');
+  const emptyNote = document.getElementById('dash-empty-note');
+
+  function makeRow(w) {
+    const row = document.createElement('div');
+    row.className = 'dash-row';
+    row.draggable = true;
+    row.dataset.type = w.type;
+    const widthSel = WIDTHS.map(([v, l]) =>
+      `<option value="${v}" ${w.width === v ? 'selected' : ''}>${l}</option>`).join('');
+    let opts = '';
+    if (['vocals', 'band', 'speakers'].includes(w.type)) {
+      opts = `<label class="dash-opt"><input type="checkbox" class="opt-occupied"
+              ${w.opts && w.opts.occupied_only ? 'checked' : ''}> occupied only</label>`;
+    } else if (w.type === 'notes') {
+      const t = (w.opts && w.opts.title) || '', x = (w.opts && w.opts.text) || '';
+      opts = `<input class="opt-title" placeholder="Title" value="${t.replace(/"/g, '&quot;')}">
+              <textarea class="opt-text" rows="2" placeholder="The note itself">${x}</textarea>`;
+    }
+    row.innerHTML = `
+      <span class="dash-drag" title="Drag to reorder">⠿</span>
+      <b>${LABELS[w.type][0]}</b>
+      <select class="dash-width">${widthSel}</select>
+      <span class="dash-opts">${opts}</span>
+      <span style="flex:1"></span>
+      <button type="button" class="dash-up" title="Move up">↑</button>
+      <button type="button" class="dash-down" title="Move down">↓</button>
+      <button type="button" class="dash-remove" title="Remove">✕</button>`;
+    row.querySelector('.dash-remove').onclick = () => { row.remove(); sync(); };
+    row.querySelector('.dash-up').onclick = () => {
+      row.previousElementSibling && layout.insertBefore(row, row.previousElementSibling); };
+    row.querySelector('.dash-down').onclick = () => {
+      row.nextElementSibling && layout.insertBefore(row.nextElementSibling, row); };
+    row.addEventListener('dragstart', () => row.classList.add('dragging'));
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    return row;
+  }
+
+  layout.addEventListener('dragover', e => {
+    e.preventDefault();
+    const dragging = layout.querySelector('.dragging');
+    if (!dragging) return;
+    const after = [...layout.querySelectorAll('.dash-row:not(.dragging)')]
+      .find(r => e.clientY < r.getBoundingClientRect().top + r.offsetHeight / 2);
+    after ? layout.insertBefore(dragging, after) : layout.appendChild(dragging);
+  });
+
+  function sync() { emptyNote.style.display = layout.children.length ? 'none' : ''; }
+
+  for (const btn of document.querySelectorAll('.dash-add')) {
+    btn.onclick = () => {
+      layout.appendChild(makeRow({ type: btn.dataset.type, width: 'full', opts: {} }));
+      sync();
+    };
+  }
+
+  document.getElementById('dash-form').addEventListener('submit', () => {
+    const widgets = [...layout.querySelectorAll('.dash-row')].map(row => {
+      const w = { type: row.dataset.type,
+                  width: row.querySelector('.dash-width').value, opts: {} };
+      const occ = row.querySelector('.opt-occupied');
+      if (occ && occ.checked) w.opts.occupied_only = true;
+      const title = row.querySelector('.opt-title');
+      if (title && title.value.trim()) w.opts.title = title.value.trim();
+      const text = row.querySelector('.opt-text');
+      if (text && text.value.trim()) w.opts.text = text.value.trim();
+      return w;
+    });
+    document.getElementById('config-json').value = JSON.stringify({ widgets });
+  });
+
+  // Seed from the saved config.
+  for (const w of {{ config.widgets | tojson }}) layout.appendChild(makeRow(w));
+  sync();
+</script>
+
+<style>
+  .dash-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+              border: 1px solid var(--border, #E2E2E0); border-radius: 8px;
+              margin-bottom: 6px; background: #fff; }
+  .dash-row.dragging { opacity: 0.4; }
+  .dash-drag { cursor: grab; color: #999; }
+  .dash-row select, .dash-row input, .dash-row textarea { font: inherit; }
+  .dash-opts { display: flex; gap: 8px; align-items: center; }
+  .dash-opt { display: flex; gap: 4px; align-items: center; font-size: 13px;
+              color: #6B6B6B; white-space: nowrap; }
+  .dash-row button { border: 1px solid #E2E2E0; background: #F7F7F5;
+                     border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+</style>
+{% endblock %}

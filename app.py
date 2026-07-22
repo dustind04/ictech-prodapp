@@ -92,6 +92,29 @@ ASSET_CATEGORIES = [
 ]
 
 # ---------------------------------------------------------------
+# Build-your-own dashboards: the widget vocabulary. Each entry is
+# type -> (label, hint) for the builder palette; rendering lives in
+# templates/_dash_widgets.html. Unknown types in a saved config are
+# ignored at render, so removing one here never breaks a dashboard.
+# ---------------------------------------------------------------
+DASH_WIDGETS = {
+    "header":     ("Header", "Logo, Welcome HOME mark, schedule line"),
+    "thisweek":   ("This Week", "Service date, leader, live countdown"),
+    "clock":      ("Clock", "Big time + date (church time)"),
+    "vocals":     ("Vocals zone", "Slot tiles 1–6"),
+    "band":       ("Band zone", "Seat tiles 11–16"),
+    "speakers":   ("Speakers zone", "Slot tiles 7–10"),
+    "techcrew":   ("Tech crew", "Who's behind the controls"),
+    "patch":      ("Patch list", "Full input list w/ phantom + routing"),
+    "iemrf":      ("IEM RF", "Pack → RF path assignments"),
+    "mymixlegend": ("MyMix legend", "The 16 personal-mixer channels"),
+    "mixers":     ("Mixer owners", "Which MyMix unit belongs to whom"),
+    "stageplot":  ("Stage plot", "This week's auto-drawn plot"),
+    "notes":      ("Notes", "Free text — announcements, reminders"),
+}
+DASH_WIDTHS = {"full": 6, "twothirds": 4, "half": 3, "third": 2}
+
+# ---------------------------------------------------------------
 # Photo upload constraints.
 #   - Accepted MIME-mapped extensions only; we trust the browser
 #     extension after stripping with secure_filename but cross-check
@@ -212,7 +235,45 @@ def register_display_routes(app: Flask) -> None:
     def tv_picker():
         """One-time TV setup page: type the host, tap a big button.
         Each display bookmarks/lands itself from here."""
-        return render_template("tv.html")
+        db = get_db(app.config["DATABASE_PATH"])
+        dashboards = db.execute(
+            "SELECT slug, name FROM dashboard WHERE archived=0 ORDER BY name"
+        ).fetchall()
+        return render_template("tv.html", dashboards=dashboards)
+
+    # --- Build-your-own dashboards ---
+    @app.route("/d/<slug>")
+    def dashboard_display(slug):
+        """A custom dashboard, TV-ready. ?partial=1 returns just the
+        widget grid — the page swaps it in every 10s to stay live
+        without reloading."""
+        import json as _json
+        db = get_db(app.config["DATABASE_PATH"])
+        row = db.execute(
+            "SELECT * FROM dashboard WHERE slug=? AND archived=0", (slug,)
+        ).fetchone()
+        if not row:
+            abort(404)
+        config = _parse_dash_config(row["config"])
+        ctx = _dashboard_context(db, config)
+        if request.args.get("partial"):
+            return render_template("_dash_widgets.html",
+                                   widgets=config["widgets"], **ctx)
+        return render_template("dashboard.html", dash=row,
+                               widgets=config["widgets"], **ctx)
+
+    @app.route("/stageplot.svg")
+    def stageplot_svg():
+        """Public copy of the stage plot for dashboard embeds (the
+        admin route stays gated on tunnel deployments)."""
+        db = get_db(app.config["DATABASE_PATH"])
+        settings = {r["key"]: r["value"] for r in
+                    db.execute("SELECT key, value FROM app_setting")}
+        svg = stageplot.build_stage_plot(
+            db, service_label=settings.get("import_source"),
+            generated=settings.get("import_at"))
+        return Response(svg, mimetype="image/svg+xml",
+                        headers={"Cache-Control": "no-store"})
 
     @app.route("/snapshot/<name>.jpg")
     def snapshot(name):
@@ -855,6 +916,64 @@ def register_admin_routes(app: Flask) -> None:
         flash(f"Updated {label}.", "success")
         return redirect(url_for("admin_positions"))
 
+    # --- Dashboards (build your own) ---
+    @app.route("/admin/dashboards")
+    def admin_dashboards():
+        import json as _json
+        db = get_db(db_path)
+        dashboards = []
+        for r in db.execute("SELECT * FROM dashboard WHERE archived=0 ORDER BY name"):
+            cfg = _parse_dash_config(r["config"])
+            dashboards.append({**dict(r), "widget_count": len(cfg["widgets"])})
+        return render_template("admin/dashboards.html", dashboards=dashboards)
+
+    @app.route("/admin/dashboards", methods=["POST"])
+    def admin_dashboards_create():
+        db = get_db(db_path)
+        name = (request.form.get("name") or "").strip()
+        if not name:
+            flash("Give the dashboard a name.", "error")
+            return redirect(url_for("admin_dashboards"))
+        slug = _dash_slug(db, name)
+        cur = db.execute("INSERT INTO dashboard (slug, name) VALUES (?, ?)",
+                         (slug, name))
+        db.commit()
+        return redirect(url_for("admin_dashboards_edit", dashboard_id=cur.lastrowid))
+
+    @app.route("/admin/dashboards/<int:dashboard_id>/edit")
+    def admin_dashboards_edit(dashboard_id):
+        db = get_db(db_path)
+        dash = db.execute("SELECT * FROM dashboard WHERE id=?",
+                          (dashboard_id,)).fetchone()
+        if not dash:
+            abort(404)
+        return render_template("admin/dashboard_edit.html", dash=dash,
+                               widget_types=DASH_WIDGETS,
+                               config=_parse_dash_config(dash["config"]))
+
+    @app.route("/admin/dashboards/<int:dashboard_id>", methods=["POST"])
+    def admin_dashboards_update(dashboard_id):
+        import json as _json
+        db = get_db(db_path)
+        dash = db.execute("SELECT * FROM dashboard WHERE id=?",
+                          (dashboard_id,)).fetchone()
+        if not dash:
+            abort(404)
+        if request.form.get("action") == "archive":
+            db.execute("UPDATE dashboard SET archived=1, updated_at=datetime('now') "
+                       "WHERE id=?", (dashboard_id,))
+            db.commit()
+            flash(f"Archived {dash['name']}.", "success")
+            return redirect(url_for("admin_dashboards"))
+        name = (request.form.get("name") or "").strip() or dash["name"]
+        config = _parse_dash_config(request.form.get("config_json") or "")
+        db.execute("UPDATE dashboard SET name=?, config=?, updated_at=datetime('now') "
+                   "WHERE id=?",
+                   (name, _json.dumps(config), dashboard_id))
+        db.commit()
+        flash(f"Saved {name} — {len(config['widgets'])} widgets.", "success")
+        return redirect(url_for("admin_dashboards_edit", dashboard_id=dashboard_id))
+
     # --- Display settings ---
     @app.route("/admin/displays", methods=["POST"])
     def admin_displays_update():
@@ -1206,6 +1325,125 @@ def _update_status() -> dict | None:
         status = None
     _UPDATE_CACHE["status"] = status
     return status
+
+
+def _schedule_status(now=None) -> dict:
+    """Python port of the wall's week clock: what's next (or live) and
+    when. Sundays 9:00/11:00 (70 min on paper, +5 grace), Tuesday
+    rehearsal 6:30–9:00 PM. Returns label/mode plus epoch millis so the
+    page can tick client-side between refreshes."""
+    now = now or datetime.now(CHURCH_TZ)
+
+    def at(d, h, m):
+        return d.replace(hour=h, minute=m, second=0, microsecond=0)
+
+    def next_dow(dow, h, m):
+        d = at(now, h, m) + timedelta(days=(dow - now.weekday()) % 7)
+        if d <= now:
+            d += timedelta(days=7)
+        return d
+
+    def wait(label, target):
+        return {"mode": "wait", "label": label,
+                "target_ms": int(target.timestamp() * 1000)}
+
+    def live(label, start, over):
+        return {"mode": "over" if over else "live", "label": label,
+                "start_ms": int(start.timestamp() * 1000)}
+
+    day = now.weekday()  # Monday=0 ... Sunday=6
+    if day == 6:
+        for svc_h in (9, 11):
+            start = at(now, svc_h, 0)
+            if now < start:
+                return wait(f"{'1st' if svc_h == 9 else '2nd'} service", start)
+            if now < start + timedelta(minutes=70):
+                return live("Service time", start, False)
+            if now < start + timedelta(minutes=75):
+                return live("Service time", start, True)
+        return wait("Rehearsal", next_dow(1, 18, 30))
+    if day == 1:
+        if now < at(now, 18, 30):
+            return wait("Rehearsal", at(now, 18, 30))
+        if now < at(now, 21, 0):
+            return live("Rehearsal", at(now, 18, 30), False)
+        return wait("1st service", next_dow(6, 9, 0))
+    if day == 0:
+        return wait("Rehearsal", next_dow(1, 18, 30))
+    return wait("1st service", next_dow(6, 9, 0))
+
+
+def _service_sunday(now=None) -> datetime:
+    """The Sunday this week's data is for (rolls over after 12:30 PM)."""
+    now = now or datetime.now(CHURCH_TZ)
+    add = (6 - now.weekday()) % 7
+    if now.weekday() == 6 and now >= now.replace(hour=12, minute=30,
+                                                 second=0, microsecond=0):
+        add = 7
+    return now + timedelta(days=add)
+
+
+def _parse_dash_config(raw: str) -> dict:
+    """Sanitize a builder-submitted config: known widget types only,
+    widths clamped to the vocabulary, opts kept as a plain dict."""
+    import json as _json
+    try:
+        cfg = _json.loads(raw or "{}")
+    except ValueError:
+        cfg = {}
+    widgets = []
+    for w in (cfg.get("widgets") or []):
+        if not isinstance(w, dict) or w.get("type") not in DASH_WIDGETS:
+            continue
+        opts = w.get("opts") if isinstance(w.get("opts"), dict) else {}
+        widgets.append({
+            "type": w["type"],
+            "width": w.get("width") if w.get("width") in DASH_WIDTHS else "full",
+            "opts": {k: v for k, v in opts.items()
+                     if k in ("title", "text", "occupied_only") and
+                     isinstance(v, (str, bool))},
+        })
+    return {"widgets": widgets}
+
+
+def _dash_slug(db, name: str) -> str:
+    import re as _re
+    base = _re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "dashboard"
+    slug, n = base, 2
+    while db.execute("SELECT 1 FROM dashboard WHERE slug=?", (slug,)).fetchone():
+        slug, n = f"{base}-{n}", n + 1
+    return slug
+
+
+def _dashboard_context(db, config: dict) -> dict:
+    """Everything the used widgets need, queried once per render."""
+    types = {w["type"] for w in config.get("widgets", [])}
+    ctx: dict = {"widths": DASH_WIDTHS}
+    if types & {"vocals", "band", "speakers", "techcrew"}:
+        slots = [dict(r) for r in db.execute(_SLOT_QUERY)]
+        ctx["zone_slots"] = {
+            "vocals":   [s for s in slots if 1 <= s["bank_order"] <= 6],
+            "speakers": [s for s in slots if 7 <= s["bank_order"] <= 10],
+            "band":     [s for s in slots if 11 <= s["bank_order"] <= 16],
+            "techcrew": [s for s in slots if s["kind"] == "tech"],
+        }
+    if "patch" in types:
+        ctx["patch"] = db.execute(
+            "SELECT * FROM patch_row ORDER BY sort_order").fetchall()
+    if "iemrf" in types:
+        ctx["iem_rf"] = db.execute(
+            "SELECT * FROM iem_rf ORDER BY sort_order").fetchall()
+    if "mymixlegend" in types:
+        ctx["legend"] = db.execute(
+            "SELECT * FROM mymix_channel ORDER BY ch").fetchall()
+    if "mixers" in types:
+        ctx["mixers"] = db.execute(
+            "SELECT * FROM mymix_mixer ORDER BY sort_order").fetchall()
+    if "thisweek" in types:
+        ctx["leader"] = _current_leader(db)
+        ctx["schedule"] = _schedule_status()
+        ctx["service_date"] = _service_sunday().strftime("%A, %B %-d")
+    return ctx
 
 
 def _weekly_clear(db) -> None:
