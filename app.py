@@ -112,7 +112,19 @@ DASH_WIDGETS = {
     "stageplot":  ("Stage plot", "This week's auto-drawn plot"),
     "notes":      ("Notes", "Free text — announcements, reminders"),
 }
-DASH_WIDTHS = {"full": 6, "twothirds": 4, "half": 3, "third": 2}
+# Layout canvas: widgets carry x/y/w/h on a 24x12 grid over the TV's
+# screen, so a dashboard lays out EXACTLY as designed at that aspect
+# ratio (mismatched TVs letterbox). Sizes below are the defaults a
+# widget gets when dropped on the canvas (and what v1 flow configs
+# convert to).
+DASH_COLS, DASH_ROWS = 24, 12
+DASH_DEFAULT_SIZES = {
+    "header": (24, 2), "thisweek": (8, 3), "clock": (6, 3),
+    "vocals": (24, 5), "band": (24, 5), "speakers": (16, 5),
+    "techcrew": (12, 2), "patch": (12, 10), "iemrf": (8, 4),
+    "mymixlegend": (24, 3), "mixers": (6, 4), "stageplot": (10, 7),
+    "notes": (6, 3),
+}
 
 # ---------------------------------------------------------------
 # Photo upload constraints.
@@ -949,7 +961,24 @@ def register_admin_routes(app: Flask) -> None:
             abort(404)
         return render_template("admin/dashboard_edit.html", dash=dash,
                                widget_types=DASH_WIDGETS,
+                               default_sizes=DASH_DEFAULT_SIZES,
+                               cols=DASH_COLS, rows=DASH_ROWS,
                                config=_parse_dash_config(dash["config"]))
+
+    @app.route("/admin/dashboards/<int:dashboard_id>/preview", methods=["POST"])
+    def admin_dashboards_preview(dashboard_id):
+        """Render the REAL display page for an unsaved config — the
+        builder pipes this into its canvas iframe, so what you lay out
+        is literally what the TV will serve."""
+        db = get_db(db_path)
+        dash = db.execute("SELECT * FROM dashboard WHERE id=?",
+                          (dashboard_id,)).fetchone()
+        if not dash:
+            abort(404)
+        config = _parse_dash_config(request.form.get("config_json") or "")
+        ctx = _dashboard_context(db, config)
+        return render_template("dashboard.html", dash=dash, preview=True,
+                               widgets=config["widgets"], **ctx)
 
     @app.route("/admin/dashboards/<int:dashboard_id>", methods=["POST"])
     def admin_dashboards_update(dashboard_id):
@@ -1385,25 +1414,51 @@ def _service_sunday(now=None) -> datetime:
 
 def _parse_dash_config(raw: str) -> dict:
     """Sanitize a builder-submitted config: known widget types only,
-    widths clamped to the vocabulary, opts kept as a plain dict."""
+    geometry clamped inside the 24x12 canvas, opts kept plain. Legacy
+    v1 configs (flow "width" entries) get packed onto the canvas so
+    nothing built earlier breaks."""
     import json as _json
     try:
         cfg = _json.loads(raw or "{}")
     except ValueError:
         cfg = {}
+    screen = cfg.get("screen") if isinstance(cfg.get("screen"), dict) else {}
+    try:
+        sw, sh = int(screen.get("w", 1920)), int(screen.get("h", 1080))
+    except (TypeError, ValueError):
+        sw, sh = 1920, 1080
+    sw, sh = min(max(sw, 480), 7680), min(max(sh, 320), 4320)
+
+    V1_SPANS = {"full": 24, "twothirds": 16, "half": 12, "third": 8}
     widgets = []
+    cx = cy = row_h = 0  # packing cursor for v1 conversion
     for w in (cfg.get("widgets") or []):
         if not isinstance(w, dict) or w.get("type") not in DASH_WIDGETS:
             continue
         opts = w.get("opts") if isinstance(w.get("opts"), dict) else {}
+        if all(k in w for k in ("x", "y", "w", "h")):
+            try:
+                x, y, ww, hh = int(w["x"]), int(w["y"]), int(w["w"]), int(w["h"])
+            except (TypeError, ValueError):
+                continue
+        else:  # v1 flow entry
+            span = V1_SPANS.get(w.get("width"), 24)
+            hh = DASH_DEFAULT_SIZES.get(w["type"], (24, 3))[1]
+            if cx + span > DASH_COLS:
+                cx, cy, row_h = 0, cy + row_h, 0
+            x, y, ww = cx, cy, span
+            cx, row_h = cx + span, max(row_h, hh)
+        x = max(0, min(x, DASH_COLS - 1))
+        y = max(0, min(y, DASH_ROWS - 1))
+        ww = max(1, min(ww, DASH_COLS - x))
+        hh = max(1, min(hh, DASH_ROWS - y))
         widgets.append({
-            "type": w["type"],
-            "width": w.get("width") if w.get("width") in DASH_WIDTHS else "full",
+            "type": w["type"], "x": x, "y": y, "w": ww, "h": hh,
             "opts": {k: v for k, v in opts.items()
                      if k in ("title", "text", "occupied_only") and
                      isinstance(v, (str, bool))},
         })
-    return {"widgets": widgets}
+    return {"screen": {"w": sw, "h": sh}, "widgets": widgets}
 
 
 def _dash_slug(db, name: str) -> str:
@@ -1418,7 +1473,8 @@ def _dash_slug(db, name: str) -> str:
 def _dashboard_context(db, config: dict) -> dict:
     """Everything the used widgets need, queried once per render."""
     types = {w["type"] for w in config.get("widgets", [])}
-    ctx: dict = {"widths": DASH_WIDTHS}
+    ctx: dict = {"cols": DASH_COLS, "rows": DASH_ROWS,
+                 "screen": config.get("screen", {"w": 1920, "h": 1080})}
     if types & {"vocals", "band", "speakers", "techcrew"}:
         slots = [dict(r) for r in db.execute(_SLOT_QUERY)]
         ctx["zone_slots"] = {

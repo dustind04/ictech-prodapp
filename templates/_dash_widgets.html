@@ -21,7 +21,11 @@
 {% endmacro %}
 
 {% for w in widgets %}
-<section class="dw dw-{{ w.type }}" style="grid-column: span {{ widths[w.width] }}">
+<section class="dw dw-{{ w.type }}"
+         style="left: {{ (w.x / cols * 100) | round(3) }}%;
+                top: {{ (w.y / rows * 100) | round(3) }}%;
+                width: {{ (w.w / cols * 100) | round(3) }}%;
+                height: {{ (w.h / rows * 100) | round(3) }}%">
   {% if w.type == 'header' %}
     <div class="dw-header">
       <img class="dw-logo" src="{{ url_for('static', filename='immanuel-mark-white.png') }}" alt="Immanuel Church">
@@ -130,7 +134,8 @@
   {% endif %}
 </section>
 {% else %}
-<section class="dw dw-card dw-center" style="grid-column: span 6">
+<section class="dw dw-card dw-center"
+         style="left: 25%; top: 40%; width: 50%; height: 20%">
   <div class="dw-muted">This dashboard has no widgets yet — add some in
     Admin → Dashboards.</div>
 </section>

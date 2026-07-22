@@ -5,14 +5,19 @@
 {% block chrome %}{% endblock %}
 
 {% block content %}
-{# Custom dashboard shell. The widget grid is a server-rendered
-   fragment swapped in every 10s; clocks and countdowns tick locally
-   every second so they never look frozen between swaps. #}
-<div class="dash-grid" id="dash-root">
+{# Custom dashboard shell. Widgets are absolutely positioned on a
+   canvas locked to the designed screen's aspect ratio — a TV with the
+   same aspect shows the layout EXACTLY as built; a mismatched one
+   letterboxes. The canvas is a server-rendered fragment swapped in
+   every 10s; clocks and countdowns tick locally every second. #}
+<div class="dash-canvas" id="dash-root"
+     style="aspect-ratio: {{ screen.w }} / {{ screen.h }};
+            width: min(100vw, calc(100vh * {{ screen.w }} / {{ screen.h }}))">
   {% include "_dash_widgets.html" %}
 </div>
 
 <script>
+  const PREVIEW = {{ 'true' if preview else 'false' }};
   const PARTIAL_URL = location.pathname + '?partial=1';
 
   async function swap() {
@@ -57,6 +62,6 @@
 
   tick();
   setInterval(tick, 1000);
-  setInterval(swap, 10000);
+  if (!PREVIEW) setInterval(swap, 10000);
 </script>
 {% endblock %}

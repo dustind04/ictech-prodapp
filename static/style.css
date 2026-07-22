@@ -1123,10 +1123,10 @@ input[type=file]::file-selector-button:hover {
 /* =================================================================
    /d/<slug> — build-your-own dashboards. Dark, TV-first, 6-col grid.
    ================================================================= */
-.dash-main { background: #0B0B0B; min-height: 100vh; padding: 2vh 2vw; }
-.dash-grid { display: grid; grid-template-columns: repeat(6, 1fr);
-             gap: 1.6vh 1vw; align-items: start; }
-.dw { min-width: 0; color: #F2F2EF; }
+.dash-main { background: #0B0B0B; min-height: 100vh; padding: 0;
+             display: flex; align-items: center; justify-content: center; }
+.dash-canvas { position: relative; margin: auto; }
+.dw { position: absolute; min-width: 0; overflow: hidden; color: #F2F2EF; }
 .dw-card { background: #161616; border: 1px solid #262626; border-radius: 12px;
            padding: 2vh 1.4vw; }
 .dw-center { text-align: center; }
