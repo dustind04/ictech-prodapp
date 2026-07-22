@@ -17,10 +17,16 @@
     <path d="M 78 121 a 14 14 0 0 1 28 0 z"/>
   </g>
 
-  <!-- pin: TECH (bolt) -->
+  <!-- pin: TECH (mixer) -->
   <circle cx="164" cy="106" r="26" fill="#d8ff35"/>
-  <path d="M 170 85 L 150 110 L 161 110 L 157 127 L 178 101 L 167 101 Z"
-        fill="#10100e"/>
+  <g fill="#10100e">
+    <rect x="149" y="90" width="5" height="32" rx="2.5"/>
+    <rect x="161.5" y="90" width="5" height="32" rx="2.5"/>
+    <rect x="174" y="90" width="5" height="32" rx="2.5"/>
+    <rect x="145" y="95" width="13" height="9" rx="3"/>
+    <rect x="157.5" y="109" width="13" height="9" rx="3"/>
+    <rect x="170" y="100" width="13" height="9" rx="3"/>
+  </g>
 
   <!-- pin: CHURCH (cross) -->
   <circle cx="128" cy="168" r="26" fill="#d8ff35"/>

@@ -91,7 +91,7 @@ no "ministry impact platform".
 
 - `techbooth-icon.svg` — **the XLR**: a face-on connector, acid pins
   on ink. The three pins carry the product's whole story —
-  **People** (top left, head-and-shoulders), **Tech** (top right, a bolt), **Church** (bottom, a cross — the foundation the other two
+  **People** (top left, head-and-shoulders), **Tech** (top right, a three-fader mixer), **Church** (bottom, a cross — the foundation the other two
   connect across). Everything plugs in here.
 - `techbooth-icon-small.svg` — the same connector with plain pins for
   favicons and anything under ~48 px; the glyphs return with size.
