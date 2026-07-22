@@ -1166,6 +1166,7 @@ input[type=file]::file-selector-button:hover {
            letter-spacing: 0.08em; margin-bottom: 0.8vh; }
 .dw-rows div { display: flex; justify-content: space-between; gap: 6px;
                font-size: 1.5vh; border-top: 1px solid #222; padding: 0.4vh 0; }
+.dw-rows .dw-plain { justify-content: center; }
 .dw-rows span { color: #7a7a74; text-transform: uppercase; font-size: 1.2vh;
                 letter-spacing: 0.1em; }
 .dw-rows b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

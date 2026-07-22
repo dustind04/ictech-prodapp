@@ -13,9 +13,12 @@
     <div class="dw-name">{{ s.person_name or 'Empty' }}</div>
     <div class="dw-role">{{ s.pc_role or s.slot_label or '' }}&nbsp;</div>
     <div class="dw-rows">
-      <div><span>Mic</span><b>{{ s.mic_label or '—' }}</b></div>
+      {# Wireless rows carry no caption — "01 Red ULXD HH" and
+         "IEM 900 Pack 1" already say what they are. Rows without a
+         value vanish instead of showing a dash. #}
+      {% if s.mic_label %}<div class="dw-plain"><b>{{ s.mic_label }}</b></div>{% endif %}
       <div><span>MyMix</span><b>{{ s.mymix_channel or '—' }}</b></div>
-      <div><span>IEM</span><b>{{ s.iem_label or '—' }}</b></div>
+      {% if s.iem_label %}<div class="dw-plain"><b>{{ s.iem_label }}</b></div>{% endif %}
     </div>
   </div>
 {% endmacro %}
