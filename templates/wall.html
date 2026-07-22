@@ -649,10 +649,25 @@
       const micParts = [];
       if (slot.mic_label) micParts.push(slot.mic_label);
       // WWB channel name — but not when it just repeats what the tile
-      // already says: vocalists' Vox 1..4 (IEM Channel row) and the
-      // speakers' Host/Sermon names (role line) stay suppressed.
+      // already says: vocalists' Vox 1..4 (IEM Channel row), the
+      // speakers' Host/Sermon names (role line), and names that only
+      // restate the mic label ("RED HH" on "01 Red ULXD HH", "WHT HH"
+      // on "02 White ULXD HH" — color abbreviations expand before
+      // comparing). A name with anything to add ("Yellow (MA)") stays.
+      const COLOR_WORDS = { wht: 'white', blu: 'blue', blk: 'black',
+                            orng: 'orange', ylo: 'yellow', grn: 'green' };
+      const chnameRedundant = (name, label) => {
+        if (!name || !label) return false;
+        const norm = w => COLOR_WORDS[w] || w;
+        const labelWords = new Set(
+          label.toLowerCase().split(/[^a-z0-9]+/).map(norm));
+        return name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+          .every(w => labelWords.has(norm(w)));
+      };
       if (slot.mic_shure_channel_name) {
-        if (slot.kind !== 'mic_only' && !mixes.includes(slot.mic_shure_channel_name))
+        if (slot.kind !== 'mic_only' &&
+            !mixes.includes(slot.mic_shure_channel_name) &&
+            !chnameRedundant(slot.mic_shure_channel_name, slot.mic_label))
           micParts.push(slot.mic_shure_channel_name);
       }
       else if (slot.mic_shure_channel != null) micParts.push(`Ch ${slot.mic_shure_channel}`);
