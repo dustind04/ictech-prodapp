@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 140">
+  <!-- TechBooth wordmark, dark-native. The craft word lit in signal
+       amber, same two-tone voice as the D2 family. -->
+  <rect width="760" height="140" fill="#0E0E10"/>
+  <text x="36" y="92" font-family="Inter, -apple-system, 'Segoe UI', sans-serif"
+        font-size="76" font-weight="800" letter-spacing="-1">
+    <tspan fill="#F4F4F2">Tech</tspan><tspan fill="#FFB020">Booth</tspan>
+  </text>
+  <text x="38" y="120" font-family="Inter, -apple-system, 'Segoe UI', sans-serif"
+        font-size="17" font-weight="700" letter-spacing="6" fill="#7C7C82">A D2 PRODUCT</text>
+</svg>
