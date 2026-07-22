@@ -408,7 +408,9 @@
            (caption ? `<span class="oe-cap">${caption}</span>` : '') + `</span>`;
   }
   const INSTRUMENT_ART = [
-    [/drum/i,      () => oeImg('1F941')],
+    // Full five-piece kit (static/openmoji/drums.svg, original vector)
+    // — the lone OpenMoji snare undersold the seat.
+    [/drum/i,      () => oeImg('drums')],
     [/synth/i,     () => oeImg('1F39B', 'SYNTH')],
     [/bass/i,      () => oeImg('bass')],
     [/key|piano/i, () => oeImg('1F3B9')],

@@ -1081,47 +1081,60 @@ def register_admin_routes(app: Flask) -> None:
         flash("Music leader updated." if value else "Music leader cleared.", "success")
         return redirect(url_for("admin_slots"))
 
-    @app.route("/admin/slots/<int:slot_id>", methods=["POST"])
-    def admin_slots_update(slot_id):
+    @app.route("/admin/slots/save", methods=["POST"])
+    def admin_slots_save_all():
+        """One board, one save: every slot's fields arrive prefixed
+        s<id>-. A field a slot's kind doesn't render simply isn't in
+        the form and keeps its stored value; a rendered-but-empty field
+        clears, same as the old per-slot semantics."""
         db = get_db(db_path)
-        slot = db.execute("SELECT id, kind, label, pc_role FROM slot WHERE id=?", (slot_id,)).fetchone()
-        if not slot:
-            abort(404)
 
         def _none_if_blank(v):
             v = (v or "").strip()
             return int(v) if v.isdigit() else None
 
-        person_id   = _none_if_blank(request.form.get("person_id"))
-        mic_id      = _none_if_blank(request.form.get("mic_channel_id"))
-        iem_id      = _none_if_blank(request.form.get("iem_channel_id"))
-        position_id = _none_if_blank(request.form.get("position_id"))
-        mymix_channel = (request.form.get("mymix_channel") or "").strip() or None
-        # Instrument label — only the band forms post it; other slots
-        # keep whatever they had. Same guard for the PC role.
-        if "label" in request.form:
-            label = (request.form.get("label") or "").strip() or None
-        else:
-            label = slot["label"]
-        if "pc_role" in request.form:
-            pc_role = (request.form.get("pc_role") or "").strip() or None
-        else:
-            pc_role = slot["pc_role"]
+        changed = 0
+        for slot in db.execute("SELECT * FROM slot WHERE archived=0").fetchall():
+            p = f"s{slot['id']}-"
+            if f"{p}person_id" not in request.form:
+                continue  # not on the page (shouldn't happen; be safe)
 
-        # mic_only slots can't have an IEM regardless of what was posted
-        if slot["kind"] == "mic_only":
-            iem_id = None
+            def field(name, current):
+                if f"{p}{name}" not in request.form:
+                    return current
+                return (request.form.get(f"{p}{name}") or "").strip() or None
 
-        db.execute(
-            """UPDATE slot SET
-                 person_id=?, mic_channel_id=?, iem_channel_id=?, position_id=?,
-                 mymix_channel=?, label=?, pc_role=?,
-                 updated_at=datetime('now')
-               WHERE id=?""",
-            (person_id, mic_id, iem_id, position_id, mymix_channel, label, pc_role, slot_id),
-        )
+            person_id = _none_if_blank(request.form.get(f"{p}person_id"))
+            mic_id = (_none_if_blank(request.form.get(f"{p}mic_channel_id"))
+                      if f"{p}mic_channel_id" in request.form else slot["mic_channel_id"])
+            iem_id = (_none_if_blank(request.form.get(f"{p}iem_channel_id"))
+                      if f"{p}iem_channel_id" in request.form else slot["iem_channel_id"])
+            position_id = (_none_if_blank(request.form.get(f"{p}position_id"))
+                           if f"{p}position_id" in request.form else slot["position_id"])
+            mymix = field("mymix_channel", slot["mymix_channel"])
+            label = field("label", slot["label"])
+            pc_role = field("pc_role", slot["pc_role"])
+
+            # mic_only slots can't have an IEM regardless of what was posted
+            if slot["kind"] == "mic_only":
+                iem_id = None
+
+            new = (person_id, mic_id, iem_id, position_id, mymix, label, pc_role)
+            old = (slot["person_id"], slot["mic_channel_id"], slot["iem_channel_id"],
+                   slot["position_id"], slot["mymix_channel"], slot["label"], slot["pc_role"])
+            if new == old:
+                continue
+            db.execute(
+                """UPDATE slot SET
+                     person_id=?, mic_channel_id=?, iem_channel_id=?, position_id=?,
+                     mymix_channel=?, label=?, pc_role=?,
+                     updated_at=datetime('now')
+                   WHERE id=?""",
+                (*new, slot["id"]),
+            )
+            changed += 1
         db.commit()
-        flash(f"Slot {slot_id} updated.", "success")
+        flash(f"Saved — {changed} slot{'s' if changed != 1 else ''} changed.", "success")
         return redirect(url_for("admin_slots"))
 
     # --- Assets ---

@@ -39,10 +39,13 @@
   </form>
 </section>
 
+{# ONE form for the whole board: edit any number of slots, hit Save
+   once. Field names are prefixed s<id>- so the bulk route can tell
+   the slots apart; fields a kind doesn't render stay untouched. #}
+<form method="post" action="{{ url_for('admin_slots_save_all') }}">
 <div class="slot-edit-grid">
   {% for slot in slots %}
-    <form class="slot-edit {{ slot.kind }}"
-          method="post" action="{{ url_for('admin_slots_update', slot_id=slot.slot_id) }}">
+    <div class="slot-edit {{ slot.kind }}">
       <div class="slot-edit-header">
         <span class="slot-edit-num">{{ 'Slot' if slot.kind in ('paired', 'mic_only') else 'Seat' }} {{ '%02d' % slot.bank_order }}</span>
         <span class="badge badge-{{ slot.kind }}">{{ {'paired': 'paired', 'mic_only': 'mic-only', 'band': 'band', 'tech': 'tech'}.get(slot.kind, slot.kind) }}</span>
@@ -50,23 +53,23 @@
       {% if slot.kind == 'band' %}
         <label>
           Instrument
-          <input name="label" value="{{ slot.slot_label or '' }}" placeholder="Drums">
+          <input name="s{{ slot.slot_id }}-label" value="{{ slot.slot_label or '' }}" placeholder="Drums">
         </label>
       {% elif slot.kind == 'tech' %}
         <label>
           Role
-          <input name="label" value="{{ slot.slot_label or '' }}" placeholder="FOH">
+          <input name="s{{ slot.slot_id }}-label" value="{{ slot.slot_label or '' }}" placeholder="FOH">
         </label>
       {% endif %}
       {% if slot.kind != 'tech' %}
       <label>
         PC role <span class="hint">(this week, from Planning Center)</span>
-        <input name="pc_role" value="{{ slot.pc_role or '' }}" placeholder="Vocals">
+        <input name="s{{ slot.slot_id }}-pc_role" value="{{ slot.pc_role or '' }}" placeholder="Vocals">
       </label>
       {% endif %}
       <label>
         Person
-        <select name="person_id">
+        <select name="s{{ slot.slot_id }}-person_id">
           <option value="">— Empty —</option>
           {% for p in people %}
             <option value="{{ p.id }}" {{ 'selected' if slot.person_id == p.id }}>
@@ -78,7 +81,7 @@
       {% if slot.kind != 'tech' %}
       <label>
         Stage position
-        <select name="position_id">
+        <select name="s{{ slot.slot_id }}-position_id">
           <option value="">— None —</option>
           {% for pos in positions %}
             <option value="{{ pos.id }}" {{ 'selected' if slot.position_id == pos.id }}>{{ pos.label }}</option>
@@ -87,7 +90,7 @@
       </label>
       <label>
         Mic channel{% if slot.kind == 'band' %} <span class="hint">(only if leading/singing)</span>{% endif %}
-        <select name="mic_channel_id">
+        <select name="s{{ slot.slot_id }}-mic_channel_id">
           <option value="">— None —</option>
           {% if slot.kind == 'paired' %}
             {% for c in handhelds %}
@@ -107,13 +110,13 @@
       </label>
       <label>
         MyMix channel <span class="hint">(e.g. Vox 1)</span>
-        <input name="mymix_channel" value="{{ slot.mymix_channel or '' }}" placeholder="Vox 1">
+        <input name="s{{ slot.slot_id }}-mymix_channel" value="{{ slot.mymix_channel or '' }}" placeholder="Vox 1">
       </label>
       {% endif %}
       {% if slot.kind in ('paired', 'band') %}
         <label>
           IEM channel{% if slot.kind == 'band' %} <span class="hint">(occasional)</span>{% endif %}
-          <select name="iem_channel_id">
+          <select name="s{{ slot.slot_id }}-iem_channel_id">
             <option value="">— None —</option>
             {% for c in iems %}
               <option value="{{ c.id }}" {{ 'selected' if slot.iem_channel_id == c.id }}>{{ c.label }}</option>
@@ -121,8 +124,12 @@
           </select>
         </label>
       {% endif %}
-      <button type="submit" class="btn-primary btn-small">Save</button>
-    </form>
+    </div>
   {% endfor %}
 </div>
+<div class="save-bar">
+  <button type="submit" class="btn-primary">Save all slots</button>
+  <span class="muted">Every edit on this page lands in one save.</span>
+</div>
+</form>
 {% endblock %}

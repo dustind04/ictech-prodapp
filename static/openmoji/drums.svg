@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160">
+  <!-- Five-piece kit, drawn flat for the wall's dark tiles: two rack
+       toms, floor tom, snare, front-facing kick, hi-hat + crash.
+       Original vector (no stock art) modeled on the classic red kit. -->
+  <!-- cymbal stands -->
+  <g stroke="#C9CDD2" stroke-width="3" stroke-linecap="round" fill="none">
+    <path d="M28 30 L28 118"/>
+    <path d="M172 44 L172 118"/>
+    <path d="M22 152 L28 118 L36 152"/>
+    <path d="M164 152 L172 118 L180 152"/>
+  </g>
+  <!-- cymbals -->
+  <ellipse cx="28" cy="30" rx="26" ry="6" fill="#F2C531"/>
+  <ellipse cx="172" cy="44" rx="22" ry="5" fill="#F2C531"/>
+  <circle cx="28" cy="27" r="3" fill="#8F7514"/>
+  <circle cx="172" cy="41" r="3" fill="#8F7514"/>
+  <!-- floor tom (left) -->
+  <g>
+    <rect x="18" y="84" width="46" height="42" rx="4" fill="#D64545"/>
+    <ellipse cx="41" cy="84" rx="23" ry="7" fill="#E8D9BD"/>
+    <ellipse cx="41" cy="84" rx="23" ry="7" fill="none" stroke="#C9CDD2" stroke-width="2.5"/>
+    <path d="M24 152 L30 124 M58 152 L52 124" stroke="#C9CDD2" stroke-width="3" stroke-linecap="round"/>
+    <rect x="21" y="92" width="4" height="22" rx="2" fill="#C9CDD2"/>
+    <rect x="57" y="92" width="4" height="22" rx="2" fill="#C9CDD2"/>
+  </g>
+  <!-- rack toms -->
+  <g>
+    <rect x="52" y="38" width="44" height="34" rx="4" fill="#D64545" transform="rotate(-6 74 55)"/>
+    <ellipse cx="73" cy="40" rx="22" ry="6.5" fill="#E8D9BD" transform="rotate(-6 73 40)"/>
+    <ellipse cx="73" cy="40" rx="22" ry="6.5" fill="none" stroke="#C9CDD2" stroke-width="2.5" transform="rotate(-6 73 40)"/>
+  </g>
+  <g>
+    <rect x="106" y="36" width="44" height="34" rx="4" fill="#D64545" transform="rotate(6 128 53)"/>
+    <ellipse cx="129" cy="39" rx="22" ry="6.5" fill="#E8D9BD" transform="rotate(6 129 39)"/>
+    <ellipse cx="129" cy="39" rx="22" ry="6.5" fill="none" stroke="#C9CDD2" stroke-width="2.5" transform="rotate(6 129 39)"/>
+  </g>
+  <!-- snare (right, low) -->
+  <g>
+    <rect x="142" y="78" width="40" height="18" rx="3" fill="#D64545"/>
+    <ellipse cx="162" cy="78" rx="20" ry="5.5" fill="#E8D9BD"/>
+    <ellipse cx="162" cy="78" rx="20" ry="5.5" fill="none" stroke="#C9CDD2" stroke-width="2.5"/>
+    <path d="M150 152 L162 98 L176 152 M162 98 L162 120" stroke="#C9CDD2" stroke-width="3" stroke-linecap="round" fill="none"/>
+  </g>
+  <!-- kick, front head facing out -->
+  <g>
+    <circle cx="101" cy="106" r="46" fill="#D64545"/>
+    <circle cx="101" cy="106" r="38" fill="#E8D9BD"/>
+    <circle cx="101" cy="106" r="46" fill="none" stroke="#C9CDD2" stroke-width="5"/>
+    <g fill="#C9CDD2">
+      <rect x="98" y="58" width="6" height="10" rx="3"/>
+      <rect x="98" y="144" width="6" height="10" rx="3"/>
+      <rect x="53" y="103" width="10" height="6" rx="3"/>
+      <rect x="139" y="103" width="10" height="6" rx="3"/>
+      <rect x="66" y="70" width="9" height="7" rx="3" transform="rotate(-45 70 73)"/>
+      <rect x="128" y="70" width="9" height="7" rx="3" transform="rotate(45 132 73)"/>
+      <rect x="66" y="136" width="9" height="7" rx="3" transform="rotate(45 70 139)"/>
+      <rect x="128" y="136" width="9" height="7" rx="3" transform="rotate(-45 132 139)"/>
+    </g>
+    <path d="M78 150 L86 158 M124 150 L116 158" stroke="#C9CDD2" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>
