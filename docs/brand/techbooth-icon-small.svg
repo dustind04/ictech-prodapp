@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- TechBooth small-size mark (favicons, 16-32 px): the XLR pins
+       without their glyphs — People/Tech/Church detail returns at
+       larger sizes (techbooth-icon.svg). -->
+  <rect width="256" height="256" rx="72" fill="#10100e"/>
+  <circle cx="128" cy="128" r="88" fill="none" stroke="#ffffff"
+          stroke-opacity="0.18" stroke-width="16"/>
+  <circle cx="92" cy="104" r="28" fill="#d8ff35"/>
+  <circle cx="164" cy="104" r="28" fill="#d8ff35"/>
+  <circle cx="128" cy="170" r="28" fill="#d8ff35"/>
+</svg>

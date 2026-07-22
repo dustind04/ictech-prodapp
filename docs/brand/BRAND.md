@@ -89,9 +89,13 @@ no "ministry impact platform".
 
 ## Marks
 
-- `techbooth-icon.svg` — the lit booth window at the back of a dark
-  house: three crew heads, red on-air tally, faint seating rows. Acid
-  window on ink; survives to 16 px.
+- `techbooth-icon.svg` — **the XLR**: a face-on connector, acid pins
+  on ink. The three pins carry the product's whole story —
+  **People** (top left, head-and-shoulders), **Tech** (top right, a
+  fader), **Church** (bottom, a cross — the foundation the other two
+  connect across). Everything plugs in here.
+- `techbooth-icon-small.svg` — the same connector with plain pins for
+  favicons and anything under ~48 px; the glyphs return with size.
 - `techbooth-wordmark.svg` — Geist 700 "TechBooth" with acid period,
   mono lockup caption.
 
