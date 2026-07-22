@@ -1198,3 +1198,26 @@ input[type=file]::file-selector-button:hover {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
 }
+
+/* Stage view widget: overhead outline, audience at the bottom. */
+.dw-stage { position: relative; width: 100%; height: 100%; min-height: 30vh; }
+.dw-stage-floor { position: absolute; inset: 0 0 6% 0; width: 100%;
+                  height: 94%; }
+.dw-pin { position: absolute; transform: translate(-50%, -40%);
+          text-align: center; max-width: 14%; }
+.dw-pin-photo { width: 6.4vh; height: 6.4vh; border-radius: 50%;
+                overflow: hidden; margin: 0 auto 0.4vh;
+                border: 0.5vh solid #3a3a36; background: #26262B;
+                display: flex; align-items: center; justify-content: center; }
+.dw-pin-photo img { width: 100%; height: 100%; object-fit: cover; }
+.dw-pin-initials { color: #F4F4F2; font-weight: 800; font-size: 2.2vh; }
+.dw-pin-name { font-weight: 800; font-size: 1.8vh; line-height: 1.2;
+               text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+.dw-pin-info { font-size: 1.3vh; color: #b9b9b2; line-height: 1.35;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dw-stage-audience { position: absolute; left: 0; right: 0; bottom: 0;
+                     text-align: center; color: #6b6b66;
+                     font-size: 1.5vh; font-weight: 700;
+                     letter-spacing: 0.35em; text-transform: uppercase; }
+.dw-stage-empty { position: absolute; left: 50%; top: 45%;
+                  transform: translate(-50%, -50%); }

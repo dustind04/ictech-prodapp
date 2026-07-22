@@ -129,6 +129,47 @@
   {% elif w.type == 'stageplot' %}
     <img class="dw-stageplot" src="{{ url_for('stageplot_svg') }}" alt="Stage plot">
 
+  {% elif w.type == 'stageview' %}
+    {# Overhead outline, audience at the bottom. Markers are placed
+       server-side in percent of the stage box (see _stageview_markers). #}
+    <div class="dw-stage">
+      <svg class="dw-stage-floor" viewBox="0 0 100 62" preserveAspectRatio="none"
+           aria-hidden="true">
+        <path d="M 7 3 L 93 3 L 96 42 Q 50 60 4 42 Z"
+              fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.22)"
+              stroke-width="0.5"/>
+        <path d="M 4 42 Q 50 60 96 42" fill="none"
+              stroke="rgba(255,255,255,0.35)" stroke-width="0.9"/>
+        <line x1="50" y1="3" x2="50" y2="8" stroke="rgba(255,255,255,0.14)"
+              stroke-width="0.4"/>
+        <line x1="50" y1="52" x2="50" y2="56" stroke="rgba(255,255,255,0.14)"
+              stroke-width="0.4"/>
+      </svg>
+      {% for mk in stage_markers %}
+        <div class="dw-pin" style="left: {{ mk.x }}%; top: {{ mk.y }}%">
+          {% if mk.photo_url %}
+            <div class="dw-pin-photo" {% if mk.ring %}style="border-color: {{ mk.ring }}"{% endif %}>
+              <img src="{{ mk.photo_url }}" alt=""></div>
+          {% else %}
+            <div class="dw-pin-photo dw-pin-initials"
+                 {% if mk.ring %}style="border-color: {{ mk.ring }}"{% endif %}>
+              {{ mk.name.split() | map('first') | join('') | upper }}</div>
+          {% endif %}
+          <div class="dw-pin-name">{{ mk.name }}</div>
+          <div class="dw-pin-info">
+            {% if mk.mics %}{{ mk.mics | join(' · ') }}{% elif mk.instruments %}{{ mk.instruments | join(' · ') }}{% endif %}
+          </div>
+          <div class="dw-pin-info">
+            {{ ((mk.iems or []) + (mk.mymix or [])) | join(' · ') }}
+          </div>
+        </div>
+      {% endfor %}
+      <div class="dw-stage-audience">Audience</div>
+      {% if not stage_markers %}
+        <div class="dw-muted dw-stage-empty">Nobody on stage yet this week.</div>
+      {% endif %}
+    </div>
+
   {% elif w.type == 'notes' %}
     <div class="dw-card">
       {% if w.opts.get('title') %}<div class="dw-caption">{{ w.opts.title }}</div>{% endif %}

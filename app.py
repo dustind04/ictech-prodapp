@@ -110,6 +110,7 @@ DASH_WIDGETS = {
     "mymixlegend": ("MyMix legend", "The 16 personal-mixer channels"),
     "mixers":     ("Mixer owners", "Which MyMix unit belongs to whom"),
     "stageplot":  ("Stage plot", "This week's auto-drawn plot"),
+    "stageview":  ("Stage view", "Overhead outline, people at their spots"),
     "notes":      ("Notes", "Free text — announcements, reminders"),
 }
 # Layout canvas: widgets carry x/y/w/h on a 24x12 grid over the TV's
@@ -123,7 +124,7 @@ DASH_DEFAULT_SIZES = {
     "vocals": (24, 5), "band": (24, 5), "speakers": (16, 5),
     "techcrew": (12, 2), "patch": (12, 10), "iemrf": (8, 4),
     "mymixlegend": (24, 3), "mixers": (6, 4), "stageplot": (10, 7),
-    "notes": (6, 3),
+    "stageview": (24, 10), "notes": (6, 3),
 }
 
 # ---------------------------------------------------------------
@@ -1492,6 +1493,87 @@ def _dash_slug(db, name: str) -> str:
     return slug
 
 
+def _stageview_markers(db) -> list:
+    """People placed on the overhead stage, one marker per person
+    (roles folded), positions in percent of the stage box. Same spatial
+    model as the printed stage plot: audience at the bottom, pools 1-6
+    along the lip, CS pool + Speaker downstage center, band upstage —
+    instruments at their usual spots, anything unmatched spread along
+    the upstage row."""
+    import re as _re
+    rows = db.execute("""
+        SELECT s.bank_order, s.kind, s.label AS slot_label, s.pc_role,
+               s.mymix_channel, p.id AS pid, p.display_name AS name,
+               p.photo_url, pos.label AS pool,
+               mc.label AS mic, ic.label AS iem
+          FROM slot s
+          JOIN person p ON p.id = s.person_id
+          LEFT JOIN position pos ON pos.id = s.position_id
+          LEFT JOIN channel mc ON mc.id = s.mic_channel_id
+          LEFT JOIN channel ic ON ic.id = s.iem_channel_id
+         WHERE s.archived = 0 AND s.kind != 'tech'
+         ORDER BY s.bank_order""").fetchall()
+
+    people: dict = {}
+    for r in rows:
+        it = people.setdefault(r["pid"], {
+            "name": r["name"], "photo_url": r["photo_url"], "role": None,
+            "pool": None, "mics": [], "iems": [], "mymix": [],
+            "instruments": [], "order": r["bank_order"],
+        })
+        it["role"] = it["role"] or r["pc_role"]
+        it["pool"] = it["pool"] or r["pool"]
+        if r["mic"] and r["mic"] not in it["mics"]:
+            it["mics"].append(r["mic"])
+        if r["iem"] and r["iem"] not in it["iems"]:
+            it["iems"].append(r["iem"])
+        if r["mymix_channel"] and r["mymix_channel"] not in it["mymix"]:
+            it["mymix"].append(r["mymix_channel"])
+        if r["kind"] == "band" and r["slot_label"] and \
+                r["slot_label"] not in it["instruments"]:
+            it["instruments"].append(r["slot_label"])
+
+    # Instrument home spots (percent of stage box; y grows downstage).
+    BAND_SPOTS = [("drum", (16, 22)), ("bass", (34, 30)), ("synth", (50, 18)),
+                  ("key", (84, 24)), ("elec", (66, 30)), ("acou", (50, 34))]
+    markers, upstage_misc, cs_row = [], [], []
+    for p in people.values():
+        pool = (p["pool"] or "").lower()
+        m = _re.search(r"pool\s*(\d+)", pool)
+        info = {**p, "ring": stageplot._mic_hex(p["mics"][0] if p["mics"] else None)}
+        if "speaker" in (p["role"] or "").lower() or "cs" in pool:
+            cs_row.append(info)
+            continue
+        if m:
+            n = min(max(int(m.group(1)), 1), 6)
+            markers.append({**info, "x": 10 + (n - 1) * 16, "y": 60})
+            continue
+        spot = next((xy for kw, xy in BAND_SPOTS
+                     if any(kw in i.lower() for i in p["instruments"])), None)
+        if spot:
+            markers.append({**info, "x": spot[0], "y": spot[1]})
+        else:
+            upstage_misc.append(info)
+    # Speakers/hosts fan out around downstage center, closest to the room.
+    for i, p in enumerate(cs_row):
+        off = (i - (len(cs_row) - 1) / 2) * 14
+        markers.append({**p, "x": 50 + off, "y": 82})
+    # Unmatched people take the empty upstage middle, spread evenly.
+    for i, p in enumerate(upstage_misc):
+        markers.append({**p, "x": 26 + i * (48 / max(len(upstage_misc), 1)),
+                        "y": 12})
+    # Same-spot collisions (two people on one pool) nudge apart.
+    seen: dict = {}
+    for mk in markers:
+        key = (round(mk["x"]), round(mk["y"]))
+        bump = seen.get(key, 0)
+        if bump:
+            mk["x"] += bump * 7
+            mk["y"] -= bump * 4
+        seen[key] = bump + 1
+    return sorted(markers, key=lambda mk: mk["y"])
+
+
 def _dashboard_context(db, config: dict) -> dict:
     """Everything the used widgets need, queried once per render."""
     types = {w["type"] for w in config.get("widgets", [])}
@@ -1521,6 +1603,8 @@ def _dashboard_context(db, config: dict) -> dict:
         ctx["leader"] = _current_leader(db)
         ctx["schedule"] = _schedule_status()
         ctx["service_date"] = _service_sunday().strftime("%A, %B %-d")
+    if "stageview" in types:
+        ctx["stage_markers"] = _stageview_markers(db)
     return ctx
 
 
