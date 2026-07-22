@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 150">
-  <!-- TechBooth wordmark, D2 house style (see fedup.d2audio.io):
+  <!-- TechBooth wordmark, D2 Labs house style (per the FedUp site):
        Geist, ink ground, acid period — the accent spent in one place. -->
   <rect width="760" height="150" fill="#10100e"/>
   <text x="36" y="92" font-family="Geist, Inter, -apple-system, 'Segoe UI', sans-serif"
         font-size="76" font-weight="700" letter-spacing="-2" fill="#f7f5ef">TechBooth<tspan fill="#d8ff35">.</tspan></text>
   <text x="38" y="124" font-family="'Geist Mono', ui-monospace, Menlo, monospace"
-        font-size="16" letter-spacing="5" fill="#8d8b83">A D2 AUDIO PRODUCT</text>
+        font-size="16" letter-spacing="5" fill="#8d8b83">A D2 LABS PRODUCT</text>
 </svg>

@@ -2,7 +2,7 @@
 
 **TechBooth** is the productized form of this codebase: the operating
 system for a church's production world — the booth **and the stage**.
-A D2 Audio product, alongside **LiveNotes**, **GigMix**, and **FedUp**.
+A D2 Labs product, alongside **LiveNotes**, **GigMix**, and **FedUp**.
 
 **Planning Center runs the service. TechBooth runs the booth — and
 the stage.**
@@ -11,13 +11,15 @@ the stage.**
 > collision — only a Kenyan tech-news site (techbooth.africa) in an
 > unrelated category. In our space, CallBoard, VirtualCallboard,
 > StageCall, and SideStage are all taken; earlier candidate "MicMap"
-> was clean but too narrow. Register techbooth.d2audio.io + trademark
+> was clean but too narrow. Register techbooth.d2labs.tech + trademark
 > before public launch.
 
 ## The house style (family consistency)
 
-The visual system is D2's, lifted from the live FedUp site
-(fedup.d2audio.io) — every D2 product wears it:
+The visual system is D2 Labs', lifted from the live FedUp site —
+every D2 Labs product wears it. Never write "D2 Audio" anywhere: the
+d2audio domains belong to an unrelated magazine and only add
+confusion. The company is D2 Labs; the home is d2labs.tech.
 
 | Token | Value | Use |
 |---|---|---|
@@ -71,8 +73,8 @@ already makes.*
 ## Naming rules
 
 - Written **TechBooth** — one word, two caps. Never "Tech Booth".
-- Lockup: mono caps "A D2 AUDIO PRODUCT". Product sites live at
-  `<product>.d2audio.io`.
+- Lockup: mono caps "A D2 LABS PRODUCT". Product sites live at
+  `<product>.d2labs.tech`.
 - Wordmark: Geist 700, tight tracking, acid full-stop: **TechBooth.**
 - The venue keeps its own identity on the displays — TechBooth brands
   the admin, the site, the docs. **The wall always wears the venue's
