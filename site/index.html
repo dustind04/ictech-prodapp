@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TechBooth — Church Production OS</title>
+<meta name="description" content="Who's on. What they're on. Where they stand. TechBooth turns the files your team already makes into live backstage displays, QR-tagged gear, and dashboards for every TV in the building. Runs on a Pi you own.">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" rx="72" fill="%2310100e"/><circle cx="128" cy="128" r="88" fill="none" stroke="%23ffffff" stroke-opacity="0.18" stroke-width="16"/><circle cx="92" cy="104" r="28" fill="%23d8ff35"/><circle cx="164" cy="104" r="28" fill="%23d8ff35"/><circle cx="128" cy="170" r="28" fill="%23d8ff35"/></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&family=Geist+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #10100e; --paper: #f3f0e8; --acid: #d8ff35;
+    --muted: #8d8b83; --line: #ffffff24; --onair: #ff4438;
+    --text: #f7f5ef;
+    --sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--ink); scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--ink); color: var(--text);
+         font-family: var(--sans); line-height: 1.55; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 28px; }
+  a { color: var(--acid); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.28em;
+             text-transform: uppercase; color: var(--acid); }
+  section { padding: 96px 0 0; }
+  .sub { font-size: 15px; font-weight: 400; margin: 12px 0 28px; color: var(--muted);
+         max-width: 60ch; }
+
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 10; background: #10100eE8;
+        backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .nav-in { display: flex; align-items: center; gap: 26px; padding: 14px 28px;
+            max-width: 1000px; margin: 0 auto; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700;
+          font-size: 19px; letter-spacing: -0.02em; color: var(--text); }
+  .logo:hover { text-decoration: none; }
+  .logo .dot { color: var(--acid); }
+  .nav-links { display: flex; gap: 20px; margin-left: auto; font-size: 14.5px; }
+  .nav-links a { color: var(--muted); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+  .price-chip { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+                border: 1px solid var(--line); border-radius: 999px;
+                padding: 6px 14px; color: var(--text); white-space: nowrap; }
+  @media (max-width: 720px) { .nav-links { display: none; } .price-chip { margin-left: auto; } }
+
+  /* hero */
+  .hero { padding: 110px 0 0; display: flex; flex-direction: column; gap: 26px; }
+  h1 { font-size: clamp(40px, 7.6vw, 76px); font-weight: 700; margin: 0;
+       letter-spacing: -0.035em; line-height: 1.12; max-width: 15ch; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--acid); }
+  .oneliner { color: var(--muted); max-width: 56ch; margin: 0; font-size: 18px; }
+  .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn { display: inline-block; font-weight: 700; font-size: 15.5px;
+         border-radius: 10px; padding: 13px 24px; }
+  .btn-acid { background: var(--acid); color: var(--ink); }
+  .btn-acid:hover { text-decoration: none; filter: brightness(1.06); }
+  .btn-ghost { border: 1px solid var(--line); color: var(--text); }
+  .btn-ghost:hover { text-decoration: none; border-color: var(--muted); }
+
+  /* stats */
+  .stats { margin-top: 72px; display: grid;
+           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+           border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .stat { padding: 24px 18px; border-left: 1px solid var(--line); }
+  .stat:first-child { border-left: 0; }
+  .stat b { display: block; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat span { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.12em;
+               text-transform: uppercase; color: var(--muted); }
+
+  /* the wall demo */
+  .wall-demo { background: #060605; border: 1px solid var(--line); border-radius: 16px;
+               padding: 24px; margin-top: 28px; }
+  .wd-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+             border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 18px; }
+  .wd-venue { font-weight: 700; font-size: 17px; }
+  .wd-live { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+             color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .wd-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--onair);
+               display: inline-block; animation: pulse 2s infinite; }
+  @media (prefers-reduced-motion: reduce) { .wd-live i { animation: none; } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .wd-count { margin-left: auto; font-family: var(--mono); font-size: 13.5px;
+              background: var(--acid); color: var(--ink); font-weight: 700;
+              border-radius: 999px; padding: 5px 14px;
+              font-variant-numeric: tabular-nums; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .slot { background: #161613; border: 1px solid var(--line); border-radius: 10px;
+          padding: 16px 14px 10px; text-align: center; position: relative; }
+  .slot .num { position: absolute; top: 8px; left: 12px; color: var(--muted);
+               font-family: var(--mono); font-size: 12px; }
+  .slot .ava { width: 52px; height: 52px; border-radius: 50%; margin: 8px auto;
+               background: var(--acid); color: var(--ink); font-weight: 700;
+               display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .slot .who { font-weight: 700; font-size: 17px; }
+  .slot .role { color: var(--muted); font-size: 11px; letter-spacing: 0.12em;
+                text-transform: uppercase; margin-bottom: 10px; font-family: var(--mono); }
+  .slot .row { display: flex; justify-content: space-between; font-size: 12.5px;
+               border-top: 1px solid var(--line); padding: 5px 2px;
+               font-variant-numeric: tabular-nums; }
+  .slot .row span { color: var(--muted); font-family: var(--mono); font-size: 10px;
+                    text-transform: uppercase; letter-spacing: 0.1em; }
+  .slot.lead { border-color: var(--acid); }
+  .slot .pill { display: inline-block; background: var(--acid); color: var(--ink);
+                font-size: 10.5px; font-weight: 700; border-radius: 999px;
+                padding: 2px 10px; font-family: var(--mono); }
+  .slot.empty { opacity: 0.4; }
+  .wd-note { color: var(--muted); font-size: 13.5px; margin: 16px 0 0; }
+
+  /* pitch */
+  .thesis { font-size: clamp(26px, 4.6vw, 38px); font-weight: 700;
+            letter-spacing: -0.02em; line-height: 1.22; max-width: 24ch;
+            margin: 0 0 22px; text-wrap: balance; }
+  .thesis em { font-style: normal; color: var(--acid); }
+  .pitch p { font-size: 17.5px; max-width: 60ch; }
+  .pitch .against { color: var(--muted); font-size: 15px; }
+  .pitch .against b { color: var(--text); }
+
+  /* how it works */
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+           gap: 14px; }
+  .step { border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  .step .n { font-family: var(--mono); color: var(--acid); font-size: 13px;
+             letter-spacing: 0.2em; }
+  .step h3 { margin: 10px 0 8px; font-size: 19px; letter-spacing: -0.01em; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  /* pillars */
+  .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+             gap: 14px; }
+  .pillar { border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  .pillar h3 { margin: 0 0 8px; font-size: 19px; letter-spacing: -0.01em; }
+  .pillar p { margin: 0; color: var(--muted); font-size: 15px; }
+  .pillar .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em;
+                 text-transform: uppercase; color: var(--acid); }
+
+  /* two rooms */
+  .rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .rooms { grid-template-columns: 1fr; } }
+  .room { border: 1px solid var(--line); border-radius: 14px; padding: 26px; }
+  .room h3 { margin: 0 0 10px; font-family: var(--mono); font-size: 12px;
+             letter-spacing: 0.22em; text-transform: uppercase; color: var(--acid); }
+  .room p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .room p b { color: var(--text); }
+
+  /* build standard */
+  .specs { border-top: 1px solid var(--line); }
+  .spec { display: grid; grid-template-columns: 180px 1fr 1fr; gap: 18px;
+          padding: 20px 0; border-bottom: 1px solid var(--line); }
+  @media (max-width: 720px) { .spec { grid-template-columns: 1fr; gap: 4px; } }
+  .spec .k { font-family: var(--mono); font-size: 12px; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--acid); padding-top: 3px; }
+  .spec .v { font-weight: 600; font-size: 16.5px; }
+  .spec .d { color: var(--muted); font-size: 14.5px; }
+
+  /* pricing */
+  .price-card { border: 1px solid var(--acid); border-radius: 16px; padding: 36px;
+                max-width: 560px; }
+  .price-card .big { font-size: 42px; font-weight: 700; letter-spacing: -0.02em; }
+  .price-card .big span { font-size: 17px; color: var(--muted); font-weight: 400; }
+  .price-card ul { margin: 18px 0 24px; padding-left: 20px; color: var(--muted); }
+  .price-card li { margin: 7px 0; font-size: 15.5px; }
+  .price-card li b { color: var(--text); }
+
+  /* faq */
+  .faq { max-width: 720px; }
+  .faq details { border-bottom: 1px solid var(--line); padding: 16px 0; }
+  .faq summary { cursor: pointer; font-weight: 600; font-size: 16.5px; }
+  .faq summary::marker { color: var(--acid); }
+  .faq p { color: var(--muted); font-size: 15px; margin: 10px 0 0; max-width: 58ch; }
+
+  footer { margin-top: 110px; border-top: 1px solid var(--line); }
+  .foot-in { max-width: 1000px; margin: 0 auto; padding: 28px;
+             display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px;
+             color: var(--muted); font-size: 13.5px; }
+  .foot-in .fam a { color: var(--muted); margin-left: 14px; }
+  .foot-in .fam a:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <a class="logo" href="#top">
+      <svg width="30" height="30" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" rx="56" fill="#161613"/><circle cx="128" cy="128" r="86" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="14"/><circle cx="92" cy="106" r="24" fill="#d8ff35"/><circle cx="164" cy="106" r="24" fill="#d8ff35"/><circle cx="128" cy="168" r="24" fill="#d8ff35"/></svg>
+      TechBooth<span class="dot">.</span>
+    </a>
+    <div class="nav-links">
+      <a href="#wall">The wall</a>
+      <a href="#how">How it works</a>
+      <a href="#scope">What it runs</a>
+      <a href="#standard">The build standard</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <span class="price-chip">Early access · No subscription, ever</span>
+  </div>
+</nav>
+
+<header class="hero wrap" id="top">
+  <div class="eyebrow">Church Production OS · A D2 Audio Product</div>
+  <h1>Who's on. What they're on. <em>Where they stand.</em></h1>
+  <p class="oneliner">Everything the booth and the band need to run a service —
+    mics, ears, patch, personal mixers, gear, crew, stage positions — live on
+    every screen in the building, fed by the files your team already makes.</p>
+  <div class="ctas">
+    <a class="btn btn-acid" href="#pricing">Join early access</a>
+    <a class="btn btn-ghost" href="#wall">See the wall ↓</a>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>$80</b><span>runs on a Pi you own</span></div>
+    <div class="stat"><b>1 file</b><span>your data · SQLite</span></div>
+    <div class="stat"><b>2 files/wk</b><span>PCO report + input list in</span></div>
+    <div class="stat"><b>Every TV</b><span>walls · dashboards · Rokus</span></div>
+  </div>
+</header>
+
+<section class="wrap" id="wall">
+  <div class="eyebrow">The wall</div>
+  <p class="sub">The backstage display your singers walk up to and your
+    backstage manager watches all service. This one is live markup, not a
+    screenshot — the countdown is really counting.</p>
+  <div class="wall-demo">
+    <div class="wd-head">
+      <span class="wd-venue">YOUR CHURCH</span>
+      <span class="wd-live"><i></i>SUNDAY · 9:00 &amp; 11:00</span>
+      <span class="wd-count" id="count">—</span>
+    </div>
+    <div class="tiles">
+      <div class="slot lead"><div class="num">01</div><span class="pill">LEADER</span>
+        <div class="ava">JR</div><div class="who">Jamie R.</div>
+        <div class="role">Acoustic &amp; Vocals</div>
+        <div class="row"><span>Mic</span><b>01 Red HH</b></div>
+        <div class="row"><span>Mix</span><b>Vox 1</b></div>
+        <div class="row"><span>IEM</span><b>Pack 1</b></div></div>
+      <div class="slot"><div class="num">02</div>
+        <div class="ava" style="background:#f3f0e8">SK</div><div class="who">Sam K.</div>
+        <div class="role">Vocals</div>
+        <div class="row"><span>Mic</span><b>02 Wht HH</b></div>
+        <div class="row"><span>Mix</span><b>Vox 2</b></div>
+        <div class="row"><span>IEM</span><b>Pack 2</b></div></div>
+      <div class="slot"><div class="num">11</div>
+        <div class="ava" style="background:#ff4438">DG</div><div class="who">Dana G.</div>
+        <div class="role">Drums</div>
+        <div class="row"><span>Mix</span><b>Drums</b></div>
+        <div class="row"><span>In</span><b>Kit Mics</b></div>
+        <div class="row"><span>IEM</span><b>Wedge</b></div></div>
+      <div class="slot empty"><div class="num">05</div>
+        <div class="ava" style="background:#26262b"></div><div class="who">Empty</div>
+        <div class="role">&nbsp;</div>
+        <div class="row"><span>Mic</span><b>—</b></div>
+        <div class="row"><span>Mix</span><b>—</b></div>
+        <div class="row"><span>IEM</span><b>—</b></div></div>
+    </div>
+    <p class="wd-note">Empties stay visible on the rack display so screen slot 05
+      is always charger 5. Every tile updates within 2 seconds of any change.
+      At 1 PM Sunday the board clears itself.</p>
+  </div>
+</section>
+
+<section class="wrap pitch">
+  <div class="eyebrow">The pitch</div>
+  <p class="thesis">Planning Center runs the service.
+    <em>TechBooth runs the booth — and the stage.</em></p>
+  <p>Planning Center schedules the people and the songs. TechBooth runs
+    everything they touch on a Sunday: assignments on backstage walls, the
+    patch on the tech dashboard, QR-tagged gear, crew seats, and
+    build-your-own dashboards for every TV in the building.</p>
+  <p class="against">It replaces <b>the whiteboard and gaff-tape labels</b>,
+    <b>the spreadsheet on a TV</b>, and <b>the Planning Center notes fields</b>
+    doing a job they were never built for. It does not replace Planning
+    Center, your console, or your people.</p>
+</section>
+
+<section class="wrap" id="how">
+  <div class="eyebrow">How it works</div>
+  <p class="sub">Three steps, one of which is automatic.</p>
+  <div class="steps">
+    <div class="step"><div class="n">01</div>
+      <h3>Drop the week's files</h3>
+      <p>The Planning Center report and the input-list workbook — the files
+        your team already makes. One upload, one preview, one apply. Unknown
+        people are added automatically; probable typos are flagged instead.</p></div>
+    <div class="step"><div class="n">02</div>
+      <h3>Every screen updates</h3>
+      <p>Backstage walls, the rack display, the tech dashboard, your custom
+        dashboards, the Rokus. Singers see their mic, pack, and position;
+        the booth sees the patch, phantom, mute groups, and routing.</p></div>
+    <div class="step"><div class="n">03</div>
+      <h3>Sunday clears itself</h3>
+      <p>At 1 PM the board wipes for the next week — unless you've already
+        loaded it. Inventory, people, and photos are never touched.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="scope">
+  <div class="eyebrow">What it runs</div>
+  <p class="sub">Six pillars. One product. The whole booth.</p>
+  <div class="pillars">
+    <div class="pillar"><span class="tag">Displays</span>
+      <h3>Every TV in the building</h3>
+      <p>Backstage walls, the pinned rack display with charger-aligned
+        columns, and a WYSIWYG builder: set your TV's exact dimensions and
+        lay out widgets on a live render of the real page.</p></div>
+    <div class="pillar"><span class="tag">Wireless &amp; ears</span>
+      <h3>The mic map</h3>
+      <p>Handhelds, packs, IEMs — who has what, which charger slot, which
+        channel. Color-coded the way your rack actually is.</p></div>
+    <div class="pillar"><span class="tag">Patch &amp; mixes</span>
+      <h3>The input list, alive</h3>
+      <p>Snake and FOH channels, phantom flags, mute groups, monitor routing,
+        and every personal-mixer channel — on the tech dashboard, not in a
+        binder.</p></div>
+    <div class="pillar"><span class="tag">Assets</span>
+      <h3>Every piece of gear, tagged</h3>
+      <p>QR labels sized for Avery sheets. Scan a label with any phone and
+        get the gear's card: status, serial, location, notes. Seed the whole
+        wireless rack in one click.</p></div>
+    <div class="pillar"><span class="tag">People</span>
+      <h3>Booth crew and band</h3>
+      <p>Who's behind the controls and who's on the risers, seat by seat,
+        week by week — with photos, so new volunteers learn names fast.</p></div>
+    <div class="pillar"><span class="tag">Prep</span>
+      <h3>The week loads itself</h3>
+      <p>Weekly imports, automatic Sunday clear, and a stage plot drawn from
+        the week's data — print it or don't, it redraws itself either way.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Two rooms, one product</div>
+  <p class="sub">Built for both ends of the snake.</p>
+  <div class="rooms">
+    <div class="room"><h3>The booth team</h3>
+      <p>Sound, lights, graphics, stream. You get <b>the tech dashboard</b> —
+        patch, phantom, mute groups, IEM RF paths — plus assets, crew seats,
+        and the dashboard builder for every screen you own.</p></div>
+    <div class="room"><h3>The band</h3>
+      <p>Vocalists and players. You get <b>the wall</b>: which mic is yours,
+        which pack, which mix channel, where you stand — answered before
+        anyone has to ask the booth on comms.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="standard">
+  <div class="eyebrow">The build standard</div>
+  <p class="sub">Designed for Sunday, not the spec sheet.</p>
+  <div class="specs">
+    <div class="spec"><div class="k">Hardware</div>
+      <div class="v">An $80 Raspberry Pi you own</div>
+      <div class="d">Or any box that runs Docker. It can drive your main TV
+        directly and serve every other screen on the LAN.</div></div>
+    <div class="spec"><div class="k">Your data</div>
+      <div class="v">One SQLite file</div>
+      <div class="d">Export everything as JSON any time. Nightly backups are a
+        cron line. No cloud account required to run your booth.</div></div>
+    <div class="spec"><div class="k">Displays</div>
+      <div class="v">Any browser · Rokus included</div>
+      <div class="d">TVs bookmark a URL once. Rokus get a native channel fed
+        by live snapshots. Screens survive server hiccups gracefully.</div></div>
+    <div class="spec"><div class="k">Internet</div>
+      <div class="v">Not required on Sunday</div>
+      <div class="d">Everything runs on your LAN. The internet is for updates
+        and optional remote admin, not for the service.</div></div>
+    <div class="spec"><div class="k">Fail-safe</div>
+      <div class="v">The sheet is the truth</div>
+      <div class="d">Imports preview before they apply. Typo-looking names
+        warn instead of creating duplicates. The wall never shows stale
+        weeks — Sunday 1 PM clears it.</div></div>
+  </div>
+</section>
+
+<section class="wrap" id="pricing">
+  <div class="eyebrow">Pricing</div>
+  <p class="sub">The FedUp rule applies to the whole family: flat price, plain
+    sight, no subscription.</p>
+  <div class="price-card">
+    <div class="big">Early access <span>· free while we harden it</span></div>
+    <ul>
+      <li><b>Flat price at launch.</b> One venue, every screen, every
+        volunteer. No per-seat math, no tiers, no subscription — ever.</li>
+      <li><b>Your hardware, your data.</b> If you stop paying us nothing,
+        everything keeps working.</li>
+      <li><b>Battle-tested weekly</b> — TechBooth runs a real church's
+        production every Sunday.</li>
+    </ul>
+    <a class="btn btn-acid" href="mailto:hello@d2audio.io?subject=TechBooth%20early%20access">Join early access</a>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">Questions</div>
+  <div class="faq" style="margin-top: 20px">
+    <details><summary>Does it replace Planning Center?</summary>
+      <p>No — it feeds on it. PCO schedules people and songs; TechBooth turns
+        that plus your input list into walls, dashboards, and assignments.
+        Direct PCO API sync is on the roadmap; today it reads the report you
+        already print.</p></details>
+    <details><summary>We're not a big church. Is this overkill?</summary>
+      <p>It runs on one $80 Pi and one TV. If you've ever taped a name to a
+        mic, you're the target audience.</p></details>
+    <details><summary>What about our brand on the screens?</summary>
+      <p>The wall always wears your church's face — your name, your logo,
+        your colors. TechBooth brands the admin, never the displays.</p></details>
+    <details><summary>What happens when the internet dies mid-service?</summary>
+      <p>Nothing. It's all on your LAN. The screens keep polling the Pi;
+        the Pi doesn't know the internet exists.</p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-in">
+    <div>TechBooth<span style="color:var(--acid)">.</span> · a D2 Audio product</div>
+    <div class="fam">
+      <a href="https://fedup.d2audio.io">FedUp</a>
+      <a href="#top">LiveNotes</a>
+      <a href="#top">GigMix</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // The wall demo's countdown is real: next Sunday 9:00 AM, church time.
+  function nextService() {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const d = new Date(now);
+    d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+    d.setHours(9, 0, 0, 0);
+    if (d <= now) d.setDate(d.getDate() + 7);
+    return (d - now) / 1000;
+  }
+  function fmt(s) {
+    s = Math.max(0, Math.floor(s));
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const sec = String(s % 60).padStart(2, '0');
+    return (d ? d + 'd ' : '') + h + ':' + m + ':' + sec;
+  }
+  const el = document.getElementById('count');
+  function tick() { el.textContent = 'Service in ' + fmt(nextService()); }
+  tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>
