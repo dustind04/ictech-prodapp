@@ -121,6 +121,15 @@
   .t-row .batt { font-variant-numeric: tabular-nums; color: var(--text); }
   .t-row .batt.low { color: var(--onair); font-weight: 700;
                      animation: pulse 1.6s infinite; }
+  /* TX state: the go / no-go. Big on purpose — read it from the door. */
+  .tx { margin-top: 10px; padding: 7px 0; border-radius: 8px; text-align: center;
+        font-family: var(--mono); font-weight: 700; font-size: 15px;
+        letter-spacing: 0.18em; }
+  .tx.on { background: var(--acid); color: var(--ink); }
+  .tx.off { background: var(--onair); color: #fff;
+            animation: pulse 1.6s infinite; }
+  @media (prefers-reduced-motion: reduce) { .tx.off { animation: none; } }
+  .t-row .rf.dead { opacity: 0.25; }
   @media (prefers-reduced-motion: reduce) { .t-row .batt.low { animation: none; } }
   .wd-note { color: var(--muted); font-size: 13.5px; margin: 16px 0 0; }
 
@@ -249,6 +258,7 @@
         <div class="row"><span>Mic</span><b>01 Red HH</b></div>
         <div class="row"><span>Mix</span><b>Vox 1</b></div>
         <div class="row"><span>IEM</span><b>Pack 1</b></div>
+        <div class="tx on">&#9679; TX ON</div>
         <div class="telem">
           <div class="t-row"><span class="t-dev">MIC</span><span class="rf" data-rf></span><b class="batt" data-batt="437">7:17</b></div>
           <div class="t-row"><span class="t-dev">IEM</span><span class="rf" data-rf></span><b class="batt" data-batt="322">5:22</b></div>
@@ -259,6 +269,7 @@
         <div class="row"><span>Mic</span><b>02 Wht HH</b></div>
         <div class="row"><span>Mix</span><b>Vox 2</b></div>
         <div class="row"><span>IEM</span><b>Pack 2</b></div>
+        <div class="tx on">&#9679; TX ON</div>
         <div class="telem">
           <div class="t-row"><span class="t-dev">MIC</span><span class="rf" data-rf></span><b class="batt" data-batt="512">8:32</b></div>
           <div class="t-row"><span class="t-dev">IEM</span><span class="rf" data-rf></span><b class="batt low" data-batt="23">0:23</b></div>
@@ -269,8 +280,9 @@
         <div class="row"><span>Mix</span><b>Drums</b></div>
         <div class="row"><span>In</span><b>Kit Mics</b></div>
         <div class="row"><span>IEM</span><b>Wedge</b></div>
+        <div class="tx off">&#10005; TX OFF</div>
         <div class="telem">
-          <div class="t-row"><span class="t-dev">TRIG</span><span class="rf" data-rf></span><b class="batt" data-batt="595">9:55</b></div>
+          <div class="t-row"><span class="t-dev">TRIG</span><span class="rf dead">&#9601;&#9601;&#9601;&#9601;</span><b class="batt">&#8212;</b></div>
         </div></div>
       <div class="slot empty"><div class="num">05</div>
         <div class="ava" style="background:#26262b"></div><div class="who">Empty</div>
@@ -279,10 +291,13 @@
         <div class="row"><span>Mix</span><b>—</b></div>
         <div class="row"><span>IEM</span><b>—</b></div></div>
     </div>
-    <p class="wd-note">RF and battery ride in from the receivers on the rack
-      (ULX-D shown) — Pack 2 is about to send someone to the charger BEFORE
-      it dies mid-set. Empties stay visible so screen slot 05 is always
-      charger 5, and at 1 PM Sunday the board clears itself.</p>
+    <p class="wd-note"><b style="color:var(--text)">The big block is the
+      transmitter, straight from the receiver — your backstage manager's
+      last go / no-go before pushing musicians on stage.</b> Dana's pack is
+      still switched off: flat RF, no battery read, nobody walks until it
+      flips. Pack 2 is about to send someone to the charger BEFORE it dies
+      mid-set. Empties stay visible so screen slot 05 is always charger 5,
+      and at 1 PM Sunday the board clears itself.</p>
   </div>
 </section>
 
