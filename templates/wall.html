@@ -297,6 +297,14 @@
       const res = await fetch('/api/state', { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
+      // Self-updating displays: the page code loads once and then only
+      // polls data, so without this a deploy never reaches an open TV.
+      // When the server's build version changes, reload for the new
+      // page. 'unknown' (dev servers) never triggers.
+      if (data.version && data.version !== 'unknown') {
+        if (!window._bootVersion) window._bootVersion = data.version;
+        else if (data.version !== window._bootVersion) location.reload();
+      }
       if (PINNED) {
         const w = parseInt((data.settings || {}).micboard_col_width, 10);
         document.getElementById('slot-grid').style.setProperty(

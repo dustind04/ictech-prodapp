@@ -24,6 +24,12 @@
     try {
       const res = await fetch(PARTIAL_URL, { cache: 'no-store' });
       if (!res.ok) return;
+      // Self-update: reload the shell when the server's build changes.
+      const v = res.headers.get('X-App-Version');
+      if (v && v !== 'unknown') {
+        if (!window._bootVersion) window._bootVersion = v;
+        else if (v !== window._bootVersion) { location.reload(); return; }
+      }
       document.getElementById('dash-root').innerHTML = await res.text();
       tick();  // repaint clocks immediately, no 1s flash of '—'
     } catch (e) { /* network blip; next swap retries */ }

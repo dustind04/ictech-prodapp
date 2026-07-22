@@ -269,8 +269,13 @@ def register_display_routes(app: Flask) -> None:
         config = _parse_dash_config(row["config"])
         ctx = _dashboard_context(db, config)
         if request.args.get("partial"):
-            return render_template("_dash_widgets.html",
-                                   widgets=config["widgets"], **ctx)
+            resp = Response(render_template("_dash_widgets.html",
+                                            widgets=config["widgets"], **ctx))
+            # Version header lets the shell reload itself after deploys
+            # (same self-update contract as the wall's /api/state).
+            resp.headers["X-App-Version"] = os.environ.get("ICTECH_VERSION",
+                                                           "unknown")
+            return resp
         return render_template("dashboard.html", dash=row,
                                widgets=config["widgets"], **ctx)
 
@@ -472,8 +477,12 @@ def register_api_routes(app: Flask) -> None:
         width = db.execute(
             "SELECT value FROM app_setting WHERE key='micboard_col_width'"
         ).fetchone()
+        # The build version rides along too: display pages reload
+        # themselves when it changes, so a deploy reaches every open
+        # TV within seconds — kiosks never run yesterday's page.
         return jsonify({"slots": rows, "leader": _current_leader(db),
                         "mixers": mixers,
+                        "version": os.environ.get("ICTECH_VERSION", "unknown"),
                         "settings": {"micboard_col_width":
                                      width["value"] if width else None}})
 
