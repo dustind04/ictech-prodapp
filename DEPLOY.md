@@ -24,7 +24,15 @@ sudo reboot
 ```
 
 Give the Pi a **DHCP reservation** so `http://ictech/...` URLs on the
-other TVs never move. Roku TVs: `scripts/roku-deploy.ps1` still works
+other TVs never move.
+
+**Outside access (optional):** Zero Trust dashboard → Networks →
+Tunnels → Create → Cloudflared; copy the token; add a Public Hostname
+(e.g. `ictech.d2audio.io`, type HTTP, URL `ictech:8058`). Then on the
+Pi: `bash scripts/pi-tunnel.sh` — it asks for the token and an admin
+login (typed on the Pi, never in chat), writes `.env`, and starts the
+`cloudflared` sidecar. `/admin` is Basic-Auth'd from then on; the
+displays stay public by design. Roku TVs: `scripts/roku-deploy.ps1` still works
 from any Windows box, or sideload per DEPLOY notes below — the
 snapshotter container runs on the Pi.
 
