@@ -21,7 +21,7 @@ An admin UI (light mode) manages the data behind it. The wall display is dark mo
 
 ### History
 
-~70 fork commits on `master` (see `git log upstream/master..master`). Major arcs, oldest first: Flask skeleton → admin CRUD + wall display → photos/positions/MyMix → Cloudflare-tunnel deploy → equipment catalog + weekly Input List importer → wall design iterations (designs 1–3, dark "Bulletin" port) → split displays (`/micboard` pinned, `/dataviz` evolving) → `/techdashboard` → Planning Center Tech Report PDF import → Roku channel + Playwright snapshot sidecar → deep Shure/Countryman gear catalog (migrations 011–013) → assets, dashboards, Pi tunnel → **live receiver telemetry** (`shure_live.py`, migration 016).
+~70 fork commits on `master` (see `git log upstream/master..master`). Major arcs, oldest first: Flask skeleton → admin CRUD + wall display → photos/positions/MyMix → Cloudflare-tunnel deploy → equipment catalog + weekly Input List importer → wall design iterations (designs 1–3, dark "Bulletin" port) → split displays (`/micboard` pinned, `/dataviz` evolving) → `/techdashboard` → Planning Center Tech Report PDF import → Roku channel + Playwright snapshot sidecar → deep Shure/Countryman gear catalog (migrations 011–013) → assets, dashboards, Pi tunnel → **live receiver telemetry** (`shure_live.py`, migration 016) → **Planning Center Services API link** (`pco.py`; replaces the Tech Report PDF, auto-sync).
 
 ## Data model
 
@@ -88,7 +88,7 @@ These paths are exhausted. The Flask rewrite is the correct direction.
 
 ## Stakeholders
 
-- **Dave Hunsberger** — Tech Director, system owner. Produces three files each week: a Stage Layout PDF, an Input List `.xlsx` (FOH patch w/ MyMix channel assignments), and a Backstage Mic Board `.xlsx` (singer-facing rack info).
+- **Dave Hunsberger** — Tech Director, system owner. Produces three files each week: a Stage Layout PDF, an Input List `.xlsx` (FOH patch w/ MyMix channel assignments), and a Backstage Mic Board `.xlsx` (singer-facing rack info). Crew/band/leader come from Planning Center directly (`pco.py` feeds `importer.build_tech_plan`, the same path as the old Tech Report PDF); token in `.env` (`ICTECH_PCO_APP_ID`/`_SECRET`), never the DB.
 - **Pete** — FOH / sound engineer.
 
 ## Working style

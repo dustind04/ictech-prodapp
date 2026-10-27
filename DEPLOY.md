@@ -230,6 +230,34 @@ preview (person/mic/IEM/position/MyMix per slot, with warnings for
 anything that didn't match inventory) → **Apply to slots**. The sheet is
 the weekly truth: slots with no row that week are emptied.
 
+## Planning Center link (replaces the Tech Report PDF)
+
+Crew seats, band seats, weekly roles and the music leader come straight
+from Planning Center Services — same matching rules as the PDF import
+(first name + last initial; unknown names are added, likely typos warn).
+The Input List `.xlsx` is still Dave's: patch, MyMix and the vocal
+rack slots aren't in Planning Center.
+
+1. Signed in to Planning Center as someone who can see Services:
+   <https://api.planningcenteronline.com/oauth/applications> →
+   **Personal Access Tokens** → New. Copy the Application ID + Secret.
+   (The token sees what that person sees — a read-mostly staff login
+   is ideal.)
+2. On the server: `bash scripts/pco-setup.sh` — asks for both (hidden),
+   writes `.env`, recreates the app. Works on the Debian box and the Pi.
+3. Admin → Import → **Planning Center**: pick the service type, check
+   the teams to pull (defaults to tech/band/vocals/leader/speaker/host;
+   greeters etc. are ignored), **Preview** → **Apply**.
+4. Tick **Auto-sync**: every 10 min it re-reads this week's plan and
+   re-applies only when the plan changed (or after the Sunday 1 PM
+   clear) — hand edits on the Slots page stand until Planning Center
+   says something new. It never applies from 20 min before a
+   service/rehearsal until it ends. Last result shows on the Import
+   page. `ICTECH_PCO_AUTOSYNC=0` disables the thread entirely.
+
+"This week" = the first plan dated on/after the wall's service Sunday
+(rolls over Sunday 12:30 PM). Declined people are skipped.
+
 ## Security posture
 
 - `/admin` is protected by HTTP Basic Auth **only when** `ICTECH_ADMIN_USER`

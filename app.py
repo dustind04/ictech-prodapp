@@ -17,10 +17,13 @@ doesn't warrant the file structure.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import secrets
 import sqlite3
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -42,6 +45,7 @@ import segno
 from werkzeug.utils import secure_filename
 
 import importer
+import pco
 import shure_live
 import stageplot
 from db import get_db, init_db
@@ -441,6 +445,7 @@ def register_api_routes(app: Flask) -> None:
         db = get_db(app.config["DATABASE_PATH"])
         _maybe_weekly_clear(db)
         live = shure_live.get(app.config["DATABASE_PATH"])
+        _pco_autosync_start(app.config["DATABASE_PATH"])
         slots = db.execute(_SLOT_QUERY).fetchall()
 
         # How an instrument gets into the board, from the imported patch
@@ -824,7 +829,38 @@ def register_admin_routes(app: Flask) -> None:
     # right once both have been applied.
     @app.route("/admin/import")
     def admin_import():
-        return render_template("admin/import.html", plan=None, tplan=None)
+        return render_template("admin/import.html", plan=None, tplan=None,
+                               pco=_pco_context(get_db(db_path)))
+
+    # --- Planning Center link (replaces the Tech Report PDF) ---
+    @app.route("/admin/pco/settings", methods=["POST"])
+    def admin_pco_settings():
+        db = get_db(db_path)
+        st = (request.form.get("service_type_id") or "").strip()
+        old = _settings(db).get("pco_service_type_id") or ""
+        _set_setting(db, "pco_service_type_id", st or None)
+        if st != old:
+            # New service type: its teams are different ids — start
+            # from the default picks instead of an empty list.
+            _set_setting(db, "pco_team_ids", None)
+        else:
+            _set_setting(db, "pco_team_ids",
+                         ",".join(request.form.getlist("team_ids")) or "none")
+        _set_setting(db, "pco_auto", "1" if request.form.get("auto") else "0")
+        db.commit()
+        flash("Planning Center settings saved.", "success")
+        return redirect(url_for("admin_import"))
+
+    @app.route("/admin/pco/preview", methods=["POST"])
+    def admin_pco_preview():
+        db = get_db(db_path)
+        try:
+            tplan = _pco_build(db)
+        except pco.PCOError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("admin_import"))
+        return render_template("admin/import.html", plan=None, tplan=tplan,
+                               pco=_pco_context(db))
 
     @app.route("/admin/import", methods=["POST"])
     def admin_import_preview():
@@ -849,7 +885,8 @@ def register_admin_routes(app: Flask) -> None:
             except Exception as exc:
                 flash(f"Could not read the Tech Report PDF: {exc}", "error")
                 return redirect(url_for("admin_import"))
-        return render_template("admin/import.html", plan=plan, tplan=tplan)
+        return render_template("admin/import.html", plan=plan, tplan=tplan,
+                               pco=_pco_context(db))
 
     @app.route("/admin/import/apply", methods=["POST"])
     def admin_import_apply():
@@ -867,7 +904,10 @@ def register_admin_routes(app: Flask) -> None:
         if plan:
             done.append(f"{importer.apply_plan(db, plan)} slots from the Input List")
         if tplan:
-            done.append(f"{importer.apply_tech_plan(db, tplan)} seats from the Tech Report")
+            src = "Planning Center" if tplan.get("pco") else "the Tech Report"
+            done.append(f"{importer.apply_tech_plan(db, tplan)} seats from {src}")
+            if tplan.get("pco"):
+                _pco_mark_applied(db, tplan["pco"])
         if not done:
             flash("Nothing to apply — upload and preview first.", "error")
             return redirect(url_for("admin_import"))
@@ -1454,6 +1494,145 @@ def _schedule_status(now=None) -> dict:
     if day == 0:
         return wait("Rehearsal", next_dow(1, 18, 30))
     return wait("1st service", next_dow(6, 9, 0))
+
+
+# =============================================================
+# Planning Center link. Settings live in app_setting; the token in
+# env. Auto-sync is a daemon thread (started lazily, like the Shure
+# poller) that re-applies crew & band seats whenever the plan changes
+# — never mid-service, so the wall can't reshuffle under the band.
+# =============================================================
+PCO_SYNC_EVERY = 10 * 60   # s
+
+
+def _settings(db) -> dict:
+    return {r["key"]: r["value"] for r in db.execute("SELECT key, value FROM app_setting")}
+
+
+def _set_setting(db, key: str, value) -> None:
+    if value is None:
+        db.execute("DELETE FROM app_setting WHERE key=?", (key,))
+    else:
+        db.execute("""INSERT INTO app_setting (key, value) VALUES (?, ?)
+                      ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                   (key, str(value)))
+
+
+def _pco_team_ids(s: dict, team_list=None):
+    raw = s.get("pco_team_ids")
+    if raw == "none":
+        return []
+    if raw:
+        return raw.split(",")
+    return pco.default_team_ids(team_list) if team_list is not None else None
+
+
+def _pco_build(db) -> dict:
+    """Fetch this week's plan and turn it into a tech plan (same shape
+    the PDF import previews), stamped with what it came from."""
+    s = _settings(db)
+    st = s.get("pco_service_type_id")
+    if not st:
+        raise pco.PCOError("Pick a service type first.")
+    team_ids = _pco_team_ids(s)
+    if team_ids is None:
+        team_ids = pco.default_team_ids(pco.teams(st))
+    parsed, meta = pco.fetch_parsed(st, team_ids, _service_sunday().date())
+    tplan = importer.build_tech_plan(db, parsed)
+    tplan["pco"] = {"fingerprint": pco.fingerprint(parsed), **meta}
+    return tplan
+
+
+def _pco_mark_applied(db, meta: dict) -> None:
+    _set_setting(db, "pco_fingerprint", meta.get("fingerprint"))
+    _set_setting(db, "pco_plan", json.dumps({k: meta.get(k) for k in
+                                             ("title", "dates", "url")}))
+    db.execute("""INSERT INTO app_setting (key, value) VALUES ('pco_applied_at', datetime('now'))
+                  ON CONFLICT(key) DO UPDATE SET value=excluded.value""")
+    db.commit()
+
+
+def _pco_context(db) -> dict:
+    """Everything the import page's Planning Center card shows."""
+    s = _settings(db)
+    ctx = {"configured": pco.configured(), "service_type_id": s.get("pco_service_type_id"),
+           "auto": s.get("pco_auto") == "1", "applied_at": s.get("pco_applied_at"),
+           "checked_at": s.get("pco_checked_at"), "status": s.get("pco_status"),
+           "plan": json.loads(s["pco_plan"]) if s.get("pco_plan") else None,
+           "service_types": [], "teams": [], "team_ids": [], "error": None}
+    if not ctx["configured"]:
+        return ctx
+    try:
+        ctx["service_types"] = pco.service_types()
+        if ctx["service_type_id"]:
+            ctx["teams"] = pco.teams(ctx["service_type_id"])
+            ctx["team_ids"] = _pco_team_ids(s, ctx["teams"])
+    except pco.PCOError as exc:
+        ctx["error"] = str(exc)
+    return ctx
+
+
+def _pco_autosync_once(db_path: str, now=None) -> str:
+    """One auto-sync pass on its own connection. Returns what it did."""
+    conn = sqlite3.connect(db_path, timeout=10)
+    conn.row_factory = sqlite3.Row
+    try:
+        s = _settings(conn)
+        if s.get("pco_auto") != "1" or not pco.configured() or not s.get("pco_service_type_id"):
+            return "off"
+        if _schedule_status(now)["mode"] != "wait":
+            return "held: service/rehearsal in progress"
+
+        def stamp(status):
+            _set_setting(conn, "pco_status", status)
+            conn.execute("""INSERT INTO app_setting (key, value) VALUES ('pco_checked_at', datetime('now'))
+                            ON CONFLICT(key) DO UPDATE SET value=excluded.value""")
+            conn.commit()
+        try:
+            tplan = _pco_build(conn)
+        except pco.PCOError as exc:
+            stamp(f"error: {exc}")
+            return "error"
+        fp = tplan["pco"]["fingerprint"]
+        # Re-apply when the plan changed — or when the Sunday 1 PM
+        # clear has emptied the seats since our last apply.
+        cleared_since = (s.get("week_cleared_at") or "") > (s.get("pco_applied_at") or "")
+        if fp == s.get("pco_fingerprint") and not cleared_since:
+            stamp("up to date")
+            return "unchanged"
+        importer.apply_tech_plan(conn, tplan)
+        _pco_mark_applied(conn, tplan["pco"])
+        n = len(tplan["warnings"])
+        stamp(f"applied {tplan['pco'].get('dates') or ''}"
+              + (f" — {n} warning{'s' if n != 1 else ''}: " + "; ".join(tplan["warnings"][:3]) if n else ""))
+        log.info("Planning Center auto-sync applied %s", tplan["pco"].get("dates"))
+        return "applied"
+    finally:
+        conn.close()
+
+
+_pco_thread = None
+_pco_thread_lock = threading.Lock()
+
+
+def _pco_autosync_start(db_path: str) -> None:
+    global _pco_thread
+    if os.environ.get("ICTECH_PCO_AUTOSYNC", "1") == "0":
+        return
+    with _pco_thread_lock:
+        if _pco_thread is not None:
+            return
+
+        def loop():
+            time.sleep(5)
+            while True:
+                try:
+                    _pco_autosync_once(db_path)
+                except Exception:
+                    log.exception("Planning Center auto-sync failed")
+                time.sleep(PCO_SYNC_EVERY)
+        _pco_thread = threading.Thread(target=loop, name="pco-sync", daemon=True)
+        _pco_thread.start()
 
 
 def _service_sunday(now=None) -> datetime:

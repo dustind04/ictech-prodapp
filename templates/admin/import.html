@@ -11,6 +11,60 @@
 </div>
 
 <section class="form-card">
+  <h2>Planning Center <span class="muted">— crew, band seats, roles, music leader</span></h2>
+  {% if not pco.configured %}
+    <p>Not connected. This replaces the Tech Report PDF with a live link:</p>
+    <ol class="muted">
+      <li>Signed in to Planning Center as someone who can see Services, open
+        <a href="https://api.planningcenteronline.com/oauth/applications" target="_blank" rel="noopener">api.planningcenteronline.com/oauth/applications</a>
+        → <strong>Personal Access Tokens</strong> → New. Copy the Application ID and Secret.</li>
+      <li>On the server: <code>bash scripts/pco-setup.sh</code> (asks for both, hidden, and restarts the app).</li>
+    </ol>
+  {% elif pco.error %}
+    <p class="import-warnings">⚠ {{ pco.error }}</p>
+  {% else %}
+    <form method="post" action="{{ url_for('admin_pco_settings') }}">
+      <div class="form-row">
+        <label>
+          Service type
+          <select name="service_type_id" onchange="this.form.submit()">
+            <option value="">— pick one —</option>
+            {% for t in pco.service_types %}
+              <option value="{{ t.id }}" {{ 'selected' if t.id == pco.service_type_id }}>{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label style="align-self:end">
+          <input type="checkbox" name="auto" value="1" {{ 'checked' if pco.auto }}>
+          Auto-sync <span class="hint">(every 10 min when the plan changes; never during a service)</span>
+        </label>
+      </div>
+      {% if pco.teams %}
+        <p class="muted" style="margin:6px 0">Teams to pull (others — greeters, kids… — are ignored):</p>
+        <div class="form-row" style="flex-wrap:wrap; gap:4px 18px">
+          {% for t in pco.teams %}
+            <label style="flex:0 0 auto; font-weight:500">
+              <input type="checkbox" name="team_ids" value="{{ t.id }}" {{ 'checked' if t.id in pco.team_ids }}> {{ t.name }}
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <button type="submit" class="btn-secondary">Save</button>
+    </form>
+    {% if pco.service_type_id %}
+      <form method="post" action="{{ url_for('admin_pco_preview') }}" style="margin-top:10px">
+        <button type="submit" class="btn-primary">Preview this week from Planning Center</button>
+      </form>
+    {% endif %}
+    <p class="muted" style="margin-top:8px">
+      {% if pco.plan %}Last applied: {% if pco.plan.url %}<a href="{{ pco.plan.url }}" target="_blank" rel="noopener">{{ pco.plan.dates }}{% if pco.plan.title %} · {{ pco.plan.title }}{% endif %}</a>{% else %}{{ pco.plan.dates }}{% endif %}
+        ({{ pco.applied_at }} UTC).{% else %}Nothing applied from Planning Center yet.{% endif %}
+      {% if pco.status %}Auto-sync {{ pco.checked_at }} UTC: {{ pco.status }}.{% endif %}
+    </p>
+  {% endif %}
+</section>
+
+<section class="form-card">
   <h2>Load the week</h2>
   <form method="post" action="{{ url_for('admin_import_preview') }}" enctype="multipart/form-data">
     <div class="form-row">
@@ -19,7 +73,7 @@
         <input type="file" name="input_list" accept=".xlsx">
       </label>
       <label>
-        Tech Report (.pdf) <span class="hint">— tech crew, band seats, roles, music leader</span>
+        Tech Report (.pdf) <span class="hint">— only if Planning Center isn't linked above</span>
         <input type="file" name="tech_report" accept=".pdf">
       </label>
     </div>
@@ -76,7 +130,7 @@
   {% endif %}
 
   {% if tplan %}
-    <h3>Crew &amp; band seats <span class="muted">(Tech Report)</span></h3>
+    <h3>Crew &amp; band seats <span class="muted">({% if tplan.pco %}Planning Center{% if tplan.pco.url %} · <a href="{{ tplan.pco.url }}" target="_blank" rel="noopener">open plan</a>{% endif %}{% else %}Tech Report{% endif %})</span></h3>
     {% if tplan.leader %}
       <p><strong>Music leader:</strong> {{ tplan.leader.person }}</p>
     {% endif %}
