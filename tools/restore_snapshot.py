@@ -20,6 +20,7 @@ import sys
 
 TABLES = ["slot", "asset", "channel", "person", "position", "wireless_model", "capsule_model"]
 # ^ delete order: slot/asset reference the others. Insert happens reversed.
+CATALOGS = {"wireless_model", "capsule_model"}   # seeded by migrations: merged
 # Snapshots taken before a table existed simply restore it empty.
 
 
@@ -41,13 +42,17 @@ def main() -> int:
     try:
         db.execute("PRAGMA foreign_keys = OFF")
         for table in TABLES:
-            db.execute(f"DELETE FROM {table}")
+            if table not in CATALOGS:
+                db.execute(f"DELETE FROM {table}")
         for table in reversed(TABLES):
             rows = snap.get(table, [])
+            # Catalogs merge instead of replace: a snapshot from an older
+            # schema must not erase gear a newer migration seeded.
+            verb = "INSERT OR REPLACE" if table in CATALOGS else "INSERT"
             for row in rows:
                 cols = ", ".join(row.keys())
                 marks = ", ".join(["?"] * len(row))
-                db.execute(f"INSERT INTO {table} ({cols}) VALUES ({marks})",
+                db.execute(f"{verb} INTO {table} ({cols}) VALUES ({marks})",
                            list(row.values()))
             print(f"{table}: {len(rows)} rows")
         violations = db.execute("PRAGMA foreign_key_check").fetchall()

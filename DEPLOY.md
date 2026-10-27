@@ -26,6 +26,13 @@ sudo reboot
 Give the Pi a **DHCP reservation** so `http://ictech/...` URLs on the
 other TVs never move.
 
+**Updating later (one command):** `bash scripts/pi-update.sh` — backs
+up `data/`, pulls, rebuilds, health-checks. Add
+`--from https://<debian-host>` to also pull Dave's inventory + headshots
+from the internet-facing box (asks for its admin login); that copy
+replaces people/channels/positions/slots/assets on the Pi, catalogs
+merge, and the Pi's old DB stays in `data/backups/`.
+
 **Outside access (optional):** Zero Trust dashboard → Networks →
 Tunnels → Create → Cloudflared; copy the token; add a Public Hostname
 (e.g. `ictech.d2audio.io`, type HTTP, URL `ictech:8058`). Then on the
