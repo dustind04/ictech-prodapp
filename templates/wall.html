@@ -9,6 +9,12 @@
    no merge) and columns take an admin-set fixed width so they line up
    with the chargers below the TV. #}
 {% block chrome %}{% endblock %}
+{# TV kiosk: no cursor parked over the slots, never a scroll bar —
+   the layout fits the screen (see .wall-main), so nothing is lost. #}
+{% block head %}<style>
+  html, body { overflow: hidden; cursor: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+</style>{% endblock %}
 
 {% block content %}
 <div class="wall-header">

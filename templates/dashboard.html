@@ -3,6 +3,12 @@
 {% block body_class %}wall-body{% endblock %}
 {% block main_class %}dash-main{% endblock %}
 {% block chrome %}{% endblock %}
+{# TV kiosk: no cursor parked over the slots, never a scroll bar —
+   the layout fits the screen (see .wall-main), so nothing is lost. #}
+{% block head %}<style>
+  html, body { overflow: hidden; cursor: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+</style>{% endblock %}
 
 {% block content %}
 {# Custom dashboard shell. Widgets are absolutely positioned on a
