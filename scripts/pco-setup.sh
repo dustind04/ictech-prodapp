@@ -32,11 +32,16 @@ chmod 600 .env
 # Recreate the app on whichever stack this box already runs (Debian:
 # prod; Pi / backstage PC: backstage) so it picks up the new env.
 CFG=$(docker inspect ictech --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null || true)
+# Match the compose FILE names — the checkout folder itself is called
+# ictech-prodapp, so a bare *prod* matched every box.
 case "$CFG" in
-    *prod*)    COMPOSE=(-f docker-compose.prod.yaml) ;;
-    *pi.yaml*) COMPOSE=(-f docker-compose.backstage.yaml -f docker-compose.pi.yaml) ;;
-    *)         COMPOSE=(-f docker-compose.backstage.yaml) ;;
+    *docker-compose.pi.yaml*)   COMPOSE=(-f docker-compose.backstage.yaml -f docker-compose.pi.yaml) ;;
+    *docker-compose.prod.yaml*) COMPOSE=(-f docker-compose.prod.yaml) ;;
+    *)                          COMPOSE=(-f docker-compose.backstage.yaml) ;;
 esac
+# A Raspberry Pi always runs the Pi stack, whatever is running now.
+grep -qi raspberry /proc/device-tree/model 2>/dev/null \
+    && COMPOSE=(-f docker-compose.backstage.yaml -f docker-compose.pi.yaml)
 GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 export GIT_SHA
 docker compose "${COMPOSE[@]}" up -d ictech
