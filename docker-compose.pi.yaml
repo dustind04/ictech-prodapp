@@ -1,0 +1,23 @@
+# Raspberry Pi override — layered on the backstage stack by the pi-*
+# scripts:  docker compose -f docker-compose.backstage.yaml -f docker-compose.pi.yaml ...
+#
+# Host networking: the app polls gear on the isolated Dante network
+# (receivers / DM7 on self-assigned 169.254.x.x addresses), which
+# Docker's private bridge network can't reach. On the host network the
+# app sees every network the Pi is on — the Pi's own Dante port
+# included. Published ports don't apply in this mode (Docker ignores
+# them), so gunicorn binds :80 (TV URLs with no port) and :8058 itself.
+# The sidecars join the host network too and reach the app as
+# ictech:8058 through the Pi's own hostname.
+services:
+  ictech:
+    network_mode: host
+    command: ["gunicorn", "--workers", "1", "--threads", "4",
+              "--bind", "0.0.0.0:80", "--bind", "0.0.0.0:8058",
+              "--access-logfile", "-", "app:app"]
+  snapshotter:
+    network_mode: host
+    environment:
+      SNAP_BASE: http://127.0.0.1:8058
+  cloudflared:
+    network_mode: host

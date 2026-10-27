@@ -24,7 +24,7 @@ fi
 GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 export GIT_SHA
 
-docker compose -f docker-compose.backstage.yaml up -d --build
+docker compose -f docker-compose.backstage.yaml -f docker-compose.pi.yaml up -d --build
 
 IP=$(hostname -I | awk '{print $1}')
 HOST=$(hostname)

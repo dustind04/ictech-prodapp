@@ -33,12 +33,13 @@ chmod 600 .env
 # prod; Pi / backstage PC: backstage) so it picks up the new env.
 CFG=$(docker inspect ictech --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null || true)
 case "$CFG" in
-    *prod*) COMPOSE=docker-compose.prod.yaml ;;
-    *)      COMPOSE=docker-compose.backstage.yaml ;;
+    *prod*)    COMPOSE=(-f docker-compose.prod.yaml) ;;
+    *pi.yaml*) COMPOSE=(-f docker-compose.backstage.yaml -f docker-compose.pi.yaml) ;;
+    *)         COMPOSE=(-f docker-compose.backstage.yaml) ;;
 esac
 GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 export GIT_SHA
-docker compose -f "$COMPOSE" up -d ictech
+docker compose "${COMPOSE[@]}" up -d ictech
 echo
 echo "Linked. Admin → Import → Planning Center: pick the service type,"
 echo "check the teams, Preview, Apply — and tick Auto-sync to keep it current."
