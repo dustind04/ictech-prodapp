@@ -201,6 +201,13 @@
     return wait('1st service', nextDow(0, 9, 0));
   }
 
+  // Go time: from 20 min before a service/rehearsal until it ends —
+  // when a switched-off transmitter stops being normal.
+  function goTime() {
+    const st = scheduleStatus(centralNow());
+    return st.mode !== 'wait' || st.secs < 20 * 60;
+  }
+
   function fmtDuration(secs) {
     secs = Math.max(0, Math.floor(secs));
     const d = Math.floor(secs / 86400);
@@ -247,20 +254,25 @@
   const DEMO_SLOTS = [
     { bank_order: 1, kind: 'paired', person_id: 901, person_name: 'Chris C.',
       position_label: 'Pool 2', mic_label: 'Red HH', mic_shure_channel_name: 'Vox 1',
-      mymix_channel: 'Vox 1', iem_label: 'Pack 1' },
+      mymix_channel: 'Vox 1', iem_label: 'Pack 1',
+      mic_live: { status: 'OK', badge: 'OK', tx_on: true, battery: 5, rf: 5, runtime_text: '4h 10m' } },
     { bank_order: 2, kind: 'paired', person_id: 902, person_name: 'Becky B.',
       position_label: 'Pool 3', mic_label: 'Wht HH', mic_shure_channel_name: 'Vox 2',
-      mymix_channel: 'Vox 2', iem_label: 'Pack 2' },
+      mymix_channel: 'Vox 2', iem_label: 'Pack 2',
+      mic_live: { status: 'LOW', badge: 'Low', tx_on: true, battery: 3, rf: 4, runtime_text: '~1h 05m' } },
     { bank_order: 3, kind: 'paired', person_id: 903, person_name: 'Kiara H.',
       position_label: 'Pool 4', mic_label: 'Blu HH', mic_shure_channel_name: 'Vox 3',
-      mymix_channel: 'Vox 3', iem_label: 'Pack 3' },
+      mymix_channel: 'Vox 3', iem_label: 'Pack 3',
+      mic_live: { status: 'REPLACE', badge: 'Replace', tx_on: true, battery: 1, rf: 4, runtime_text: '20m' } },
     { bank_order: 4, kind: 'paired', person_id: 904, person_name: 'Joanna E.',
       position_label: 'Pool 5', mic_label: 'Blk HH', mic_shure_channel_name: 'Vox 4',
-      mymix_channel: 'Vox 4', iem_label: 'Pack 4' },
+      mymix_channel: 'Vox 4', iem_label: 'Pack 4',
+      mic_live: { status: 'TX_OFF', badge: 'TX off', tx_on: false, battery: null, rf: null } },
     { bank_order: 5, kind: 'paired' },
     { bank_order: 6, kind: 'paired' },
     { bank_order: 7, kind: 'mic_only', person_id: 905, person_name: 'Nate B.',
-      position_label: 'CS Pool', mic_label: 'Orng RF', mic_kind: 'handheld', mymix_channel: 'Misc' },
+      position_label: 'CS Pool', mic_label: 'Orng RF', mic_kind: 'handheld', mymix_channel: 'Misc',
+      mic_live: { status: 'RX_ERROR', badge: 'RX error', tx_on: false, battery: null, rf: null } },
     { bank_order: 8, kind: 'mic_only', person_id: 906, person_name: 'Angel L.',
       position_label: 'CS Pool', mic_label: 'Ylo RF', mic_kind: 'handheld', mymix_channel: 'Misc' },
     { bank_order: 9, kind: 'mic_only', person_id: 907, person_name: 'Joe B.',
@@ -698,26 +710,40 @@
       setRow(mymix, (firstName && mixerByOwner[firstName]) || slot.mymix_channel);
       setRow(iem, slot.iem_label);
 
-      // LIVE landing spot: battery segments, RF bars, TX status dot.
-      // Dormant (dim skeleton) until the receiver-polling worker fills
-      // mic_live = { battery: 0-5, rf: 0-5, muted: bool } per channel.
+      // LIVE row (shure_live.py via /api/state): battery segments +
+      // time left, RF bars, and the go / no-go TX chip. Problems say
+      // so in words, not just color — "Replace", "Low", "RX error".
+      // TX off is normal while packs sit in the chargers; it only
+      // turns loud from 20 min before a service/rehearsal to the end.
       const liveEl = el.querySelector('.slot-live');
+      const lv = slot.person_id ? slot.mic_live : null;
       if (liveEl) {
-        const lv = slot.mic_live;
         const batt = lv && Number.isFinite(lv.battery) ? lv.battery : null;
         const rf = lv && Number.isFinite(lv.rf) ? lv.rf : null;
-        const battCls = batt === null ? '' : batt <= 1 ? ' crit' : batt <= 2 ? ' warn' : ' ok';
+        const st = lv ? lv.status : null;
+        const battCls = batt === null ? '' : st === 'REPLACE' ? ' crit' : st === 'LOW' ? ' warn' : ' ok';
+        const chip = !lv ? '<span class="lv-tx"></span>'
+          : (st === 'RX_ERROR' || st === 'UNMATCHED')
+            ? `<span class="lv-tx err">${lv.badge}</span>`
+          : lv.tx_on ? '<span class="lv-tx on">TX ON</span>'
+          : '<span class="lv-tx off">TX OFF</span>';
+        const alert = (st === 'REPLACE' || st === 'LOW')
+          ? `<span class="lv-alert ${st === 'REPLACE' ? 'crit' : 'warn'}">${lv.badge}</span>` : '';
         liveEl.innerHTML =
           '<span class="lv-batt' + battCls + '">' +
           [1, 2, 3, 4, 5].map(i =>
             `<i class="${batt !== null && i <= batt ? 'on' : ''}"></i>`).join('') +
-          '</span><span class="lv-rf">' +
+          '</span>' +
+          (lv && lv.runtime_text ? `<span class="lv-time">${lv.runtime_text}</span>` : '') +
+          '<span class="lv-rf">' +
           [1, 2, 3, 4, 5].map(i =>
             `<i style="height:${28 + i * 14}%" class="${rf !== null && i <= rf ? 'on' : ''}"></i>`).join('') +
-          '</span><span class="lv-dot' +
-          (lv ? (lv.muted ? ' muted' : ' active') : '') + '"></span>';
+          '</span>' + alert + chip;
         liveEl.classList.toggle('dormant', !lv);
       }
+      el.classList.toggle('live-replace', !!lv && lv.status === 'REPLACE');
+      el.classList.toggle('live-rxerr', !!lv && lv.status === 'RX_ERROR');
+      el.classList.toggle('live-txoff-go', !!lv && lv.status === 'TX_OFF' && goTime());
     }
 
     // Auto-collapse: hide unused tiles and reflow each zone to just its

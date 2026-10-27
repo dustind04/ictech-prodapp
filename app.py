@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -41,6 +42,7 @@ import segno
 from werkzeug.utils import secure_filename
 
 import importer
+import shure_live
 import stageplot
 from db import get_db, init_db
 
@@ -55,13 +57,14 @@ log = logging.getLogger("ictech")
 # of truth; these constants are for form validation + dropdowns.
 # ---------------------------------------------------------------
 CHANNEL_KINDS = ["handheld", "beltpack", "iem"]
-SHURE_TYPES = ["qlxd", "ulxd", "axtd", "p10t", "uhfr"]
+SHURE_TYPES = ["qlxd", "ulxd", "axtd", "p10t", "uhfr", "slxd"]
 SHURE_TYPE_LABELS = {
     "qlxd": "QLX-D",
     "ulxd": "ULX-D",
     "axtd": "Axient Digital",
     "p10t": "PSM 1000",
     "uhfr": "UHF-R",
+    "slxd": "SLX-D / SLX-D+",
 }
 
 # ---------------------------------------------------------------
@@ -433,10 +436,11 @@ def register_display_routes(app: Flask) -> None:
 def register_api_routes(app: Flask) -> None:
     @app.route("/api/state")
     def api_state():
-        """Snapshot of slot assignments. Live receiver data will be added
-        in commit 3; today everything is static config data."""
+        """Snapshot of slot assignments plus live receiver telemetry
+        (battery / RF / TX state) for every networked channel."""
         db = get_db(app.config["DATABASE_PATH"])
         _maybe_weekly_clear(db)
+        live = shure_live.get(app.config["DATABASE_PATH"])
         slots = db.execute(_SLOT_QUERY).fetchall()
 
         # How an instrument gets into the board, from the imported patch
@@ -467,9 +471,10 @@ def register_api_routes(app: Flask) -> None:
         for row in slots:
             d = dict(row)
             d["input_label"] = input_label(d["mymix_channel"]) if d["kind"] == "band" else None
-            # Reserved keys for future live state overlay (commit 3).
-            d["mic_live"] = None
-            d["iem_live"] = None
+            # Live receiver state (shure_live.py): None when the channel
+            # isn't on the network — the wall renders that dormant.
+            d["mic_live"] = live.channel_state(d["mic_channel_id"])
+            d["iem_live"] = live.channel_state(d["iem_channel_id"])
             rows.append(d)
         mixers = [dict(r) for r in db.execute(
             "SELECT mixer, owner FROM mymix_mixer ORDER BY sort_order")]
@@ -486,6 +491,21 @@ def register_api_routes(app: Flask) -> None:
                         "version": os.environ.get("ICTECH_VERSION", "unknown"),
                         "settings": {"micboard_col_width":
                                      width["value"] if width else None}})
+
+    @app.route("/api/live")
+    def api_live():
+        """Every networked channel's live state, plus each receiver's
+        connection — what the tech dashboard and admin read."""
+        db = get_db(app.config["DATABASE_PATH"])
+        live = shure_live.get(app.config["DATABASE_PATH"])
+        channels = []
+        for c in db.execute(
+                "SELECT id, label, kind, shure_ip, shure_channel, shure_channel_name "
+                "FROM channel WHERE archived=0 ORDER BY kind, label"):
+            d = dict(c)
+            d["live"] = live.channel_state(c["id"])
+            channels.append(d)
+        return jsonify({"channels": channels, "receivers": live.receivers_state()})
 
 
 # Single source of truth for the slot-resolution query. Used by both
@@ -660,9 +680,11 @@ def register_admin_routes(app: Flask) -> None:
                  LEFT JOIN wireless_model rm ON rm.id = c.receiver_model_id
                 WHERE c.archived=0 ORDER BY c.kind, c.label"""
         ).fetchall()
+        live = shure_live.get(db_path)
         return render_template(
             "admin/channels.html",
             channels=channels,
+            live={c["id"]: live.channel_state(c["id"]) for c in channels},
             kinds=CHANNEL_KINDS,
             shure_types=SHURE_TYPES,
             shure_type_labels=SHURE_TYPE_LABELS,
@@ -680,16 +702,20 @@ def register_admin_routes(app: Flask) -> None:
         values = _channel_form_values(request.form, label, kind)
         _validate_gear_ids(db, values)
         values["shure_type"] = _derive_shure_type(db, values["receiver_model_id"])
-        db.execute(
-            """INSERT INTO channel
-                 (label, kind, shure_ip, shure_channel_name, shure_type,
-                  capsule, frequency_mhz, wireless_model_id, capsule_model_id,
-                  receiver_model_id)
-               VALUES (:label, :kind, :shure_ip, :shure_channel_name, :shure_type,
-                       :capsule, :frequency_mhz, :wireless_model_id, :capsule_model_id,
-                       :receiver_model_id)""",
-            values,
-        )
+        try:
+            db.execute(
+                """INSERT INTO channel
+                     (label, kind, shure_ip, shure_channel, shure_channel_name, shure_type,
+                      capsule, frequency_mhz, wireless_model_id, capsule_model_id,
+                      receiver_model_id)
+                   VALUES (:label, :kind, :shure_ip, :shure_channel, :shure_channel_name,
+                           :shure_type, :capsule, :frequency_mhz, :wireless_model_id,
+                           :capsule_model_id, :receiver_model_id)""",
+                values,
+            )
+        except sqlite3.IntegrityError:
+            flash(_DUP_RX_CHANNEL.format(**values), "error")
+            return redirect(url_for("admin_channels"))
         db.commit()
         flash(f"Added channel {label}.", "success")
         return redirect(url_for("admin_channels"))
@@ -733,17 +759,22 @@ def register_admin_routes(app: Flask) -> None:
         _validate_gear_ids(db, values)
         values["shure_type"] = _derive_shure_type(db, values["receiver_model_id"])
         values["id"] = channel_id
-        db.execute(
-            """UPDATE channel SET
-                 label=:label, kind=:kind,
-                 shure_ip=:shure_ip, shure_channel_name=:shure_channel_name, shure_type=:shure_type,
-                 capsule=:capsule, frequency_mhz=:frequency_mhz,
-                 wireless_model_id=:wireless_model_id, capsule_model_id=:capsule_model_id,
-                 receiver_model_id=:receiver_model_id,
-                 updated_at=datetime('now')
-               WHERE id=:id""",
-            values,
-        )
+        try:
+            db.execute(
+                """UPDATE channel SET
+                     label=:label, kind=:kind,
+                     shure_ip=:shure_ip, shure_channel=:shure_channel,
+                     shure_channel_name=:shure_channel_name, shure_type=:shure_type,
+                     capsule=:capsule, frequency_mhz=:frequency_mhz,
+                     wireless_model_id=:wireless_model_id, capsule_model_id=:capsule_model_id,
+                     receiver_model_id=:receiver_model_id,
+                     updated_at=datetime('now')
+                   WHERE id=:id""",
+                values,
+            )
+        except sqlite3.IntegrityError:
+            flash(_DUP_RX_CHANNEL.format(**values), "error")
+            return redirect(url_for("admin_channels_edit", channel_id=channel_id))
         db.commit()
         flash(f"Updated {label}.", "success")
         return redirect(url_for("admin_channels"))
@@ -1698,10 +1729,14 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
     shure_type = _opt_str("shure_type")
     if shure_type and shure_type not in SHURE_TYPES:
         shure_type = None
+    shure_channel = _opt_int("shure_channel")
+    if shure_channel is not None and not 1 <= shure_channel <= 8:
+        shure_channel = None
     return {
         "label": label,
         "kind": kind,
         "shure_ip": _opt_str("shure_ip"),
+        "shure_channel": shure_channel,
         "shure_channel_name": _opt_str("shure_channel_name"),
         "shure_type": shure_type,
         "capsule": _opt_str("capsule"),
@@ -1712,6 +1747,10 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
     }
 
 
+_DUP_RX_CHANNEL = ("Another channel already uses receiver {shure_ip} ch {shure_channel} "
+                   "— one transmitter per receiver channel.")
+
+
 # Receiver family -> network protocol family for the polling worker.
 _FAMILY_PROTOCOL = {
     "ULX-D": "ulxd",
@@ -1719,6 +1758,8 @@ _FAMILY_PROTOCOL = {
     "Axient Digital": "axtd",
     "PSM 1000": "p10t",
     "UHF-R (legacy)": "uhfr",
+    "SLX-D": "slxd",
+    "SLX-D+": "slxd",
 }
 
 

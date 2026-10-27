@@ -72,13 +72,13 @@
       </label>
     </div>
 
-    <h3 class="subhead">Network info</h3>
+    <h3 class="subhead">Network info <span class="hint">(receiver + IP turn on live battery/RF/TX on the wall; no ch #? it matches the WWB channel name)</span></h3>
     <div class="form-row">
       <label>
         Receiver <span class="hint">(the rack unit this channel lives on)</span>
         <select name="receiver_model_id">
           <option value="">—</option>
-          {% for m in wireless_models if m.kind == 'receiver' %}
+          {% for m in wireless_models if m.kind in ('receiver', 'iem_tx') %}
             <option value="{{ m.id }}" {{ 'selected' if channel.receiver_model_id == m.id }}>{{ m.model }} — {{ m.family }}</option>
           {% endfor %}
         </select>
@@ -86,6 +86,11 @@
       <label>
         Receiver IP
         <input name="shure_ip" value="{{ channel.shure_ip or '' }}">
+      </label>
+      <label>
+        Receiver ch # <span class="hint">(1–4 on a quad)</span>
+        <input name="shure_channel" type="number" min="1" max="8" style="width:5em"
+               value="{{ channel.shure_channel or '' }}">
       </label>
       <label>
         Channel name <span class="hint">(from WWB)</span>

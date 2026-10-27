@@ -867,12 +867,13 @@ input:focus, select:focus {
 
 /* LIVE row: battery segments + RF bars + TX dot. Dormant = dim
    skeleton until receiver polling feeds mic_live. */
-.slot-row.row-live { min-height: calc(26 * var(--u)); }
+.slot-row.row-live { min-height: calc(64 * var(--u)); }
 .slot-live {
   display: inline-flex !important;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: center;
-  gap: calc(10 * var(--u));
+  gap: calc(5 * var(--u)) calc(8 * var(--u));
   padding-top: calc(2 * var(--u));
 }
 .lv-batt {
@@ -904,15 +905,55 @@ input:focus, select:focus {
   border-radius: calc(1 * var(--u));
 }
 .lv-rf i.on { background: #4A90D9; }
-.lv-dot {
-  width: calc(9 * var(--u));
-  height: calc(9 * var(--u));
-  border-radius: 50%;
-  background: #333;
-  margin-bottom: calc(2 * var(--u));
+.lv-time {
+  white-space: nowrap;
+  font-size: calc(11 * var(--u));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #b8b8b2;
+  align-self: center;
 }
-.lv-dot.active { background: var(--green); box-shadow: 0 0 calc(8 * var(--u)) rgba(122, 182, 72, 0.6); }
-.lv-dot.muted  { background: #D64545; }
+/* TX chip: the go / no-go. Off is quiet gray while packs charge;
+   .live-txoff-go (20 min before service → end) makes it loud. */
+.lv-tx {
+  align-self: center;
+  font-size: calc(10 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: calc(2 * var(--u)) calc(6 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: #2c2c2c;
+  color: #8a8a84;
+  min-width: calc(44 * var(--u));
+  text-align: center;
+  white-space: nowrap;
+}
+.lv-tx:empty { visibility: hidden; }
+.lv-tx.on  { background: var(--green); color: #1F1F1F; }
+.lv-tx.err { background: #5a2a2a; color: #F7F7F5; }
+.lv-alert {
+  align-self: center;
+  font-size: calc(10 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: calc(2 * var(--u)) calc(6 * var(--u));
+  border-radius: calc(3 * var(--u));
+}
+.lv-alert.warn { background: #EEC97F; color: #1F1F1F; }
+.lv-alert.crit { background: #D64545; color: #F7F7F5; }
+.slot.live-replace { box-shadow: inset 0 0 0 calc(3 * var(--u)) #D64545; }
+.slot.live-rxerr   { box-shadow: inset 0 0 0 calc(2 * var(--u)) #7a3a3a; }
+.slot.live-txoff-go .lv-tx.off {
+  background: #D64545;
+  color: #F7F7F5;
+  animation: lv-pulse 1.2s ease-in-out infinite;
+}
+@keyframes lv-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .slot.live-txoff-go .lv-tx.off { animation: none; }
+}
 .slot-live.dormant { opacity: 0.45; }
 
 /* Locked rows: fixed anatomy at the bottom of every tile. The gray
@@ -1221,3 +1262,18 @@ input[type=file]::file-selector-button:hover {
                      letter-spacing: 0.35em; text-transform: uppercase; }
 .dw-stage-empty { position: absolute; left: 50%; top: 45%;
                   transform: translate(-50%, -50%); }
+
+/* Admin channel list: live status pill. */
+.live-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(31, 31, 31, 0.06);
+  color: var(--text);
+  margin-right: 4px;
+}
+.live-badge.live-ok, .live-badge.live-online { background: var(--green-soft); color: var(--green-dark); }
+.live-badge.live-low { background: #FBEFD3; color: #7a5a12; }
+.live-badge.live-replace, .live-badge.live-rx_error { background: #F8DADA; color: #8a1f1f; }

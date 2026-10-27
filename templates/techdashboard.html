@@ -52,18 +52,18 @@
 
   <section class="bl-side-col">
     <h2 class="bl-h">RECEIVER TELEMETRY</h2>
-    {# Landing spot for live receiver polling (battery/RF/audio via
-       the IPs entered on channels). Dashes until the worker exists. #}
+    {# Live receiver polling (shure_live.py) via /api/live, every 2s.
+       Dashes = no IP / receiver chosen, or nothing heard yet. #}
     {% if channels %}
     <table class="bl-table">
       <thead><tr><th>CHANNEL</th><th>IP</th><th>BATT</th><th>RF</th><th>AUDIO</th><th>TX</th></tr></thead>
       <tbody>
         {% for c in channels %}
-        <tr class="{{ 'bl-unpatched' if not c.shure_ip }}">
+        <tr class="{{ 'bl-unpatched' if not c.shure_ip }}" data-ch="{{ c.id }}">
           <td class="bl-src">{{ c.label }}</td>
-          <td>{{ c.shure_ip or 'no IP' }}</td>
-          <td class="bl-num">—</td><td class="bl-num">—</td>
-          <td class="bl-num">—</td><td class="bl-num">—</td>
+          <td>{{ c.shure_ip or 'no IP' }}{% if c.shure_channel %}:{{ c.shure_channel }}{% endif %}</td>
+          <td class="bl-num" data-f="batt">—</td><td class="bl-num" data-f="rf">—</td>
+          <td class="bl-num" data-f="audio">—</td><td class="bl-num" data-f="tx">—</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -110,6 +110,29 @@
 {% endif %}
 
 <script>
+  // Receiver telemetry: fill the table from /api/live every 2s.
+  async function pollLive() {
+    try {
+      const res = await fetch('/api/live', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      for (const c of data.channels) {
+        const tr = document.querySelector(`tr[data-ch="${c.id}"]`);
+        if (!tr) continue;
+        const lv = c.live;
+        const set = (f, v) => { const td = tr.querySelector(`[data-f="${f}"]`); if (td) td.textContent = v; };
+        if (!lv) { ['batt', 'rf', 'audio', 'tx'].forEach(f => set(f, '—')); continue; }
+        set('batt', lv.battery == null ? '—'
+          : lv.battery + '/5' + (lv.runtime_text ? ' ' + lv.runtime_text : ''));
+        set('rf', lv.rf_dbm == null ? '—' : lv.rf_dbm + ' dBm');
+        set('audio', lv.audio == null ? '—' : lv.audio + '%');
+        set('tx', lv.status === 'OK' ? 'ON' : lv.badge.toUpperCase());
+      }
+    } catch (e) { /* next tick */ }
+  }
+  pollLive();
+  setInterval(pollLive, 2000);
+
   setInterval(() => {
     const el = document.getElementById('bl-clock');
     if (el) el.textContent = new Date().toLocaleTimeString('en-US',

@@ -112,6 +112,46 @@ Cheat sheet of the short URLs:
 (SQLite DB + photos) into the clone before first start — or restore a
 snapshot: `docker exec -i ictech python3 tools/restore_snapshot.py < snapshot.json`.
 
+## Live receiver monitoring (battery / RF / TX on-off)
+
+The app polls the Shure receivers itself (`shure_live.py`, a thread
+inside the one gunicorn worker) — no separate micboard install. Each
+wall tile's bottom LIVE row then shows battery bars + time left, RF
+bars, and a **TX ON / TX OFF** chip; problems say so in words
+(**Low**, **Replace**, **RX error**), not just color. TX OFF is quiet
+gray while packs sit in the chargers and turns pulsing red from
+20 min before a service/rehearsal until it ends. `/techdashboard`
+shows the same per channel (dBm, audio %), and Admin → Channels has a
+Live column.
+
+Supported (protocol on TCP/UDP 2202): **ULX-D, QLX-D, Axient Digital
+(AD4D/AD4Q), SLX-D and SLX-D+, UHF-R**, plus **PSM 1000** (P10T,
+online/offline only). PSM 900, GLX-D, BLX and the analog lines have
+no network control — those channels just stay dormant.
+
+Install-day checklist:
+
+1. Receivers on the **same network/VLAN as the Pi**, each with a
+   static IP or DHCP reservation (ULX-D Q / AD4Q: the *control* port's
+   IP, from the front-panel Network menu — not the Dante address).
+2. **SLX-D / SLX-D+ only:** third-party control is **off by default**
+   on the receiver — turn it on in the receiver's network menu.
+   ULX-D/QLX-D/Axient need nothing.
+3. Admin → Channels, per mic: **Receiver** (e.g. ULXD4Q), **Receiver
+   IP**, **Receiver ch #** (1–4). If you leave ch # blank it matches
+   the WWB channel name typed in "Channel name" against what the
+   receiver reports.
+4. Power a pack on. Within ~15 s its Live column says OK and the wall
+   tile flips to TX ON. A receiver that can't be reached shows
+   **RX error**; a reachable receiver whose name didn't match shows
+   **Check ch #**.
+
+No rack handy? `python tools/fake_shure.py` (then a channel at
+`127.0.0.1`, ULXD4Q, ch 1–4) fakes a quad with one of each state.
+Thresholds (Low/Replace bars and minutes) are constants at the top of
+`shure_live.py`. Set `ICTECH_LIVE=0` to turn polling off (e.g. on the
+internet-facing Debian box, which can't reach the rack anyway).
+
 ## Debian box (internet-facing demo via Cloudflare tunnel)
 
 Target: any Debian/ARM64/x86 box with Docker + compose. The stack is two
