@@ -52,18 +52,18 @@
 
   <section class="bl-side-col">
     <h2 class="bl-h">RECEIVER TELEMETRY</h2>
-    {# Landing spot for live receiver polling (battery/RF/audio via
-       the IPs entered on channels). Dashes until the worker exists. #}
+    {# Live receiver polling (shure_live.py) via /api/live, every 2s.
+       Dashes = no IP / receiver chosen, or nothing heard yet. #}
     {% if channels %}
     <table class="bl-table">
       <thead><tr><th>CHANNEL</th><th>IP</th><th>BATT</th><th>RF</th><th>AUDIO</th><th>TX</th></tr></thead>
       <tbody>
         {% for c in channels %}
-        <tr class="{{ 'bl-unpatched' if not c.shure_ip }}">
+        <tr class="{{ 'bl-unpatched' if not c.shure_ip }}" data-ch="{{ c.id }}">
           <td class="bl-src">{{ c.label }}</td>
-          <td>{{ c.shure_ip or 'no IP' }}</td>
-          <td class="bl-num">—</td><td class="bl-num">—</td>
-          <td class="bl-num">—</td><td class="bl-num">—</td>
+          <td>{{ c.shure_ip or 'no IP' }}{% if c.shure_channel %}:{{ c.shure_channel }}{% endif %}</td>
+          <td class="bl-num" data-f="batt">—</td><td class="bl-num" data-f="rf">—</td>
+          <td class="bl-num" data-f="audio">—</td><td class="bl-num" data-f="tx">—</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -71,6 +71,19 @@
     {% else %}
     <p class="bl-empty">No channels in inventory yet.</p>
     {% endif %}
+
+    <h2 class="bl-h">FOH CONSOLE <span id="con-status" class="bl-note"></span></h2>
+    {# dm7_live.py via /api/console every 2s. SHEET = this week's Input
+       List; BOARD = what the DM7 says right now. ⚠ = they disagree. #}
+    <table class="bl-table">
+      <thead><tr><th>CH</th><th>SHEET</th><th>BOARD</th><th>ON</th><th>GAIN</th><th>48V</th><th>LEVEL</th><th></th></tr></thead>
+      <tbody id="con-inputs"><tr><td colspan="8" class="bl-note">—</td></tr></tbody>
+    </table>
+    <h2 class="bl-h">MYMIX FEEDS <span class="bl-note">(DM7 → the 16 MyMix inputs; ears are mixed on each station)</span></h2>
+    <table class="bl-table">
+      <thead><tr><th>IN</th><th>MYMIX</th><th>VIA</th><th>CONSOLE</th><th>ON</th><th>LEVEL</th><th>CONTENTS (dB, loudest first)</th></tr></thead>
+      <tbody id="con-mymix"><tr><td colspan="7" class="bl-note">—</td></tr></tbody>
+    </table>
 
     <h2 class="bl-h">IEM RF</h2>
     <table class="bl-table">
@@ -110,6 +123,66 @@
 {% endif %}
 
 <script>
+  // Receiver telemetry: fill the table from /api/live every 2s.
+  async function pollLive() {
+    try {
+      const res = await fetch('/api/live', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      for (const c of data.channels) {
+        const tr = document.querySelector(`tr[data-ch="${c.id}"]`);
+        if (!tr) continue;
+        const lv = c.live;
+        const set = (f, v) => { const td = tr.querySelector(`[data-f="${f}"]`); if (td) td.textContent = v; };
+        if (!lv) { ['batt', 'rf', 'audio', 'tx'].forEach(f => set(f, '—')); continue; }
+        set('batt', lv.battery == null ? '—'
+          : lv.battery + '/5' + (lv.runtime_text ? ' ' + lv.runtime_text : ''));
+        set('rf', lv.rf_dbm == null ? '—' : lv.rf_dbm + ' dBm');
+        set('audio', lv.audio == null ? '—' : lv.audio + '%');
+        set('tx', lv.status === 'OK' ? 'ON' : lv.badge.toUpperCase());
+      }
+    } catch (e) { /* next tick */ }
+  }
+  pollLive();
+  setInterval(pollLive, 2000);
+
+  // FOH console: sheet vs board, and the feeds into MyMix.
+  const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  async function pollConsole() {
+    try {
+      const res = await fetch('/api/console', { cache: 'no-store' });
+      if (!res.ok) return;
+      const d = await res.json();
+      const st = d.console || {};
+      document.getElementById('con-status').textContent = !st.configured ? '· not set up (Admin → Channels)'
+        : !st.online ? `· ${st.ip} OFFLINE`
+        : `· ${st.model || 'DM7'} ${st.name || ''} · ${st.ip}` +
+          (st.scene ? ` · scene ${st.scene.number} ${st.scene.name || ''}` : '');
+      const tb = document.getElementById('con-inputs');
+      tb.innerHTML = d.inputs.length ? d.inputs.map(r => {
+        const flag = (r.flags || []).map(f => ({name: '⚠ name', '48v': '⚠ 48V', clip: 'CLIP'}[f])).join(' ');
+        const ph = st.phantom_readable ? (r.phantom ? 'ON' : 'off') : (r.phantom_sheet ? '(X)' : '');
+        return `<tr class="${r.on === false ? 'bl-unpatched' : ''}">` +
+          `<td class="bl-num">${r.ch}</td><td class="bl-src">${esc(r.instrument)}</td>` +
+          `<td>${esc(r.name ?? '—')}</td><td>${r.on == null ? '—' : r.on ? 'ON' : 'OFF'}</td>` +
+          `<td class="bl-num">${r.gain == null ? '—' : r.gain + ' dB'}</td><td>${ph}</td>` +
+          `<td class="bl-num">${r.db == null ? '—' : r.db.toFixed(0) + ' dB'}</td><td>${flag}</td></tr>`;
+      }).join('') : '<tr><td colspan="8" class="bl-note">No FOH channels in this week\'s Input List.</td></tr>';
+      const mm = document.getElementById('con-mymix');
+      mm.innerHTML = d.mymix.length ? d.mymix.map(f => {
+        const contents = f.kind === 'mtrx'
+          ? ((f.sources || []).map(s => `${esc(s.name)} ${s.db > 0 ? '+' : ''}${s.db}`).join(' · ') || 'nothing sent')
+          : f.kind === 'dir' ? 'direct out' : '';
+        return `<tr class="${f.on === false ? 'bl-unpatched' : ''}"><td class="bl-num">${f.input}</td>` +
+          `<td class="bl-src">${esc(f.label)}</td><td>${esc(f.via)}</td><td>${esc(f.name ?? '—')}</td>` +
+          `<td>${f.on == null ? '—' : f.on ? 'ON' : 'OFF'}</td>` +
+          `<td class="bl-num">${f.db == null ? '—' : f.db.toFixed(0) + ' dB'}</td><td>${contents}</td></tr>`;
+      }).join('') : '<tr><td colspan="7" class="bl-note">No MyMix legend in this week\'s Input List.</td></tr>';
+    } catch (e) { /* next tick */ }
+  }
+  pollConsole();
+  setInterval(pollConsole, 2000);
+
   setInterval(() => {
     const el = document.getElementById('bl-clock');
     if (el) el.textContent = new Date().toLocaleTimeString('en-US',

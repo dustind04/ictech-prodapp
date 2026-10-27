@@ -26,6 +26,13 @@ sudo reboot
 Give the Pi a **DHCP reservation** so `http://ictech/...` URLs on the
 other TVs never move.
 
+**Updating later (one command):** `bash scripts/pi-update.sh` — backs
+up `data/`, pulls, rebuilds, health-checks. Add
+`--from https://<debian-host>` to also pull Dave's inventory + headshots
+from the internet-facing box (asks for its admin login); that copy
+replaces people/channels/positions/slots/assets on the Pi, catalogs
+merge, and the Pi's old DB stays in `data/backups/`.
+
 **Outside access (optional):** Zero Trust dashboard → Networks →
 Tunnels → Create → Cloudflared; copy the token; add a Public Hostname
 (e.g. `ictech.d2audio.io`, type HTTP, URL `ictech:8058`). Then on the
@@ -112,6 +119,46 @@ Cheat sheet of the short URLs:
 (SQLite DB + photos) into the clone before first start — or restore a
 snapshot: `docker exec -i ictech python3 tools/restore_snapshot.py < snapshot.json`.
 
+## Live receiver monitoring (battery / RF / TX on-off)
+
+The app polls the Shure receivers itself (`shure_live.py`, a thread
+inside the one gunicorn worker) — no separate micboard install. Each
+wall tile's bottom LIVE row then shows battery bars + time left, RF
+bars, and a **TX ON / TX OFF** chip; problems say so in words
+(**Low**, **Replace**, **RX error**), not just color. TX OFF is quiet
+gray while packs sit in the chargers and turns pulsing red from
+20 min before a service/rehearsal until it ends. `/techdashboard`
+shows the same per channel (dBm, audio %), and Admin → Channels has a
+Live column.
+
+Supported (protocol on TCP/UDP 2202): **ULX-D, QLX-D, Axient Digital
+(AD4D/AD4Q), SLX-D and SLX-D+, UHF-R**, plus **PSM 1000** (P10T,
+online/offline only). PSM 900, GLX-D, BLX and the analog lines have
+no network control — those channels just stay dormant.
+
+Install-day checklist:
+
+1. Receivers on the **same network/VLAN as the Pi**, each with a
+   static IP or DHCP reservation (ULX-D Q / AD4Q: the *control* port's
+   IP, from the front-panel Network menu — not the Dante address).
+2. **SLX-D / SLX-D+ only:** third-party control is **off by default**
+   on the receiver — turn it on in the receiver's network menu.
+   ULX-D/QLX-D/Axient need nothing.
+3. Admin → Channels, per mic: **Receiver** (e.g. ULXD4Q), **Receiver
+   IP**, **Receiver ch #** (1–4). If you leave ch # blank it matches
+   the WWB channel name typed in "Channel name" against what the
+   receiver reports.
+4. Power a pack on. Within ~15 s its Live column says OK and the wall
+   tile flips to TX ON. A receiver that can't be reached shows
+   **RX error**; a reachable receiver whose name didn't match shows
+   **Check ch #**.
+
+No rack handy? `python tools/fake_shure.py` (then a channel at
+`127.0.0.1`, ULXD4Q, ch 1–4) fakes a quad with one of each state.
+Thresholds (Low/Replace bars and minutes) are constants at the top of
+`shure_live.py`. Set `ICTECH_LIVE=0` to turn polling off — receivers and console —
+e.g. on the internet-facing Debian box, which can't reach the rack.
+
 ## Debian box (internet-facing demo via Cloudflare tunnel)
 
 Target: any Debian/ARM64/x86 box with Docker + compose. The stack is two
@@ -189,6 +236,69 @@ Admin → **Weekly import** → upload Dave's `<date> Input List.xlsx` →
 preview (person/mic/IEM/position/MyMix per slot, with warnings for
 anything that didn't match inventory) → **Apply to slots**. The sheet is
 the weekly truth: slots with no row that week are emptied.
+
+## FOH console link (Yamaha DM7, read-only)
+
+`dm7_live.py` holds one connection to the DM7's remote-control port
+(TCP 49280) and only ever *reads* — it refuses to send anything that
+could change the board. What shows up:
+
+- **Wall tiles:** `FOH ON / FOH OFF` (is this person's channel up at
+  the board) next to `TX ON/OFF`, plus a small input meter that flashes
+  red on clip. A band seat folds all its inputs (the whole kit) into
+  one. On the MyMix row (their station), a dot lights when *their own
+  feed into MyMix* — the matrix or direct out carrying them — is up
+  with signal; `FEED OFF` if that matrix is muted. Ears themselves
+  are mixed on the station, which the console can't see.
+- **Wall header:** current scene number + name.
+- **`/techdashboard` → FOH CONSOLE:** each input from the week's Input
+  List next to what the board says (name, on, preamp gain, level), ⚠
+  when the sheet and the board disagree on the name. **MYMIX FEEDS:**
+  the 16 MyMix inputs from the week's legend — what feeds each (Mtx n /
+  Dir Out), on/off and level at the DM7, and what's inside each matrix.
+
+Setup: Admin → Channels → **FOH console IP** (the DM7's network IP,
+same VLAN as the Pi). Within ~15 s it shows Online with the scene.
+
+How tiles find their console channel: through that week's Input List
+(FOH ch column) — by the slot's mic ("Red HH"), else its MyMix name.
+No Input List imported = no FOH chips. MyMix feeds come from the MyMix
+sheet: the legend's Source column (`Mtx 2`, `Dir Out`) and each
+input's MyMix # / route (columns H/I).
+
+Not verified on a real DM7 yet: the +48V read (column shows the
+sheet's `(X)` until the console answers it), and how many remote
+connections the DM7 allows next to DM7 Editor / StageMix / Companion.
+No console handy? `python tools/fake_dm7.py` and set the IP to
+`127.0.0.1`.
+
+## Planning Center link (replaces the Tech Report PDF)
+
+Crew seats, band seats, weekly roles and the music leader come straight
+from Planning Center Services — same matching rules as the PDF import
+(first name + last initial; unknown names are added, likely typos warn).
+The Input List `.xlsx` is still Dave's: patch, MyMix and the vocal
+rack slots aren't in Planning Center.
+
+1. Signed in to Planning Center as someone who can see Services:
+   <https://api.planningcenteronline.com/oauth/applications> →
+   **Personal Access Tokens** → New. Copy the Application ID + Secret.
+   (The token sees what that person sees — a read-mostly staff login
+   is ideal.)
+2. On the server: `bash scripts/pco-setup.sh` — asks for both (hidden),
+   writes `.env`, recreates the app. Works on the Debian box and the Pi.
+3. Admin → Import → **Planning Center**: pick the service type, check
+   the teams to pull (defaults to tech/band/vocals/leader/speaker/host;
+   greeters etc. are ignored), **Preview** → **Apply**.
+4. Tick **Auto-sync**: every 10 min it re-reads this week's plan and
+   re-applies only when the plan changed (or after the Sunday 1 PM
+   clear) — hand edits on the Slots page stand until Planning Center
+   says something new. It never applies from 20 min before a
+   service/rehearsal until it ends. Last result shows on the Import
+   page. `ICTECH_PCO_AUTOSYNC=0` disables the thread entirely.
+
+"This week" = the first plan dated on/after the wall's service Sunday
+(rolls over Sunday 12:30 PM). Declined people are skipped.
 
 ## Security posture
 

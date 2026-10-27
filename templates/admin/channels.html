@@ -11,6 +11,28 @@
 </div>
 
 <section class="form-card">
+  <h2>FOH console <span class="muted">— Yamaha DM7, read-only</span></h2>
+  <form method="post" action="{{ url_for('admin_console') }}">
+    <div class="form-row">
+      <label>
+        Console IP <span class="hint">(the DM7's network/control IP; blank = off)</span>
+        <input name="dm7_ip" value="{{ console_ip }}" placeholder="10.0.1.20" {{ 'disabled' if console_ip_env }}>
+      </label>
+      <div style="align-self:end">
+        {% if console_ip_env %}<span class="muted">Set by ICTECH_DM7_IP={{ console_ip_env }}.</span>
+        {% elif console.configured %}
+          <span class="live-badge {{ 'live-ok' if console.online else 'live-rx_error' }}">{{ 'Online' if console.online else 'Offline' }}</span>
+          {% if console.online %}<span class="muted">{{ console.model or '' }} {{ console.name or '' }}{% if console.scene %} · scene {{ console.scene.number }}{% if console.scene.name %} {{ console.scene.name }}{% endif %}{% endif %}</span>{% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% if not console_ip_env %}<button type="submit" class="btn-secondary">Save</button>{% endif %}
+  </form>
+  <p class="muted" style="margin-top:6px">Channels map to tiles through the week's Input List (FOH ch + mic / MyMix).
+    MyMix feeds come from the Input List's MyMix legend (input → Mtx n / Dir Out). Nothing is ever changed on the console.</p>
+</section>
+
+<section class="form-card">
   <h2>Add a channel</h2>
   <form method="post" action="{{ url_for('admin_channels_create') }}">
     <div class="form-row">
@@ -78,7 +100,7 @@
         Receiver <span class="hint">(the rack unit this channel lives on)</span>
         <select name="receiver_model_id">
           <option value="">—</option>
-          {% for m in wireless_models if m.kind == 'receiver' %}
+          {% for m in wireless_models if m.kind in ('receiver', 'iem_tx') %}
             <option value="{{ m.id }}">{{ m.model }} — {{ m.family }}</option>
           {% endfor %}
         </select>
@@ -86,6 +108,10 @@
       <label>
         Receiver IP
         <input name="shure_ip" placeholder="10.0.1.50">
+      </label>
+      <label>
+        Receiver ch # <span class="hint">(1–4 on a quad)</span>
+        <input name="shure_channel" type="number" min="1" max="8" style="width:5em" placeholder="1">
       </label>
       <label>
         Channel name <span class="hint">(from WWB)</span>
@@ -103,7 +129,7 @@
       <thead>
         <tr>
           <th>Label</th><th>Kind</th><th>Gear</th><th>Tag</th>
-          <th>Receiver</th><th>Channel</th><th>Freq.</th><th></th>
+          <th>Receiver</th><th>Channel</th><th>Freq.</th><th>Live</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -123,8 +149,15 @@
                 {% if c.shure_ip %}<code>{{ c.shure_ip }}</code>{% endif %}
               {% else %}—{% endif %}
             </td>
-            <td>{{ c.shure_channel_name or c.shure_channel or '—' }}</td>
+            <td>{{ c.shure_channel_name or '—' }}{% if c.shure_channel %} <span class="muted">ch {{ c.shure_channel }}</span>{% endif %}</td>
             <td>{{ '%.3f' % c.frequency_mhz if c.frequency_mhz else '—' }}</td>
+            <td>
+              {% set lv = live.get(c.id) %}
+              {% if lv %}
+                <span class="live-badge live-{{ lv.status | lower }}">{{ lv.badge }}</span>
+                {% if lv.battery is not none %}<span class="muted">{{ lv.battery }}/5{% if lv.runtime_text %} · {{ lv.runtime_text }}{% endif %}</span>{% endif %}
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
             <td class="actions"><a href="{{ url_for('admin_channels_edit', channel_id=c.id) }}">Edit</a></td>
           </tr>
         {% endfor %}

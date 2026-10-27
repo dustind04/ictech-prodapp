@@ -17,9 +17,14 @@ doesn't warrant the file structure.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import secrets
+import sqlite3
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -40,7 +45,10 @@ from flask import (
 import segno
 from werkzeug.utils import secure_filename
 
+import dm7_live
 import importer
+import pco
+import shure_live
 import stageplot
 from db import get_db, init_db
 
@@ -55,13 +63,14 @@ log = logging.getLogger("ictech")
 # of truth; these constants are for form validation + dropdowns.
 # ---------------------------------------------------------------
 CHANNEL_KINDS = ["handheld", "beltpack", "iem"]
-SHURE_TYPES = ["qlxd", "ulxd", "axtd", "p10t", "uhfr"]
+SHURE_TYPES = ["qlxd", "ulxd", "axtd", "p10t", "uhfr", "slxd"]
 SHURE_TYPE_LABELS = {
     "qlxd": "QLX-D",
     "ulxd": "ULX-D",
     "axtd": "Axient Digital",
     "p10t": "PSM 1000",
     "uhfr": "UHF-R",
+    "slxd": "SLX-D / SLX-D+",
 }
 
 # ---------------------------------------------------------------
@@ -433,11 +442,15 @@ def register_display_routes(app: Flask) -> None:
 def register_api_routes(app: Flask) -> None:
     @app.route("/api/state")
     def api_state():
-        """Snapshot of slot assignments. Live receiver data will be added
-        in commit 3; today everything is static config data."""
+        """Snapshot of slot assignments plus live receiver telemetry
+        (battery / RF / TX state) for every networked channel."""
         db = get_db(app.config["DATABASE_PATH"])
         _maybe_weekly_clear(db)
+        live = shure_live.get(app.config["DATABASE_PATH"])
+        console = dm7_live.get(app.config["DATABASE_PATH"])
+        _pco_autosync_start(app.config["DATABASE_PATH"])
         slots = db.execute(_SLOT_QUERY).fetchall()
+        console_map = _ConsoleMap(db)
 
         # How an instrument gets into the board, from the imported patch
         # list: prefer the specific device (Avalon DI); when the mic
@@ -467,9 +480,16 @@ def register_api_routes(app: Flask) -> None:
         for row in slots:
             d = dict(row)
             d["input_label"] = input_label(d["mymix_channel"]) if d["kind"] == "band" else None
-            # Reserved keys for future live state overlay (commit 3).
-            d["mic_live"] = None
-            d["iem_live"] = None
+            # Live receiver state (shure_live.py): None when the channel
+            # isn't on the network — the wall renders that dormant.
+            d["mic_live"] = live.channel_state(d["mic_channel_id"])
+            d["iem_live"] = live.channel_state(d["iem_channel_id"])
+            # FOH console (dm7_live.py): is this person's channel up at
+            # the board, and is their feed into MyMix (matrix or direct
+            # out) alive — their ears are their MyMix station's mix.
+            prow = console_map.rows_for(d) if d["person_id"] else []
+            d["foh"] = _foh_summary(console.channels([r["foh_ch"] for r in prow])) if prow else None
+            d["mymix_feed"] = console_map.feed_summary(console, prow) if prow else None
             rows.append(d)
         mixers = [dict(r) for r in db.execute(
             "SELECT mixer, owner FROM mymix_mixer ORDER BY sort_order")]
@@ -482,10 +502,165 @@ def register_api_routes(app: Flask) -> None:
         # themselves when it changes, so a deploy reaches every open
         # TV within seconds — kiosks never run yesterday's page.
         return jsonify({"slots": rows, "leader": _current_leader(db),
+                        "console": console.state(),
                         "mixers": mixers,
                         "version": os.environ.get("ICTECH_VERSION", "unknown"),
                         "settings": {"micboard_col_width":
                                      width["value"] if width else None}})
+
+    @app.route("/api/live")
+    def api_live():
+        """Every networked channel's live state, plus each receiver's
+        connection — what the tech dashboard and admin read."""
+        db = get_db(app.config["DATABASE_PATH"])
+        live = shure_live.get(app.config["DATABASE_PATH"])
+        channels = []
+        for c in db.execute(
+                "SELECT id, label, kind, shure_ip, shure_channel, shure_channel_name "
+                "FROM channel WHERE archived=0 ORDER BY kind, label"):
+            d = dict(c)
+            d["live"] = live.channel_state(c["id"])
+            channels.append(d)
+        return jsonify({"channels": channels, "receivers": live.receivers_state()})
+
+    @app.route("/api/console")
+    def api_console():
+        """The FOH console in full for the tech dashboard: every patched
+        input with what the Input List expects next to what the board
+        says, and who is in each IEM mix."""
+        db = get_db(app.config["DATABASE_PATH"])
+        console = dm7_live.get(app.config["DATABASE_PATH"])
+        st = console.state()
+        patch = db.execute("SELECT foh_ch, instrument, mic, phantom FROM patch_row "
+                           "WHERE foh_ch IS NOT NULL ORDER BY foh_ch").fetchall()
+        rows = []
+        by_ch = {c["ch"]: c for c in console.channels([p["foh_ch"] for p in patch])}
+        for p in patch:
+            c = by_ch.get(p["foh_ch"]) or {}
+            flags = []
+            if (c.get("name") is not None and p["instrument"]
+                    and not _names_agree(p["instrument"], c["name"])
+                    and not (p["mic"] and _names_agree(p["mic"], c["name"]))):
+                flags.append("name")
+            if st.get("phantom_readable") and c.get("phantom") is not None \
+                    and bool(c["phantom"]) != bool(p["phantom"]):
+                flags.append("48v")
+            if c.get("clip"):
+                flags.append("clip")
+            rows.append({"ch": p["foh_ch"], "instrument": p["instrument"], "mic": p["mic"],
+                         "phantom_sheet": bool(p["phantom"]), **c, "flags": flags})
+        cmap = _ConsoleMap(db)
+        mymix = []
+        for k, (label, via) in sorted(cmap.legend.items()):
+            f = cmap.feed(console, k, with_sources=True)
+            mymix.append({"input": k, "label": label, "via": via, **(f or {})})
+        return jsonify({"console": st, "inputs": rows, "mymix": mymix})
+
+
+class _ConsoleMap:
+    """Slot -> FOH console channel(s) and MyMix feed, via the week's
+    Input List. Channels: the patch row whose mic is this slot's mic
+    ('Red HH'), else the rows sharing its MyMix name — all of them for
+    a band seat (the kit is eight inputs), only an unambiguous one
+    otherwise ('Misc' covers every speaker).
+
+    MyMix: the DM7 doesn't feed ears. Its matrix outs and direct outs
+    are the 16 MyMix inputs (legend: ch -> label, source 'Mtx 2' /
+    'Dir Out'); each person mixes their own ears on their station. A
+    row's MyMix input is its mymix_num (MyMix sheet col H), else the
+    legend channel whose label is its MyMix name."""
+
+    def __init__(self, db):
+        self.by_mic, self.by_mymix = {}, {}
+        self.legend = {r["ch"]: (r["label"], r["source"]) for r in
+                       db.execute("SELECT ch, label, source FROM mymix_channel")}
+        self.rows_by_input: dict[int, list] = {}
+        legend_by_label = {_norm(l): k for k, (l, _src) in self.legend.items() if l}
+        for p in db.execute("SELECT foh_ch, mic, mymix_ch, mymix_num, mymix_route "
+                            "FROM patch_row WHERE foh_ch IS NOT NULL"):
+            p = dict(p)
+            p["mymix_in"] = p["mymix_num"] or legend_by_label.get(_norm(p["mymix_ch"]))
+            if p["mic"]:
+                self.by_mic.setdefault(_norm(p["mic"]), []).append(p)
+            if p["mymix_ch"]:
+                self.by_mymix.setdefault(_norm(p["mymix_ch"]), []).append(p)
+            if p["mymix_in"]:
+                self.rows_by_input.setdefault(p["mymix_in"], []).append(p)
+
+    def rows_for(self, slot: dict) -> list[dict]:
+        if slot.get("mic_label") and _norm(slot["mic_label"]) in self.by_mic:
+            return self.by_mic[_norm(slot["mic_label"])]
+        rows = self.by_mymix.get(_norm(slot.get("mymix_channel")), [])
+        if slot.get("kind") == "band" or len(rows) == 1:
+            return rows
+        return []
+
+    def via(self, k: int) -> str | None:
+        """How MyMix input k is fed: the legend's source, else the
+        route typed against the rows on it."""
+        src = (self.legend.get(k) or (None, None))[1]
+        if not src:
+            src = next((r["mymix_route"] for r in self.rows_by_input.get(k, [])
+                        if r["mymix_route"]), None)
+        return src
+
+    def feed(self, console, k: int, with_sources: bool = False) -> dict | None:
+        via = self.via(k)
+        m = dm7_live.MTRX_RE.search(via or "")
+        if m:
+            st = console.matrix(int(m.group(1)), sources=with_sources)
+            return {"kind": "mtrx", **st} if st else None
+        if via and "dir" in via.lower():
+            chs = console.channels([r["foh_ch"] for r in self.rows_by_input.get(k, [])])
+            if not chs:
+                return None
+            f = _foh_summary(chs)
+            return {"kind": "dir", "name": " + ".join(n for n in f["names"] if n) or None,
+                    "on": f["on"], "signal": f["signal"], "clip": f["clip"],
+                    "db": max((c["db"] for c in chs if c["db"] is not None), default=None)}
+        return None
+
+    def feed_summary(self, console, rows: list[dict]) -> dict | None:
+        """This tile's own way into MyMix: input #, label, and whether
+        the feed is up with signal. A kit on one MyMix input is one feed."""
+        ks = sorted({r["mymix_in"] for r in rows if r["mymix_in"]})
+        feeds = [(k, self.feed(console, k)) for k in ks]
+        feeds = [(k, f) for k, f in feeds if f]
+        if not feeds:
+            return None
+        ons = [f["on"] for _k, f in feeds if f["on"] is not None]
+        sig = [f["signal"] for _k, f in feeds if f["signal"] is not None]
+        return {"inputs": [k for k, _f in feeds],
+                "via": [self.via(k) for k, _f in feeds],
+                "on": all(ons) if ons else None,
+                "signal": max(sig) if sig else None}
+
+
+def _norm(s) -> str:
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _names_agree(sheet: str, board: str) -> bool:
+    """'Chris Vox' vs 'Chris Vx' agree; 'Becky Vox' vs 'Kiara' don't.
+    Console labels are short, so compare the first word's first four
+    letters either way round."""
+    a, b = _norm(sheet), _norm(board)
+    if not a or not b:
+        return True
+    w = _norm((sheet or "").split()[0])[:4]
+    return a.startswith(b[:4]) or b.startswith(a[:4]) or (w and w in b)
+
+
+def _foh_summary(chs: list[dict]) -> dict | None:
+    """One slot's console channel(s) folded into what a tile shows.
+    A drum kit is several inputs: up if any is up, loudest signal."""
+    if not chs:
+        return None
+    ons = [c["on"] for c in chs if c["on"] is not None]
+    sig = [c["signal"] for c in chs if c["signal"] is not None]
+    return {"chs": [c["ch"] for c in chs], "names": [c["name"] for c in chs],
+            "on": any(ons) if ons else None, "all_on": all(ons) if ons else None,
+            "signal": max(sig) if sig else None, "clip": any(c["clip"] for c in chs)}
 
 
 # Single source of truth for the slot-resolution query. Used by both
@@ -660,14 +835,31 @@ def register_admin_routes(app: Flask) -> None:
                  LEFT JOIN wireless_model rm ON rm.id = c.receiver_model_id
                 WHERE c.archived=0 ORDER BY c.kind, c.label"""
         ).fetchall()
+        live = shure_live.get(db_path)
         return render_template(
             "admin/channels.html",
+            console=dm7_live.get(db_path).state(),
+            console_ip=_settings(db).get("dm7_ip") or "",
+            console_ip_env=os.environ.get("ICTECH_DM7_IP", ""),
             channels=channels,
+            live={c["id"]: live.channel_state(c["id"]) for c in channels},
             kinds=CHANNEL_KINDS,
             shure_types=SHURE_TYPES,
             shure_type_labels=SHURE_TYPE_LABELS,
             **_gear_catalog(db),
         )
+
+    @app.route("/admin/console", methods=["POST"])
+    def admin_console():
+        db = get_db(db_path)
+        ip = (request.form.get("dm7_ip") or "").strip()
+        if ip and not re.fullmatch(r"[A-Za-z0-9.\-]+", ip):
+            flash("That doesn't look like an IP address or hostname.", "error")
+            return redirect(url_for("admin_channels"))
+        _set_setting(db, "dm7_ip", ip or None)
+        db.commit()
+        flash(f"FOH console set to {ip}." if ip else "FOH console link off.", "success")
+        return redirect(url_for("admin_channels"))
 
     @app.route("/admin/channels", methods=["POST"])
     def admin_channels_create():
@@ -680,16 +872,20 @@ def register_admin_routes(app: Flask) -> None:
         values = _channel_form_values(request.form, label, kind)
         _validate_gear_ids(db, values)
         values["shure_type"] = _derive_shure_type(db, values["receiver_model_id"])
-        db.execute(
-            """INSERT INTO channel
-                 (label, kind, shure_ip, shure_channel_name, shure_type,
-                  capsule, frequency_mhz, wireless_model_id, capsule_model_id,
-                  receiver_model_id)
-               VALUES (:label, :kind, :shure_ip, :shure_channel_name, :shure_type,
-                       :capsule, :frequency_mhz, :wireless_model_id, :capsule_model_id,
-                       :receiver_model_id)""",
-            values,
-        )
+        try:
+            db.execute(
+                """INSERT INTO channel
+                     (label, kind, shure_ip, shure_channel, shure_channel_name, shure_type,
+                      capsule, frequency_mhz, wireless_model_id, capsule_model_id,
+                      receiver_model_id)
+                   VALUES (:label, :kind, :shure_ip, :shure_channel, :shure_channel_name,
+                           :shure_type, :capsule, :frequency_mhz, :wireless_model_id,
+                           :capsule_model_id, :receiver_model_id)""",
+                values,
+            )
+        except sqlite3.IntegrityError:
+            flash(_DUP_RX_CHANNEL.format(**values), "error")
+            return redirect(url_for("admin_channels"))
         db.commit()
         flash(f"Added channel {label}.", "success")
         return redirect(url_for("admin_channels"))
@@ -733,17 +929,22 @@ def register_admin_routes(app: Flask) -> None:
         _validate_gear_ids(db, values)
         values["shure_type"] = _derive_shure_type(db, values["receiver_model_id"])
         values["id"] = channel_id
-        db.execute(
-            """UPDATE channel SET
-                 label=:label, kind=:kind,
-                 shure_ip=:shure_ip, shure_channel_name=:shure_channel_name, shure_type=:shure_type,
-                 capsule=:capsule, frequency_mhz=:frequency_mhz,
-                 wireless_model_id=:wireless_model_id, capsule_model_id=:capsule_model_id,
-                 receiver_model_id=:receiver_model_id,
-                 updated_at=datetime('now')
-               WHERE id=:id""",
-            values,
-        )
+        try:
+            db.execute(
+                """UPDATE channel SET
+                     label=:label, kind=:kind,
+                     shure_ip=:shure_ip, shure_channel=:shure_channel,
+                     shure_channel_name=:shure_channel_name, shure_type=:shure_type,
+                     capsule=:capsule, frequency_mhz=:frequency_mhz,
+                     wireless_model_id=:wireless_model_id, capsule_model_id=:capsule_model_id,
+                     receiver_model_id=:receiver_model_id,
+                     updated_at=datetime('now')
+                   WHERE id=:id""",
+                values,
+            )
+        except sqlite3.IntegrityError:
+            flash(_DUP_RX_CHANNEL.format(**values), "error")
+            return redirect(url_for("admin_channels_edit", channel_id=channel_id))
         db.commit()
         flash(f"Updated {label}.", "success")
         return redirect(url_for("admin_channels"))
@@ -793,7 +994,38 @@ def register_admin_routes(app: Flask) -> None:
     # right once both have been applied.
     @app.route("/admin/import")
     def admin_import():
-        return render_template("admin/import.html", plan=None, tplan=None)
+        return render_template("admin/import.html", plan=None, tplan=None,
+                               pco=_pco_context(get_db(db_path)))
+
+    # --- Planning Center link (replaces the Tech Report PDF) ---
+    @app.route("/admin/pco/settings", methods=["POST"])
+    def admin_pco_settings():
+        db = get_db(db_path)
+        st = (request.form.get("service_type_id") or "").strip()
+        old = _settings(db).get("pco_service_type_id") or ""
+        _set_setting(db, "pco_service_type_id", st or None)
+        if st != old:
+            # New service type: its teams are different ids — start
+            # from the default picks instead of an empty list.
+            _set_setting(db, "pco_team_ids", None)
+        else:
+            _set_setting(db, "pco_team_ids",
+                         ",".join(request.form.getlist("team_ids")) or "none")
+        _set_setting(db, "pco_auto", "1" if request.form.get("auto") else "0")
+        db.commit()
+        flash("Planning Center settings saved.", "success")
+        return redirect(url_for("admin_import"))
+
+    @app.route("/admin/pco/preview", methods=["POST"])
+    def admin_pco_preview():
+        db = get_db(db_path)
+        try:
+            tplan = _pco_build(db)
+        except pco.PCOError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("admin_import"))
+        return render_template("admin/import.html", plan=None, tplan=tplan,
+                               pco=_pco_context(db))
 
     @app.route("/admin/import", methods=["POST"])
     def admin_import_preview():
@@ -818,7 +1050,8 @@ def register_admin_routes(app: Flask) -> None:
             except Exception as exc:
                 flash(f"Could not read the Tech Report PDF: {exc}", "error")
                 return redirect(url_for("admin_import"))
-        return render_template("admin/import.html", plan=plan, tplan=tplan)
+        return render_template("admin/import.html", plan=plan, tplan=tplan,
+                               pco=_pco_context(db))
 
     @app.route("/admin/import/apply", methods=["POST"])
     def admin_import_apply():
@@ -836,7 +1069,10 @@ def register_admin_routes(app: Flask) -> None:
         if plan:
             done.append(f"{importer.apply_plan(db, plan)} slots from the Input List")
         if tplan:
-            done.append(f"{importer.apply_tech_plan(db, tplan)} seats from the Tech Report")
+            src = "Planning Center" if tplan.get("pco") else "the Tech Report"
+            done.append(f"{importer.apply_tech_plan(db, tplan)} seats from {src}")
+            if tplan.get("pco"):
+                _pco_mark_applied(db, tplan["pco"])
         if not done:
             flash("Nothing to apply — upload and preview first.", "error")
             return redirect(url_for("admin_import"))
@@ -1425,6 +1661,145 @@ def _schedule_status(now=None) -> dict:
     return wait("1st service", next_dow(6, 9, 0))
 
 
+# =============================================================
+# Planning Center link. Settings live in app_setting; the token in
+# env. Auto-sync is a daemon thread (started lazily, like the Shure
+# poller) that re-applies crew & band seats whenever the plan changes
+# — never mid-service, so the wall can't reshuffle under the band.
+# =============================================================
+PCO_SYNC_EVERY = 10 * 60   # s
+
+
+def _settings(db) -> dict:
+    return {r["key"]: r["value"] for r in db.execute("SELECT key, value FROM app_setting")}
+
+
+def _set_setting(db, key: str, value) -> None:
+    if value is None:
+        db.execute("DELETE FROM app_setting WHERE key=?", (key,))
+    else:
+        db.execute("""INSERT INTO app_setting (key, value) VALUES (?, ?)
+                      ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                   (key, str(value)))
+
+
+def _pco_team_ids(s: dict, team_list=None):
+    raw = s.get("pco_team_ids")
+    if raw == "none":
+        return []
+    if raw:
+        return raw.split(",")
+    return pco.default_team_ids(team_list) if team_list is not None else None
+
+
+def _pco_build(db) -> dict:
+    """Fetch this week's plan and turn it into a tech plan (same shape
+    the PDF import previews), stamped with what it came from."""
+    s = _settings(db)
+    st = s.get("pco_service_type_id")
+    if not st:
+        raise pco.PCOError("Pick a service type first.")
+    team_ids = _pco_team_ids(s)
+    if team_ids is None:
+        team_ids = pco.default_team_ids(pco.teams(st))
+    parsed, meta = pco.fetch_parsed(st, team_ids, _service_sunday().date())
+    tplan = importer.build_tech_plan(db, parsed)
+    tplan["pco"] = {"fingerprint": pco.fingerprint(parsed), **meta}
+    return tplan
+
+
+def _pco_mark_applied(db, meta: dict) -> None:
+    _set_setting(db, "pco_fingerprint", meta.get("fingerprint"))
+    _set_setting(db, "pco_plan", json.dumps({k: meta.get(k) for k in
+                                             ("title", "dates", "url")}))
+    db.execute("""INSERT INTO app_setting (key, value) VALUES ('pco_applied_at', datetime('now'))
+                  ON CONFLICT(key) DO UPDATE SET value=excluded.value""")
+    db.commit()
+
+
+def _pco_context(db) -> dict:
+    """Everything the import page's Planning Center card shows."""
+    s = _settings(db)
+    ctx = {"configured": pco.configured(), "service_type_id": s.get("pco_service_type_id"),
+           "auto": s.get("pco_auto") == "1", "applied_at": s.get("pco_applied_at"),
+           "checked_at": s.get("pco_checked_at"), "status": s.get("pco_status"),
+           "plan": json.loads(s["pco_plan"]) if s.get("pco_plan") else None,
+           "service_types": [], "teams": [], "team_ids": [], "error": None}
+    if not ctx["configured"]:
+        return ctx
+    try:
+        ctx["service_types"] = pco.service_types()
+        if ctx["service_type_id"]:
+            ctx["teams"] = pco.teams(ctx["service_type_id"])
+            ctx["team_ids"] = _pco_team_ids(s, ctx["teams"])
+    except pco.PCOError as exc:
+        ctx["error"] = str(exc)
+    return ctx
+
+
+def _pco_autosync_once(db_path: str, now=None) -> str:
+    """One auto-sync pass on its own connection. Returns what it did."""
+    conn = sqlite3.connect(db_path, timeout=10)
+    conn.row_factory = sqlite3.Row
+    try:
+        s = _settings(conn)
+        if s.get("pco_auto") != "1" or not pco.configured() or not s.get("pco_service_type_id"):
+            return "off"
+        if _schedule_status(now)["mode"] != "wait":
+            return "held: service/rehearsal in progress"
+
+        def stamp(status):
+            _set_setting(conn, "pco_status", status)
+            conn.execute("""INSERT INTO app_setting (key, value) VALUES ('pco_checked_at', datetime('now'))
+                            ON CONFLICT(key) DO UPDATE SET value=excluded.value""")
+            conn.commit()
+        try:
+            tplan = _pco_build(conn)
+        except pco.PCOError as exc:
+            stamp(f"error: {exc}")
+            return "error"
+        fp = tplan["pco"]["fingerprint"]
+        # Re-apply when the plan changed — or when the Sunday 1 PM
+        # clear has emptied the seats since our last apply.
+        cleared_since = (s.get("week_cleared_at") or "") > (s.get("pco_applied_at") or "")
+        if fp == s.get("pco_fingerprint") and not cleared_since:
+            stamp("up to date")
+            return "unchanged"
+        importer.apply_tech_plan(conn, tplan)
+        _pco_mark_applied(conn, tplan["pco"])
+        n = len(tplan["warnings"])
+        stamp(f"applied {tplan['pco'].get('dates') or ''}"
+              + (f" — {n} warning{'s' if n != 1 else ''}: " + "; ".join(tplan["warnings"][:3]) if n else ""))
+        log.info("Planning Center auto-sync applied %s", tplan["pco"].get("dates"))
+        return "applied"
+    finally:
+        conn.close()
+
+
+_pco_thread = None
+_pco_thread_lock = threading.Lock()
+
+
+def _pco_autosync_start(db_path: str) -> None:
+    global _pco_thread
+    if os.environ.get("ICTECH_PCO_AUTOSYNC", "1") == "0":
+        return
+    with _pco_thread_lock:
+        if _pco_thread is not None:
+            return
+
+        def loop():
+            time.sleep(5)
+            while True:
+                try:
+                    _pco_autosync_once(db_path)
+                except Exception:
+                    log.exception("Planning Center auto-sync failed")
+                time.sleep(PCO_SYNC_EVERY)
+        _pco_thread = threading.Thread(target=loop, name="pco-sync", daemon=True)
+        _pco_thread.start()
+
+
 def _service_sunday(now=None) -> datetime:
     """The Sunday this week's data is for (rolls over after 12:30 PM)."""
     now = now or datetime.now(CHURCH_TZ)
@@ -1698,10 +2073,14 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
     shure_type = _opt_str("shure_type")
     if shure_type and shure_type not in SHURE_TYPES:
         shure_type = None
+    shure_channel = _opt_int("shure_channel")
+    if shure_channel is not None and not 1 <= shure_channel <= 8:
+        shure_channel = None
     return {
         "label": label,
         "kind": kind,
         "shure_ip": _opt_str("shure_ip"),
+        "shure_channel": shure_channel,
         "shure_channel_name": _opt_str("shure_channel_name"),
         "shure_type": shure_type,
         "capsule": _opt_str("capsule"),
@@ -1712,6 +2091,10 @@ def _channel_form_values(form, label: str, kind: str) -> dict:
     }
 
 
+_DUP_RX_CHANNEL = ("Another channel already uses receiver {shure_ip} ch {shure_channel} "
+                   "— one transmitter per receiver channel.")
+
+
 # Receiver family -> network protocol family for the polling worker.
 _FAMILY_PROTOCOL = {
     "ULX-D": "ulxd",
@@ -1719,6 +2102,8 @@ _FAMILY_PROTOCOL = {
     "Axient Digital": "axtd",
     "PSM 1000": "p10t",
     "UHF-R (legacy)": "uhfr",
+    "SLX-D": "slxd",
+    "SLX-D+": "slxd",
 }
 
 
