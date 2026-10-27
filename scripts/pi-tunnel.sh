@@ -38,7 +38,7 @@ chmod 600 .env
 
 GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 export GIT_SHA
-docker compose -f docker-compose.backstage.yaml --profile tunnel up -d
+docker compose -f docker-compose.backstage.yaml -f docker-compose.pi.yaml --profile tunnel up -d
 sleep 4
 echo
 echo "Tunnel log (look for 'Registered tunnel connection'):"

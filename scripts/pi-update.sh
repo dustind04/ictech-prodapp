@@ -41,7 +41,7 @@ if [ ! -f .env ]; then                               # first run: .env + secret
 fi
 
 # --- 3. rebuild --------------------------------------------------
-docker compose -f docker-compose.backstage.yaml up -d --build
+docker compose -f docker-compose.backstage.yaml -f docker-compose.pi.yaml up -d --build
 echo -n "Waiting for the app"
 for _ in $(seq 1 60); do
     if curl -fs -o /dev/null http://localhost:8058/api/state; then echo " — up."; break; fi
