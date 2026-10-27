@@ -2,7 +2,7 @@
 Fake Yamaha DM7 — exercise the console link without Pete's board.
 
 Speaks the read side of RCP on TCP 49280 the way dm7_live.py uses it:
-devinfo, get (names / colors / on / HA gain / sends), mtrstart meter
+devinfo, get (names / colors / on / HA gain / matrix sends), mtrstart meter
 streams (auto-stop after 10 s like the real console), scpmode,
 sscurrentt_ex / ssinfot_ex. Anything else — including every `set` —
 gets ERROR and is printed, so a test can prove the app never writes.
@@ -24,8 +24,9 @@ import time
 IN_NAMES = {1: "Chris Vx", 2: "Becky Vx", 3: "Kiara Vx", 4: "Joanna", 5: "Kick",
             6: "Snare", 7: "OH L", 8: "OH R", 9: "Bass", 10: "Keys", 11: "Orng RF",
             12: "Click"}
-MIX_NAMES = {1: "IEM 1", 2: "IEM 2", 3: "IEM 3", 4: "IEM 4", 5: "Drum IEM",
-             9: "Lobby", 10: "Stream"}
+MIX_NAMES = {1: "Vox Grp", 2: "Band Grp", 9: "Lobby", 10: "Stream"}
+# Matrices 1-3 feed MyMix (as Immanuel patches it); 4 is the lobby.
+MTRX_NAMES = {1: "MM Drums", 2: "MM Vox", 3: "MM Band", 4: "Lobby"}
 STATE = {"on": {i: 1 for i in IN_NAMES}, "lock": threading.Lock(), "clients": []}
 STATE["on"][4] = 0          # Joanna's channel off at FOH
 
@@ -44,10 +45,19 @@ def value(addr: str, x: int, y: int):
         return f'"{MIX_NAMES.get(ch, "")}"'
     if addr.endswith("Mix/Fader/On"):
         return "1"
-    if addr.endswith("InCh/ToMix/On"):
-        return "1" if (ch == y + 1 or ch == 12 or (y == 4 and ch in (5, 6, 9))) else "0"
-    if addr.endswith("InCh/ToMix/Level"):
-        return "0" if ch == y + 1 else "-600" if ch == 12 else "-1000"
+    if addr.endswith("Mtrx/Label/Name"):
+        return f'"{MTRX_NAMES.get(ch, "")}"'
+    if addr.endswith("Mtrx/Fader/On"):
+        return "0" if ch == 3 else "1"          # MM Band muted
+    m = y + 1
+    if addr.endswith("InCh/ToMtrx/On"):
+        return "1" if (m == 1 and ch in (5, 6, 7, 8)) or (m == 3 and ch in (9, 10)) else "0"
+    if addr.endswith("InCh/ToMtrx/Level"):
+        return "0" if ch in (5, 9) else "-500"
+    if addr.endswith("Mix/ToMtrx/On"):
+        return "1" if (m == 2 and ch == 1) else "0"
+    if addr.endswith("Mix/ToMtrx/Level"):
+        return "0"
     return None
 
 
@@ -98,10 +108,10 @@ def serve(conn: socket.socket, args):
                 if now > until:
                     del meters[addr]
                     continue
-                n = 72 if "InCh" in addr else 48
+                n = 72 if "InCh" in addr else 12
                 vals = []
                 for i in range(n):
-                    live = (i + 1) in (IN_NAMES if "InCh" in addr else MIX_NAMES)
+                    live = (i + 1) in (IN_NAMES if "InCh" in addr else MTRX_NAMES)
                     vals.append(random.randint(120, 200) if live else 0)
                 out.append(f"NOTIFY mtr {addr} levelwt " + " ".join(f"{v:02x}" for v in vals))
             if out:

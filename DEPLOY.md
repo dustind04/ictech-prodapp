@@ -239,22 +239,25 @@ could change the board. What shows up:
 - **Wall tiles:** `FOH ON / FOH OFF` (is this person's channel up at
   the board) next to `TX ON/OFF`, plus a small input meter that flashes
   red on clip. A band seat folds all its inputs (the whole kit) into
-  one. On the IEM row, a dot lights when the console mix feeding that
-  pack has signal; `MIX OFF` if it's muted.
+  one. On the MyMix row (their station), a dot lights when *their own
+  feed into MyMix* — the matrix or direct out carrying them — is up
+  with signal; `FEED OFF` if that matrix is muted. Ears themselves
+  are mixed on the station, which the console can't see.
 - **Wall header:** current scene number + name.
 - **`/techdashboard` → FOH CONSOLE:** each input from the week's Input
   List next to what the board says (name, on, preamp gain, level), ⚠
-  when the sheet and the board disagree on the name. **IEM MIXES:** who
-  is in whose ears, loudest first.
+  when the sheet and the board disagree on the name. **MYMIX FEEDS:**
+  the 16 MyMix inputs from the week's legend — what feeds each (Mtx n /
+  Dir Out), on/off and level at the DM7, and what's inside each matrix.
 
 Setup: Admin → Channels → **FOH console IP** (the DM7's network IP,
 same VLAN as the Pi). Within ~15 s it shows Online with the scene.
 
 How tiles find their console channel: through that week's Input List
 (FOH ch column) — by the slot's mic ("Red HH"), else its MyMix name.
-No Input List imported = no FOH chips. IEM mixes match by name: name
-the DM7 mixes `IEM 1`, `IEM 2`, … (or `Ear 3`, `PSM 3`) and Pack 3's
-tile finds mix "IEM 3".
+No Input List imported = no FOH chips. MyMix feeds come from the MyMix
+sheet: the legend's Source column (`Mtx 2`, `Dir Out`) and each
+input's MyMix # / route (columns H/I).
 
 Not verified on a real DM7 yet: the +48V read (column shows the
 sheet's `(X)` until the console answers it), and how many remote

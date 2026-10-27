@@ -764,13 +764,16 @@
           `<span class="lv-line lv-words">${words}</span>`;
         liveEl.classList.toggle('dormant', !lv && !slot.foh);
       }
-      // IEM row: is the console mix feeding this pack up and alive.
-      const iemEl = el.querySelector('.slot-iem');
-      if (iemEl && slot.iem_mix && slot.iem_label) {
-        const m = slot.iem_mix;
-        const cls = m.on === false ? 'off' : (m.signal || 0) > 0 ? 'sig' : 'quiet';
-        iemEl.insertAdjacentHTML('beforeend',
-          ` <span class="iem-mix ${cls}" title="${m.name || ''}">${m.on === false ? 'MIX OFF' : ''}</span>`);
+      // MyMix row: is this person's own feed into the MyMix system
+      // (their matrix or direct out at the DM7) up with signal. Their
+      // ears are what they dial on that station.
+      const mmEl = el.querySelector('.slot-mymix');
+      const mf = slot.mymix_feed;
+      if (mmEl && mf && slot.person_id) {
+        const cls = mf.on === false ? 'off' : (mf.signal || 0) > 0 ? 'sig' : 'quiet';
+        mmEl.insertAdjacentHTML('beforeend',
+          ` <span class="mm-feed ${cls}" title="MyMix in ${mf.inputs.join(', ')} via ${mf.via.join(', ')}">` +
+          `${mf.on === false ? 'FEED OFF' : ''}</span>`);
       }
       el.classList.toggle('live-replace', !!lv && lv.status === 'REPLACE');
       el.classList.toggle('live-rxerr', !!lv && lv.status === 'RX_ERROR');

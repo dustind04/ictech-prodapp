@@ -998,14 +998,14 @@ input:focus, select:focus {
 .foh-meter i.on { background: var(--green); }
 .foh-meter i.on:nth-child(5) { background: #EEC97F; }
 .foh-meter.clip i.on { background: #D64545; }
-.iem-mix {
+.mm-feed {
   display: inline-block;
   vertical-align: middle;
   font-size: calc(9 * var(--u));
   font-weight: 800;
   letter-spacing: 0.06em;
 }
-.iem-mix.sig::before, .iem-mix.quiet::before {
+.mm-feed.sig::before, .mm-feed.quiet::before {
   content: '';
   display: inline-block;
   width: calc(7 * var(--u));
@@ -1013,8 +1013,8 @@ input:focus, select:focus {
   border-radius: 50%;
   background: #333;
 }
-.iem-mix.sig::before { background: var(--green); box-shadow: 0 0 calc(6 * var(--u)) rgba(122, 182, 72, 0.6); }
-.iem-mix.off { color: #D64545; }
+.mm-feed.sig::before { background: var(--green); box-shadow: 0 0 calc(6 * var(--u)) rgba(122, 182, 72, 0.6); }
+.mm-feed.off { color: #D64545; }
 .wall-scene {
   font-size: 14px;
   font-weight: 700;

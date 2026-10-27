@@ -485,11 +485,11 @@ def register_api_routes(app: Flask) -> None:
             d["mic_live"] = live.channel_state(d["mic_channel_id"])
             d["iem_live"] = live.channel_state(d["iem_channel_id"])
             # FOH console (dm7_live.py): is this person's channel up at
-            # the board, and is there signal; is their IEM mix alive.
-            d["foh"] = _foh_summary(console.channels(console_map.chs_for(d))) if d["person_id"] else None
-            d["iem_mix"] = (console.iem_mix_for(_last_number(d["iem_label"]),
-                                                (d["person_name"] or "").split(" ")[0] or None)
-                            if d["person_id"] and d["iem_label"] else None)
+            # the board, and is their feed into MyMix (matrix or direct
+            # out) alive — their ears are their MyMix station's mix.
+            prow = console_map.rows_for(d) if d["person_id"] else []
+            d["foh"] = _foh_summary(console.channels([r["foh_ch"] for r in prow])) if prow else None
+            d["mymix_feed"] = console_map.feed_summary(console, prow) if prow else None
             rows.append(d)
         mixers = [dict(r) for r in db.execute(
             "SELECT mixer, owner FROM mymix_mixer ORDER BY sort_order")]
@@ -549,25 +549,45 @@ def register_api_routes(app: Flask) -> None:
                 flags.append("clip")
             rows.append({"ch": p["foh_ch"], "instrument": p["instrument"], "mic": p["mic"],
                          "phantom_sheet": bool(p["phantom"]), **c, "flags": flags})
-        return jsonify({"console": st, "inputs": rows, "iem_mixes": console.iem_matrix()})
+        cmap = _ConsoleMap(db)
+        mymix = []
+        for k, (label, via) in sorted(cmap.legend.items()):
+            f = cmap.feed(console, k, with_sources=True)
+            mymix.append({"input": k, "label": label, "via": via, **(f or {})})
+        return jsonify({"console": st, "inputs": rows, "mymix": mymix})
 
 
 class _ConsoleMap:
-    """Slot -> FOH console channel(s), via the week's Input List
-    patch: the row whose mic is this slot's mic ('Red HH'), else the
-    rows sharing its MyMix name — all of them for a band seat (the
-    kit is eight inputs), only an unambiguous one otherwise ('Misc'
-    covers every speaker)."""
+    """Slot -> FOH console channel(s) and MyMix feed, via the week's
+    Input List. Channels: the patch row whose mic is this slot's mic
+    ('Red HH'), else the rows sharing its MyMix name — all of them for
+    a band seat (the kit is eight inputs), only an unambiguous one
+    otherwise ('Misc' covers every speaker).
+
+    MyMix: the DM7 doesn't feed ears. Its matrix outs and direct outs
+    are the 16 MyMix inputs (legend: ch -> label, source 'Mtx 2' /
+    'Dir Out'); each person mixes their own ears on their station. A
+    row's MyMix input is its mymix_num (MyMix sheet col H), else the
+    legend channel whose label is its MyMix name."""
 
     def __init__(self, db):
         self.by_mic, self.by_mymix = {}, {}
-        for p in db.execute("SELECT foh_ch, mic, mymix_ch FROM patch_row WHERE foh_ch IS NOT NULL"):
+        self.legend = {r["ch"]: (r["label"], r["source"]) for r in
+                       db.execute("SELECT ch, label, source FROM mymix_channel")}
+        self.rows_by_input: dict[int, list] = {}
+        legend_by_label = {_norm(l): k for k, (l, _src) in self.legend.items() if l}
+        for p in db.execute("SELECT foh_ch, mic, mymix_ch, mymix_num, mymix_route "
+                            "FROM patch_row WHERE foh_ch IS NOT NULL"):
+            p = dict(p)
+            p["mymix_in"] = p["mymix_num"] or legend_by_label.get(_norm(p["mymix_ch"]))
             if p["mic"]:
-                self.by_mic.setdefault(_norm(p["mic"]), []).append(p["foh_ch"])
+                self.by_mic.setdefault(_norm(p["mic"]), []).append(p)
             if p["mymix_ch"]:
-                self.by_mymix.setdefault(_norm(p["mymix_ch"]), []).append(p["foh_ch"])
+                self.by_mymix.setdefault(_norm(p["mymix_ch"]), []).append(p)
+            if p["mymix_in"]:
+                self.rows_by_input.setdefault(p["mymix_in"], []).append(p)
 
-    def chs_for(self, slot: dict) -> list[int]:
+    def rows_for(self, slot: dict) -> list[dict]:
         if slot.get("mic_label") and _norm(slot["mic_label"]) in self.by_mic:
             return self.by_mic[_norm(slot["mic_label"])]
         rows = self.by_mymix.get(_norm(slot.get("mymix_channel")), [])
@@ -575,14 +595,49 @@ class _ConsoleMap:
             return rows
         return []
 
+    def via(self, k: int) -> str | None:
+        """How MyMix input k is fed: the legend's source, else the
+        route typed against the rows on it."""
+        src = (self.legend.get(k) or (None, None))[1]
+        if not src:
+            src = next((r["mymix_route"] for r in self.rows_by_input.get(k, [])
+                        if r["mymix_route"]), None)
+        return src
+
+    def feed(self, console, k: int, with_sources: bool = False) -> dict | None:
+        via = self.via(k)
+        m = dm7_live.MTRX_RE.search(via or "")
+        if m:
+            st = console.matrix(int(m.group(1)), sources=with_sources)
+            return {"kind": "mtrx", **st} if st else None
+        if via and "dir" in via.lower():
+            chs = console.channels([r["foh_ch"] for r in self.rows_by_input.get(k, [])])
+            if not chs:
+                return None
+            f = _foh_summary(chs)
+            return {"kind": "dir", "name": " + ".join(n for n in f["names"] if n) or None,
+                    "on": f["on"], "signal": f["signal"], "clip": f["clip"],
+                    "db": max((c["db"] for c in chs if c["db"] is not None), default=None)}
+        return None
+
+    def feed_summary(self, console, rows: list[dict]) -> dict | None:
+        """This tile's own way into MyMix: input #, label, and whether
+        the feed is up with signal. A kit on one MyMix input is one feed."""
+        ks = sorted({r["mymix_in"] for r in rows if r["mymix_in"]})
+        feeds = [(k, self.feed(console, k)) for k in ks]
+        feeds = [(k, f) for k, f in feeds if f]
+        if not feeds:
+            return None
+        ons = [f["on"] for _k, f in feeds if f["on"] is not None]
+        sig = [f["signal"] for _k, f in feeds if f["signal"] is not None]
+        return {"inputs": [k for k, _f in feeds],
+                "via": [self.via(k) for k, _f in feeds],
+                "on": all(ons) if ons else None,
+                "signal": max(sig) if sig else None}
+
 
 def _norm(s) -> str:
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
-
-
-def _last_number(label):
-    nums = re.findall(r"\d+", label or "")
-    return int(nums[-1]) if nums else None
 
 
 def _names_agree(sheet: str, board: str) -> bool:

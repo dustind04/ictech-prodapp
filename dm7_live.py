@@ -7,9 +7,15 @@ delimited text), state in memory, nothing written to the DB. What it
 keeps:
 
   InCh  Label/Name, Label/Color, Fader/On, Port/HA/Gain   (+ meters)
-  Mix   Label/Name, Fader/On                              (+ meters)
-  InCh → Mix sends (ToMix/Level + On) for IEM-looking mixes only
+  Mix   Label/Name, Fader/On
+  Mtrx  Label/Name, Fader/On                              (+ meters)
+  InCh/Mix → Mtrx sends for the matrices that feed MyMix
   current scene number + name, console model / name
+
+Immanuel's ears aren't fed by console mixes: DM7 matrix outs and
+direct outs are the 16 MyMix inputs, and each person dials their own
+IEM mix on their MyMix station. So what the console can tell us is
+whether each MyMix feed is alive — and what's inside each matrix.
 
 The console pushes `NOTIFY set ...` whenever a value changes, so after
 the first read the link is quiet except for meters; `mtrstart` streams
@@ -49,12 +55,14 @@ PEAK_HOLD = 2.0             # s — a 2 s wall poll still sees a short phrase
 
 IN_COUNT = 72               # DM7 meter source counts (mtrinfo)
 MIX_COUNT = 48
-METERS = ("InCh/PreFader", "Mix/PostOn")
+MTRX_COUNT = 12
+METERS = ("InCh/PreFader", "Mtrx/PostOn")
 
 IN_PARAMS = ("Label/Name", "Label/Color", "Fader/On", "Port/HA/Gain")
 MIX_PARAMS = ("Label/Name", "Fader/On")
+MTRX_PARAMS = ("Label/Name", "Fader/On")
 PHANTOM_PARAM = "Port/HA/Phantom"        # unverified on DM7 — see above
-IEM_MIX_RE = re.compile(r"\b(iem|ear|psm|in-?ear|wedge|mon)\b|\biem\s*\d", re.I)
+MTRX_RE = re.compile(r"\bm(?:a)?t(?:r)?(?:i)?x\s*(\d+)", re.I)   # Mtx 1 / Mtrx 1 / Matrix 1
 
 READ_ONLY_VERBS = ("get ", "devinfo ", "devstatus ", "mtrstart ", "mtrstop ",
                    "scpmode ", "sscurrentt_ex ", "sscurrent_ex ", "ssinfot_ex ",
@@ -131,12 +139,15 @@ class Console:
         self.device: dict = {}
         self.inch: dict[int, dict] = {}
         self.mix: dict[int, dict] = {}
-        self.sends: dict[tuple[int, int], dict] = {}
+        self.mtrx: dict[int, dict] = {}
+        # (src 'InCh'|'Mix', index, matrix) -> {"Level": .., "On": ..}
+        self.sends: dict[tuple[str, int, int], dict] = {}
+        self.want_inputs: list[int] = []     # 0-based, from the patch
+        self.want_mtrx: list[int] = list(range(MTRX_COUNT))
         self.meters = {m: Meter() for m in METERS}
         self.scene: dict = {}
         self.unsupported: set[str] = set()
         self.extra_inputs = 0        # patch rows beyond IN_COUNT
-        self._sends_asked = False
 
     # --- outbound --------------------------------------------------
     def _send(self, cmd: str):
@@ -145,7 +156,6 @@ class Console:
         self.out += (cmd + "\n").encode("utf-8")
 
     def read_all(self):
-        """Everything except sends (those wait for mix names)."""
         for k in ("productname", "devicename"):
             self._send(f"devinfo {k}")
         n_in = max(IN_COUNT, self.extra_inputs)
@@ -157,8 +167,11 @@ class Console:
         for p in MIX_PARAMS:
             for i in range(MIX_COUNT):
                 self._send(f"get MIXER:Current/Mix/{p} {i} 0")
+        for p in MTRX_PARAMS:
+            for i in range(MTRX_COUNT):
+                self._send(f"get MIXER:Current/Mtrx/{p} {i} 0")
         self.read_scene()
-        self._sends_asked = False
+        self.read_sends()
 
     def read_scene(self):
         self._send('scpmode sstype "text"')
@@ -166,17 +179,19 @@ class Console:
             self._send(f"sscurrentt_ex {bank}")
 
     def read_sends(self):
-        """InCh→Mix send level/on, only for mixes that look like IEM /
-        monitor feeds — 120 x 48 would be thousands of reads."""
-        mixes = self.iem_mixes()
-        if not mixes:
-            return
-        n_in = max(IN_COUNT, self.extra_inputs)
-        for m in mixes:
-            for i in range(n_in):
-                self._send(f"get MIXER:Current/InCh/ToMix/Level {i} {m}")
-                self._send(f"get MIXER:Current/InCh/ToMix/On {i} {m}")
-        self._sends_asked = True
+        """What's in each MyMix matrix: InCh→Mtrx for the patched inputs,
+        Mix→Mtrx for every bus (vocal subgroups often feed matrices).
+        Only the matrices the MyMix legend names — 120 x 12 x 2 reads
+        for every matrix would be thousands."""
+        self.sends = {}
+        inputs = self.want_inputs or range(max(IN_COUNT, self.extra_inputs))
+        for m in self.want_mtrx:
+            for i in inputs:
+                self._send(f"get MIXER:Current/InCh/ToMtrx/Level {i} {m}")
+                self._send(f"get MIXER:Current/InCh/ToMtrx/On {i} {m}")
+            for i in range(MIX_COUNT):
+                self._send(f"get MIXER:Current/Mix/ToMtrx/Level {i} {m}")
+                self._send(f"get MIXER:Current/Mix/ToMtrx/On {i} {m}")
 
     def renew_meters(self):
         for m in METERS:
@@ -291,23 +306,16 @@ class Console:
     def _param(self, addr: str, x: int, y: int, val):
         addr = addr.replace("MIXER:Current/", "")
         src, _, param = addr.partition("/")
-        if src == "InCh":
-            if param.startswith("ToMix/"):
-                self.sends.setdefault((x, y), {})[param[6:]] = val
-            else:
-                self.inch.setdefault(x, {})[param] = val
+        if param.startswith("ToMtrx/") and src in ("InCh", "Mix"):
+            self.sends.setdefault((src, x, y), {})[param[7:]] = val
+        elif src == "InCh":
+            self.inch.setdefault(x, {})[param] = val
         elif src == "Mix":
             self.mix.setdefault(x, {})[param] = val
-            # Ask for sends once we know which mixes are IEM feeds.
-            if (not self._sends_asked and param == "Label/Name"
-                    and x == MIX_COUNT - 1):
-                self.read_sends()
+        elif src == "Mtrx":
+            self.mtrx.setdefault(x, {})[param] = val
 
     # --- read side -------------------------------------------------
-    def iem_mixes(self) -> list[int]:
-        return [i for i, m in sorted(self.mix.items())
-                if IEM_MIX_RE.search(str(m.get("Label/Name") or ""))]
-
     def channel(self, ch: int) -> dict | None:
         """ch is 1-based (what the Input List calls FOH ch)."""
         i = ch - 1
@@ -322,13 +330,31 @@ class Console:
                 "db": db, "signal": signal_bars(db),
                 "clip": self.meters["InCh/PreFader"].clipped(i)}
 
-    def mix_state(self, i: int) -> dict:
-        m = self.mix.get(i, {})
-        db = self.meters["Mix/PostOn"].db(i)
-        return {"mix": i + 1, "name": m.get("Label/Name"),
+    def matrix_state(self, n: int) -> dict:
+        """n is 1-based ('Mtx 2' -> 2)."""
+        i = n - 1
+        m = self.mtrx.get(i, {})
+        meter = self.meters["Mtrx/PostOn"]
+        db = meter.db(i)
+        return {"mtrx": n, "name": m.get("Label/Name"),
                 "on": None if m.get("Fader/On") is None else bool(m.get("Fader/On")),
-                "db": db, "signal": signal_bars(db),
-                "clip": self.meters["Mix/PostOn"].clipped(i)}
+                "db": db, "signal": signal_bars(db), "clip": meter.clipped(i)}
+
+    def matrix_sources(self, n: int) -> list[dict]:
+        """Inputs and buses sent to matrix n (send on, above -inf,
+        source on), loudest first."""
+        out = []
+        for (src, x, m), snd in self.sends.items():
+            lvl = snd.get("Level")
+            if m != n - 1 or not snd.get("On") or lvl is None or lvl <= -13800:
+                continue
+            table = self.inch if src == "InCh" else self.mix
+            row = table.get(x, {})
+            if not row.get("Fader/On", 1):
+                continue
+            name = row.get("Label/Name") or (f"Ch {x + 1}" if src == "InCh" else f"Mix {x + 1}")
+            out.append({"src": src, "n": x + 1, "name": name, "db": round(lvl / 100, 1)})
+        return sorted(out, key=lambda s: -s["db"])
 
 
 class LiveConsole:
@@ -362,9 +388,15 @@ class LiveConsole:
                 ip = (row[0] if row else "").strip()
             row = conn.execute("SELECT MAX(foh_ch) FROM patch_row").fetchone()
             extra = int(row[0] or 0)
+            inputs = sorted({r[0] - 1 for r in conn.execute(
+                "SELECT foh_ch FROM patch_row WHERE foh_ch BETWEEN 1 AND 120")})
+            srcs = [r[0] for r in conn.execute("SELECT source FROM mymix_channel")]
+            srcs += [r[0] for r in conn.execute("SELECT mymix_route FROM patch_row")]
+            mtrx = sorted({int(m.group(1)) - 1 for v in srcs if v
+                           for m in [MTRX_RE.search(v)] if m and 1 <= int(m.group(1)) <= MTRX_COUNT})
             conn.close()
         except sqlite3.Error:
-            pass
+            inputs, mtrx = [], []
         with self.lock:
             if not ip:
                 if self.console:
@@ -374,8 +406,14 @@ class LiveConsole:
                 if self.console:
                     self.console.close()
                 self.console = Console(ip)
-            if self.console:
-                self.console.extra_inputs = min(extra, 120)
+            c = self.console
+            if c:
+                c.extra_inputs = min(extra, 120)
+                mtrx = mtrx or list(range(MTRX_COUNT))
+                if (inputs, mtrx) != (c.want_inputs, c.want_mtrx):
+                    c.want_inputs, c.want_mtrx = inputs, mtrx
+                    if c.online:            # new week's patch: re-read
+                        c.read_sends()
 
     def _tick(self):
         now = time.time()
@@ -429,46 +467,15 @@ class LiveConsole:
                 return []
             return [x for x in (c.channel(ch) for ch in chs) if x]
 
-    def iem_mix_for(self, number: int | None, first_name: str | None) -> dict | None:
-        """The console mix feeding pack N: a mix named 'IEM N' (or EAR/
-        PSM N); failing that one carrying the person's first name."""
+    def matrix(self, n: int, sources: bool = False) -> dict | None:
         with self.lock:
             c = self.console
-            if c is None or not c.online:
+            if c is None or not c.online or not 1 <= n <= MTRX_COUNT:
                 return None
-            mixes = c.iem_mixes()
-            if number is not None:
-                rx = re.compile(rf"(iem|ear|psm|pack)\s*0?{number}\b", re.I)
-                for i in mixes:
-                    if rx.search(str(c.mix[i].get("Label/Name") or "")):
-                        return c.mix_state(i)
-            if first_name:
-                for i in mixes:
-                    if first_name.lower() in str(c.mix[i].get("Label/Name") or "").lower():
-                        return c.mix_state(i)
-            return None
-
-    def iem_matrix(self) -> list[dict]:
-        """Each IEM mix with the inputs sent to it (on, above -inf),
-        loudest first — who's in whose ears."""
-        with self.lock:
-            c = self.console
-            if c is None or not c.online:
-                return []
-            out = []
-            for m in c.iem_mixes():
-                srcs = []
-                for (ch, mix), s in c.sends.items():
-                    lvl = s.get("Level")
-                    if mix != m or not s.get("On") or lvl is None or lvl <= -13800:
-                        continue
-                    name = c.inch.get(ch, {}).get("Label/Name") or f"Ch {ch + 1}"
-                    if not c.inch.get(ch, {}).get("Fader/On", 1):
-                        continue
-                    srcs.append({"ch": ch + 1, "name": name, "db": round(lvl / 100, 1)})
-                srcs.sort(key=lambda s: -s["db"])
-                out.append({**c.mix_state(m), "sources": srcs})
-            return out
+            st = c.matrix_state(n)
+            if sources:
+                st["sources"] = c.matrix_sources(n)
+            return st
 
 
 _instance: LiveConsole | None = None

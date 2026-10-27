@@ -79,10 +79,10 @@
       <thead><tr><th>CH</th><th>SHEET</th><th>BOARD</th><th>ON</th><th>GAIN</th><th>48V</th><th>LEVEL</th><th></th></tr></thead>
       <tbody id="con-inputs"><tr><td colspan="8" class="bl-note">—</td></tr></tbody>
     </table>
-    <h2 class="bl-h">IEM MIXES <span class="bl-note">(who's in whose ears)</span></h2>
+    <h2 class="bl-h">MYMIX FEEDS <span class="bl-note">(DM7 → the 16 MyMix inputs; ears are mixed on each station)</span></h2>
     <table class="bl-table">
-      <thead><tr><th>MIX</th><th>LEVEL</th><th>SENDS (dB, loudest first)</th></tr></thead>
-      <tbody id="con-iem"><tr><td colspan="3" class="bl-note">—</td></tr></tbody>
+      <thead><tr><th>IN</th><th>MYMIX</th><th>VIA</th><th>CONSOLE</th><th>ON</th><th>LEVEL</th><th>CONTENTS (dB, loudest first)</th></tr></thead>
+      <tbody id="con-mymix"><tr><td colspan="7" class="bl-note">—</td></tr></tbody>
     </table>
 
     <h2 class="bl-h">IEM RF</h2>
@@ -146,7 +146,7 @@
   pollLive();
   setInterval(pollLive, 2000);
 
-  // FOH console: sheet vs board, IEM mix contents.
+  // FOH console: sheet vs board, and the feeds into MyMix.
   const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   async function pollConsole() {
     try {
@@ -168,13 +168,16 @@
           `<td class="bl-num">${r.gain == null ? '—' : r.gain + ' dB'}</td><td>${ph}</td>` +
           `<td class="bl-num">${r.db == null ? '—' : r.db.toFixed(0) + ' dB'}</td><td>${flag}</td></tr>`;
       }).join('') : '<tr><td colspan="8" class="bl-note">No FOH channels in this week\'s Input List.</td></tr>';
-      const iem = document.getElementById('con-iem');
-      iem.innerHTML = d.iem_mixes.length ? d.iem_mixes.map(m =>
-        `<tr class="${m.on === false ? 'bl-unpatched' : ''}"><td class="bl-src">${esc(m.name)}${m.on === false ? ' (OFF)' : ''}</td>` +
-        `<td class="bl-num">${m.db == null ? '—' : m.db.toFixed(0) + ' dB'}</td><td>` +
-        (m.sources.length ? m.sources.map(s => `${esc(s.name)} ${s.db > 0 ? '+' : ''}${s.db}`).join(' · ') : 'nothing sent') +
-        '</td></tr>').join('')
-        : `<tr><td colspan="3" class="bl-note">${st.online ? 'No console mixes named IEM / Ear / PSM.' : '—'}</td></tr>`;
+      const mm = document.getElementById('con-mymix');
+      mm.innerHTML = d.mymix.length ? d.mymix.map(f => {
+        const contents = f.kind === 'mtrx'
+          ? ((f.sources || []).map(s => `${esc(s.name)} ${s.db > 0 ? '+' : ''}${s.db}`).join(' · ') || 'nothing sent')
+          : f.kind === 'dir' ? 'direct out' : '';
+        return `<tr class="${f.on === false ? 'bl-unpatched' : ''}"><td class="bl-num">${f.input}</td>` +
+          `<td class="bl-src">${esc(f.label)}</td><td>${esc(f.via)}</td><td>${esc(f.name ?? '—')}</td>` +
+          `<td>${f.on == null ? '—' : f.on ? 'ON' : 'OFF'}</td>` +
+          `<td class="bl-num">${f.db == null ? '—' : f.db.toFixed(0) + ' dB'}</td><td>${contents}</td></tr>`;
+      }).join('') : '<tr><td colspan="7" class="bl-note">No MyMix legend in this week\'s Input List.</td></tr>';
     } catch (e) { /* next tick */ }
   }
   pollConsole();
