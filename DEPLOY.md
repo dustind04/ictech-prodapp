@@ -27,11 +27,13 @@ Give the Pi a **DHCP reservation** so `http://ictech/...` URLs on the
 other TVs never move.
 
 **Updating later (one command):** `bash scripts/pi-update.sh` — backs
-up `data/`, pulls, rebuilds, health-checks. Add
-`--from https://<debian-host>` to also pull Dave's inventory + headshots
-from the internet-facing box (asks for its admin login); that copy
-replaces people/channels/positions/slots/assets on the Pi, catalogs
-merge, and the Pi's old DB stays in `data/backups/`.
+up `data/`, pulls from GitHub, rebuilds, applies the newest
+`seeds/inventory-*.json` if it hasn't yet, health-checks. Everything
+travels through GitHub: whichever box Dave enters inventory on runs
+`bash scripts/snapshot-inventory.sh` to commit it. People, slots and
+headshots never go to GitHub (public repo) — Planning Center and the
+Input List rebuild people on each box; headshots are per box (Admin →
+Photos).
 
 **Outside access (optional):** Zero Trust dashboard → Networks →
 Tunnels → Create → Cloudflared; copy the token; add a Public Hostname
@@ -215,11 +217,12 @@ Three layers:
    tables and commit:**
 
    ```bash
-   curl -su admin:PASS localhost:8058/admin/export.json \
-     | python3 -c 'import json,sys; d=json.load(sys.stdin); [d.pop(k,None) for k in ("person","slot")]; json.dump(d, sys.stdout, indent=1, sort_keys=True)' \
-     > seeds/inventory-$(date +%F).json
-   git add seeds/ && git commit -m "Inventory snapshot $(date +%F)" && git push
+   bash scripts/snapshot-inventory.sh   # export, strip person/slot, commit, push
    ```
+
+   (Push auth: `gh auth login` + `gh auth setup-git` once on the box.)
+   Restoring a snapshot without person/slot keeps the target box's
+   people; slot links to gear that no longer exists are cleared.
 
    (If the repo ever goes private, full snapshots are fine.)
 
