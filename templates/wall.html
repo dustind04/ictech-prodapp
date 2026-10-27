@@ -477,6 +477,16 @@
   //   speaker  -> their RF mic (handheld or beltpack by channel kind)
   //   band     -> instrument emoji | + mic render if they carry one (leader case),
   //               + small IEM pack when they're on ears that week
+  // Muted mic: a big red "no" sign over the mic itself, so a singer
+  // glancing up on the way to the stage can't miss it.
+  const NO_SIGN = '<svg class="no-sign" viewBox="0 0 100 100" aria-label="Muted">' +
+    '<circle cx="50" cy="50" r="42" fill="none" stroke="#D64545" stroke-width="10"/>' +
+    '<line x1="21" y1="21" x2="79" y2="79" stroke="#D64545" stroke-width="10" stroke-linecap="round"/></svg>';
+  function micArt(slot, svg) {
+    const muted = !!(slot.mic_live && slot.mic_live.tx_on && slot.mic_live.muted);
+    return `<span class="mic-wrap">${svg}${muted ? NO_SIGN : ''}</span>`;
+  }
+
   function gearHTML(slot, bandSeats) {
     if (!slot.person_id) return '';
     const color = micColor(slot) || NEUTRAL;
@@ -485,16 +495,16 @@
       for (const b of (bandSeats || [])) parts.push(instrumentArt(b.slot_label));
     };
     if (slot.kind === 'paired') {
-      parts.push(svgHandheld(color));
+      parts.push(micArt(slot, svgHandheld(color)));
       if (slot.iem_label) parts.push(
         svgPack(NEUTRAL, packStamp(slot.iem_label)).replace('gear-pack', 'gear-pack gear-small'));
       seatEmoji();
     } else if (slot.kind === 'mic_only') {
-      parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, 'MIC') : svgHandheld(color));
+      parts.push(micArt(slot, slot.mic_kind === 'beltpack' ? svgPack(color, 'MIC') : svgHandheld(color)));
       seatEmoji();
     } else if (slot.kind === 'band') {
       if (slot.mic_label) {
-        parts.push(slot.mic_kind === 'beltpack' ? svgPack(color, 'MIC') : svgHandheld(color));
+        parts.push(micArt(slot, slot.mic_kind === 'beltpack' ? svgPack(color, 'MIC') : svgHandheld(color)));
       }
       parts.push(instrumentArt(slot.slot_label));
       if (slot.iem_label) parts.push(

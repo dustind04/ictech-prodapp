@@ -837,6 +837,27 @@ input:focus, select:focus {
   filter: drop-shadow(0 calc(6 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, 0.5));
 }
 .gear-hh { height: calc(132 * var(--u)); width: auto; }
+.mic-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Big red "no" over a muted mic — sized to the mic, centered on it. */
+.no-sign {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(120 * var(--u));
+  height: calc(120 * var(--u));
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 calc(6 * var(--u)) rgba(0, 0, 0, 0.8));
+  pointer-events: none;
+}
+.slot.live-muted-go .no-sign { animation: lv-pulse 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .slot.live-muted-go .no-sign { animation: none; }
+}
 .gear-pack { height: calc(100 * var(--u)); width: auto; }
 .gear-pack.gear-small { height: calc(72 * var(--u)); }
 .gear-emoji {
