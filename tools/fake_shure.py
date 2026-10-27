@@ -32,8 +32,8 @@ NAMES = ["RED HH", "WHT HH", "BLU HH", "ORNG RF"]
 
 
 class Ch:
-    def __init__(self, n, bars, mins, on=True):
-        self.n, self.bars, self.mins, self.on = n, bars, mins, on
+    def __init__(self, n, bars, mins, on=True, muted=False):
+        self.n, self.bars, self.mins, self.on, self.muted = n, bars, mins, on, muted
 
 
 def reports(fam: str, c: Ch) -> list[str]:
@@ -42,7 +42,9 @@ def reports(fam: str, c: Ch) -> list[str]:
     name = "{" + NAMES[(c.n - 1) % len(NAMES)].ljust(31) + "}"
     if fam in ("ulxd", "qlxd"):
         props = [("CHAN_NAME", name), ("BATT_BARS", bars),
-                 ("BATT_RUN_TIME", mins), ("FREQUENCY", "578350")]
+                 ("BATT_RUN_TIME", mins), ("FREQUENCY", "578350"),
+                 ("TX_TYPE", "ULXD2" if c.on else "UNKN"),
+                 ("TX_MUTE_STATUS", ("ON" if c.muted else "OFF") if c.on else "UNKN")]
     else:  # axtd / slxd
         props = [("CHAN_NAME", name), ("TX_BATT_BARS", bars),
                  ("TX_BATT_MINS", mins), ("FREQUENCY", "0578350"),
@@ -122,7 +124,7 @@ def main():
                     help="flip ch4 on/off every N seconds (0 = never)")
     args = ap.parse_args()
 
-    chans = [Ch(1, 5, 240), Ch(2, 3, None), Ch(3, 1, 20), Ch(4, 4, 180, on=False)]
+    chans = [Ch(1, 5, 240), Ch(2, 3, None, muted=True), Ch(3, 1, 20), Ch(4, 4, 180, on=False)]
     lock = threading.Lock()
 
     if args.toggle:

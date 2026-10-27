@@ -108,6 +108,10 @@ class Channel:
         self.battery = None          # 0-5, None = unknown / no TX
         self.runtime = None          # minutes, rechargeables only
         self.tx_model = None
+        # Mic muted: the pack's switch set to mute (TX_MUTE_STATUS — the
+        # TX stays on the air) or the receiver's own output muted.
+        self.tx_muted = None
+        self.rx_muted = None
         self.rf_dbm = None
         self.audio = None            # 0-100
         self.frequency = None        # "578.350"
@@ -156,7 +160,7 @@ class Channel:
     # --- derived -------------------------------------------------
     @property
     def tx_on(self) -> bool:
-        if self.tx_model is not None and self.tx_model.upper() == "UNKNOWN":
+        if self.tx_model is not None and self.tx_model.upper().startswith("UNK"):
             return False
         return self.battery is not None or self.runtime is not None
 
@@ -204,6 +208,7 @@ class Channel:
             "status": st,
             "badge": BADGES[st],
             "tx_on": on,
+            "muted": bool(on and (self.tx_muted or self.rx_muted)),
             "battery": self.battery if on else None,
             "rf": rf_bars(self.rf_dbm) if on else None,
             "rf_dbm": round(self.rf_dbm) if on and self.rf_dbm is not None else None,
@@ -262,9 +267,9 @@ class Receiver:
         self.last_query = time.time()
 
     def query(self):
-        bat = {"ulxd": ("BATT_BARS", "BATT_RUN_TIME"),
+        bat = {"ulxd": ("BATT_BARS", "BATT_RUN_TIME", "TX_MUTE_STATUS"),
                "qlxd": ("BATT_BARS", "BATT_RUN_TIME"),
-               "axtd": ("TX_BATT_BARS", "TX_BATT_MINS"),
+               "axtd": ("TX_BATT_BARS", "TX_BATT_MINS", "TX_MUTE_STATUS"),
                "slxd": ("TX_BATT_BARS", "TX_BATT_MINS", "TX_MODEL")}
         for n in self.channels:
             if self.udp:
@@ -391,9 +396,13 @@ class Receiver:
             ch.set_runtime(val)
         elif prop in ("TX_MODEL", "TX_TYPE"):
             ch.tx_model = val or None
-            if val.upper() == "UNKNOWN":
+            if val.upper().startswith("UNK"):    # ULX-D says UNKN
                 ch.set_battery("255")
                 ch.runtime = None
+        elif prop == "TX_MUTE_STATUS":           # ULX-D / Axient: ON OFF UNKN
+            ch.tx_muted = {"ON": True, "OFF": False}.get(val.upper())
+        elif prop == "AUDIO_MUTE":
+            ch.rx_muted = {"ON": True, "OFF": False}.get(val.upper())
         elif prop == "FREQUENCY":
             ch.set_frequency(val)
         elif prop == "RX_RF_LVL" and self.family in ("ulxd", "qlxd"):
