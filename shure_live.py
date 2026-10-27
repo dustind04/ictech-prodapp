@@ -40,6 +40,9 @@ log = logging.getLogger("ictech.live")
 PORT = 2202
 POLL_TARGETS_EVERY = 15      # s — pick up admin edits without a restart
 QUERY_EVERY = 10             # s — re-ask battery/runtime (keepalive too)
+FAST_EVERY = 1.0             # s — re-ask mute: ULX-D doesn't push it
+METER_MS = 200               # receiver SAMPLE rate (audio + RF)
+AUDIO_HOLD = 0.6             # s peak hold, so a 0.5 s wall poll sees peaks
 OFFLINE_AFTER = 25           # s of silence → receiver is "RX error"
 RECONNECT_EVERY = 10         # s between connection attempts
 CONNECT_TIMEOUT = 2.0
@@ -113,7 +116,7 @@ class Channel:
         self.tx_muted = None
         self.rx_muted = None
         self.rf_dbm = None
-        self.audio = None            # 0-100
+        self._aud: list[tuple[float, int]] = []   # recent (t, 0-100)
         self.frequency = None        # "578.350"
         self.tx_seen = False         # has the TX ever been on this session
         self.tx_on_since = None
@@ -157,7 +160,17 @@ class Channel:
         if digits and int(digits):
             self.frequency = f"{int(digits) / 1000:.3f}"
 
+    def set_audio(self, v: int):
+        now = time.time()
+        self._aud = [(t, a) for t, a in self._aud if now - t < AUDIO_HOLD]
+        self._aud.append((now, int(v)))
+
     # --- derived -------------------------------------------------
+    def audio_peak(self) -> int | None:
+        now = time.time()
+        recent = [a for t, a in self._aud if now - t < AUDIO_HOLD]
+        return max(recent) if recent else None
+
     @property
     def tx_on(self) -> bool:
         if self.tx_model is not None and self.tx_model.upper().startswith("UNK"):
@@ -212,7 +225,7 @@ class Channel:
             "battery": self.battery if on else None,
             "rf": rf_bars(self.rf_dbm) if on else None,
             "rf_dbm": round(self.rf_dbm) if on and self.rf_dbm is not None else None,
-            "audio": self.audio if on else None,
+            "audio": self.audio_peak() if on else None,
             "runtime_min": mins if on else None,
             "runtime_est": est,
             "runtime_text": (("~" if est else "") + fmt_minutes(mins)) if on and mins is not None else None,
@@ -236,6 +249,7 @@ class Receiver:
         self.online = False
         self.last_rx = 0.0
         self.last_query = 0.0
+        self.last_fast = 0.0
         self.last_attempt = 0.0
         self.buf = ""
         self.out: list[str] = []
@@ -257,14 +271,21 @@ class Receiver:
             if self.udp:
                 for prop in ("CHAN_NAME", "TX_BAT", "FREQUENCY"):
                     self.cmd(f"* GET {n} {prop} *")
-                self.cmd(f"* METER {n} ALL 033 *")     # ~1 s (30 ms units)
+                self.cmd(f"* METER {n} ALL {max(1, METER_MS // 30):03d} *")   # 30 ms units
             elif self.family == "p10t":
                 self.cmd(f"< GET {n} CHAN_NAME >")
                 self.cmd(f"< GET {n} FREQUENCY >")
             else:
                 self.cmd(f"< GET {n} ALL >")
-                self.cmd(f"< SET {n} METER_RATE 01000 >")
+                self.cmd(f"< SET {n} METER_RATE {METER_MS:05d} >")
         self.last_query = time.time()
+
+    def query_fast(self):
+        """Mute flips in a second, not on the 10 s battery cycle."""
+        if self.family in ("ulxd", "axtd"):
+            for n in self.channels:
+                self.cmd(f"< GET {n} TX_MUTE_STATUS >")
+        self.last_fast = time.time()
 
     def query(self):
         bat = {"ulxd": ("BATT_BARS", "BATT_RUN_TIME", "TX_MUTE_STATUS"),
@@ -408,7 +429,7 @@ class Receiver:
         elif prop == "RX_RF_LVL" and self.family in ("ulxd", "qlxd"):
             ch.rf_dbm = int(val) - 128
         elif prop == "AUDIO_LVL" and self.family in ("ulxd", "qlxd"):
-            ch.audio = min(100, int(val) * 2)
+            ch.set_audio(min(100, int(val) * 2))
 
     def parse_sample(self, ch: Channel, p: list[str]):
         # Field orders per Shure's command-string docs / micboard.
@@ -417,15 +438,15 @@ class Receiver:
         if self.family in ("ulxd", "qlxd"):
             # SAMPLE n ALL <antenna> <rf 0-115> <audio 0-50>
             ch.rf_dbm = int(p[4]) - 128
-            ch.audio = min(100, int(p[5]) * 2)
+            ch.set_audio(min(100, int(p[5]) * 2))
         elif self.family == "slxd":
             # SAMPLE n ALL <audPeak> <audRms> <rssi>, each value-120
-            ch.audio = _dbfs_pct(int(p[4]) - 120)
+            ch.set_audio(_dbfs_pct(int(p[4]) - 120))
             ch.rf_dbm = int(p[5]) - 120
         elif self.family == "axtd":
             # SAMPLE n ALL <qual> <audBitmap> <audPeak> <audRms> <ant>
             #              <rfBitmapA> <rssiA> <rfBitmapB> <rssiB>
-            ch.audio = _dbfs_pct(int(p[6]) - 120)
+            ch.set_audio(_dbfs_pct(int(p[6]) - 120))
             rssi = [int(p[i]) - 120 for i in (9, 11) if len(p) > i]
             ch.rf_dbm = max(rssi) if rssi else None
         elif self.family == "uhfr":
@@ -493,6 +514,8 @@ class LiveTelemetry:
                     continue
                 if now - rx.last_query > QUERY_EVERY:
                     rx.query()
+                if now - rx.last_fast > FAST_EVERY:
+                    rx.query_fast()
             socks = {rx.sock: rx for rx in rxs if rx.sock is not None}
             writers = [s for s, rx in socks.items() if rx.out]
 
@@ -590,6 +613,12 @@ class LiveTelemetry:
                     "badge": "Check ch #" if online else BADGES["RX_ERROR"],
                     "tx_on": False, "battery": None, "rf": None,
                     "rx_ip": ip}
+
+    def all_states(self) -> dict[int, dict]:
+        """channel_id -> live state for every networked channel — the
+        wall's fast (0.5 s) poll."""
+        ids = list(self.targets)
+        return {cid: st for cid in ids if (st := self.channel_state(cid)) is not None}
 
     def receivers_state(self) -> list[dict]:
         with self.lock:

@@ -508,6 +508,13 @@ def register_api_routes(app: Flask) -> None:
                         "settings": {"micboard_col_width":
                                      width["value"] if width else None}})
 
+    @app.route("/api/live/fast")
+    def api_live_fast():
+        """Just the per-channel live state, no DB work: the wall polls
+        this every 0.5 s so mute and audio feel instant."""
+        live = shure_live.get(app.config["DATABASE_PATH"])
+        return jsonify({str(k): v for k, v in live.all_states().items()})
+
     @app.route("/api/live")
     def api_live():
         """Every networked channel's live state, plus each receiver's
