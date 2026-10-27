@@ -1000,7 +1000,9 @@ input:focus, select:focus {
   background: #333;
   border-radius: calc(1 * var(--u));
 }
-.aud-meter i.on { background: #4A90D9; }
+/* VU colors — green / amber / red — so it never reads as the blue RF bars. */
+.aud-meter i.on { background: var(--green); }
+.aud-meter i.on:nth-child(4) { background: #EEC97F; }
 .aud-meter i.on:nth-child(5) { background: #D64545; }
 .foh-meter {
   align-self: center;
