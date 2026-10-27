@@ -21,7 +21,7 @@ An admin UI (light mode) manages the data behind it. The wall display is dark mo
 
 ### History
 
-~70 fork commits on `master` (see `git log upstream/master..master`). Major arcs, oldest first: Flask skeleton → admin CRUD + wall display → photos/positions/MyMix → Cloudflare-tunnel deploy → equipment catalog + weekly Input List importer → wall design iterations (designs 1–3, dark "Bulletin" port) → split displays (`/micboard` pinned, `/dataviz` evolving) → `/techdashboard` → Planning Center Tech Report PDF import → Roku channel + Playwright snapshot sidecar → deep Shure/Countryman gear catalog (migrations 011–013) → assets, dashboards, Pi tunnel → **live receiver telemetry** (`shure_live.py`, migration 016) → **Planning Center Services API link** (`pco.py`; replaces the Tech Report PDF, auto-sync).
+~70 fork commits on `master` (see `git log upstream/master..master`). Major arcs, oldest first: Flask skeleton → admin CRUD + wall display → photos/positions/MyMix → Cloudflare-tunnel deploy → equipment catalog + weekly Input List importer → wall design iterations (designs 1–3, dark "Bulletin" port) → split displays (`/micboard` pinned, `/dataviz` evolving) → `/techdashboard` → Planning Center Tech Report PDF import → Roku channel + Playwright snapshot sidecar → deep Shure/Countryman gear catalog (migrations 011–013) → assets, dashboards, Pi tunnel → **live receiver telemetry** (`shure_live.py`, migration 016) → **Planning Center Services API link** (`pco.py`; replaces the Tech Report PDF, auto-sync) → **DM7 console link** (`dm7_live.py`, read-only RCP).
 
 ## Data model
 
@@ -42,7 +42,7 @@ the vocalists, with a "+ Speaker" callout.
 
 **MyMix channel is per-slot, not per-channel.** It varies week to week based on FOH routing. Do not normalize it onto `channel`.
 
-**Live receiver state is never stored.** `shure_live.py` (one daemon thread in the single gunicorn worker) polls every channel that has an IP + a network-capable receiver (ULX-D, QLX-D, Axient, SLX-D/SLX-D+, UHF-R, PSM 1000) on port 2202 and joins onto channel rows at read time by (IP, receiver ch #) — or the WWB channel name when ch # is blank. `/api/state` carries it as `mic_live`/`iem_live`; `/api/live` has everything. Test without hardware: `tools/fake_shure.py`.
+**Live receiver state is never stored.** `shure_live.py` (one daemon thread in the single gunicorn worker) polls every channel that has an IP + a network-capable receiver (ULX-D, QLX-D, Axient, SLX-D/SLX-D+, UHF-R, PSM 1000) on port 2202 and joins onto channel rows at read time by (IP, receiver ch #) — or the WWB channel name when ch # is blank. `/api/state` carries it as `mic_live`/`iem_live`; `/api/live` has everything. Test without hardware: `tools/fake_shure.py`. Same pattern for the FOH console: `dm7_live.py` (Yamaha DM7 RCP on TCP 49280, **read-only — never send `set`/`ssrecall`**), mapped to slots through the week's `patch_row` (FOH ch by mic, else MyMix name); `/api/console` for the tech dashboard; `tools/fake_dm7.py`.
 
 ## Wall display tile layout
 

@@ -11,6 +11,28 @@
 </div>
 
 <section class="form-card">
+  <h2>FOH console <span class="muted">— Yamaha DM7, read-only</span></h2>
+  <form method="post" action="{{ url_for('admin_console') }}">
+    <div class="form-row">
+      <label>
+        Console IP <span class="hint">(the DM7's network/control IP; blank = off)</span>
+        <input name="dm7_ip" value="{{ console_ip }}" placeholder="10.0.1.20" {{ 'disabled' if console_ip_env }}>
+      </label>
+      <div style="align-self:end">
+        {% if console_ip_env %}<span class="muted">Set by ICTECH_DM7_IP={{ console_ip_env }}.</span>
+        {% elif console.configured %}
+          <span class="live-badge {{ 'live-ok' if console.online else 'live-rx_error' }}">{{ 'Online' if console.online else 'Offline' }}</span>
+          {% if console.online %}<span class="muted">{{ console.model or '' }} {{ console.name or '' }}{% if console.scene %} · scene {{ console.scene.number }}{% if console.scene.name %} {{ console.scene.name }}{% endif %}{% endif %}</span>{% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% if not console_ip_env %}<button type="submit" class="btn-secondary">Save</button>{% endif %}
+  </form>
+  <p class="muted" style="margin-top:6px">Channels map to tiles through the week's Input List (FOH ch + mic / MyMix).
+    IEM mixes map by name: a console mix called "IEM 3" feeds Pack 3. Nothing is ever changed on the console.</p>
+</section>
+
+<section class="form-card">
   <h2>Add a channel</h2>
   <form method="post" action="{{ url_for('admin_channels_create') }}">
     <div class="form-row">

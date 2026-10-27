@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
 import sqlite3
 import threading
@@ -44,6 +45,7 @@ from flask import (
 import segno
 from werkzeug.utils import secure_filename
 
+import dm7_live
 import importer
 import pco
 import shure_live
@@ -445,8 +447,10 @@ def register_api_routes(app: Flask) -> None:
         db = get_db(app.config["DATABASE_PATH"])
         _maybe_weekly_clear(db)
         live = shure_live.get(app.config["DATABASE_PATH"])
+        console = dm7_live.get(app.config["DATABASE_PATH"])
         _pco_autosync_start(app.config["DATABASE_PATH"])
         slots = db.execute(_SLOT_QUERY).fetchall()
+        console_map = _ConsoleMap(db)
 
         # How an instrument gets into the board, from the imported patch
         # list: prefer the specific device (Avalon DI); when the mic
@@ -480,6 +484,12 @@ def register_api_routes(app: Flask) -> None:
             # isn't on the network — the wall renders that dormant.
             d["mic_live"] = live.channel_state(d["mic_channel_id"])
             d["iem_live"] = live.channel_state(d["iem_channel_id"])
+            # FOH console (dm7_live.py): is this person's channel up at
+            # the board, and is there signal; is their IEM mix alive.
+            d["foh"] = _foh_summary(console.channels(console_map.chs_for(d))) if d["person_id"] else None
+            d["iem_mix"] = (console.iem_mix_for(_last_number(d["iem_label"]),
+                                                (d["person_name"] or "").split(" ")[0] or None)
+                            if d["person_id"] and d["iem_label"] else None)
             rows.append(d)
         mixers = [dict(r) for r in db.execute(
             "SELECT mixer, owner FROM mymix_mixer ORDER BY sort_order")]
@@ -492,6 +502,7 @@ def register_api_routes(app: Flask) -> None:
         # themselves when it changes, so a deploy reaches every open
         # TV within seconds — kiosks never run yesterday's page.
         return jsonify({"slots": rows, "leader": _current_leader(db),
+                        "console": console.state(),
                         "mixers": mixers,
                         "version": os.environ.get("ICTECH_VERSION", "unknown"),
                         "settings": {"micboard_col_width":
@@ -511,6 +522,90 @@ def register_api_routes(app: Flask) -> None:
             d["live"] = live.channel_state(c["id"])
             channels.append(d)
         return jsonify({"channels": channels, "receivers": live.receivers_state()})
+
+    @app.route("/api/console")
+    def api_console():
+        """The FOH console in full for the tech dashboard: every patched
+        input with what the Input List expects next to what the board
+        says, and who is in each IEM mix."""
+        db = get_db(app.config["DATABASE_PATH"])
+        console = dm7_live.get(app.config["DATABASE_PATH"])
+        st = console.state()
+        patch = db.execute("SELECT foh_ch, instrument, mic, phantom FROM patch_row "
+                           "WHERE foh_ch IS NOT NULL ORDER BY foh_ch").fetchall()
+        rows = []
+        by_ch = {c["ch"]: c for c in console.channels([p["foh_ch"] for p in patch])}
+        for p in patch:
+            c = by_ch.get(p["foh_ch"]) or {}
+            flags = []
+            if (c.get("name") is not None and p["instrument"]
+                    and not _names_agree(p["instrument"], c["name"])
+                    and not (p["mic"] and _names_agree(p["mic"], c["name"]))):
+                flags.append("name")
+            if st.get("phantom_readable") and c.get("phantom") is not None \
+                    and bool(c["phantom"]) != bool(p["phantom"]):
+                flags.append("48v")
+            if c.get("clip"):
+                flags.append("clip")
+            rows.append({"ch": p["foh_ch"], "instrument": p["instrument"], "mic": p["mic"],
+                         "phantom_sheet": bool(p["phantom"]), **c, "flags": flags})
+        return jsonify({"console": st, "inputs": rows, "iem_mixes": console.iem_matrix()})
+
+
+class _ConsoleMap:
+    """Slot -> FOH console channel(s), via the week's Input List
+    patch: the row whose mic is this slot's mic ('Red HH'), else the
+    rows sharing its MyMix name — all of them for a band seat (the
+    kit is eight inputs), only an unambiguous one otherwise ('Misc'
+    covers every speaker)."""
+
+    def __init__(self, db):
+        self.by_mic, self.by_mymix = {}, {}
+        for p in db.execute("SELECT foh_ch, mic, mymix_ch FROM patch_row WHERE foh_ch IS NOT NULL"):
+            if p["mic"]:
+                self.by_mic.setdefault(_norm(p["mic"]), []).append(p["foh_ch"])
+            if p["mymix_ch"]:
+                self.by_mymix.setdefault(_norm(p["mymix_ch"]), []).append(p["foh_ch"])
+
+    def chs_for(self, slot: dict) -> list[int]:
+        if slot.get("mic_label") and _norm(slot["mic_label"]) in self.by_mic:
+            return self.by_mic[_norm(slot["mic_label"])]
+        rows = self.by_mymix.get(_norm(slot.get("mymix_channel")), [])
+        if slot.get("kind") == "band" or len(rows) == 1:
+            return rows
+        return []
+
+
+def _norm(s) -> str:
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _last_number(label):
+    nums = re.findall(r"\d+", label or "")
+    return int(nums[-1]) if nums else None
+
+
+def _names_agree(sheet: str, board: str) -> bool:
+    """'Chris Vox' vs 'Chris Vx' agree; 'Becky Vox' vs 'Kiara' don't.
+    Console labels are short, so compare the first word's first four
+    letters either way round."""
+    a, b = _norm(sheet), _norm(board)
+    if not a or not b:
+        return True
+    w = _norm((sheet or "").split()[0])[:4]
+    return a.startswith(b[:4]) or b.startswith(a[:4]) or (w and w in b)
+
+
+def _foh_summary(chs: list[dict]) -> dict | None:
+    """One slot's console channel(s) folded into what a tile shows.
+    A drum kit is several inputs: up if any is up, loudest signal."""
+    if not chs:
+        return None
+    ons = [c["on"] for c in chs if c["on"] is not None]
+    sig = [c["signal"] for c in chs if c["signal"] is not None]
+    return {"chs": [c["ch"] for c in chs], "names": [c["name"] for c in chs],
+            "on": any(ons) if ons else None, "all_on": all(ons) if ons else None,
+            "signal": max(sig) if sig else None, "clip": any(c["clip"] for c in chs)}
 
 
 # Single source of truth for the slot-resolution query. Used by both
@@ -688,6 +783,9 @@ def register_admin_routes(app: Flask) -> None:
         live = shure_live.get(db_path)
         return render_template(
             "admin/channels.html",
+            console=dm7_live.get(db_path).state(),
+            console_ip=_settings(db).get("dm7_ip") or "",
+            console_ip_env=os.environ.get("ICTECH_DM7_IP", ""),
             channels=channels,
             live={c["id"]: live.channel_state(c["id"]) for c in channels},
             kinds=CHANNEL_KINDS,
@@ -695,6 +793,18 @@ def register_admin_routes(app: Flask) -> None:
             shure_type_labels=SHURE_TYPE_LABELS,
             **_gear_catalog(db),
         )
+
+    @app.route("/admin/console", methods=["POST"])
+    def admin_console():
+        db = get_db(db_path)
+        ip = (request.form.get("dm7_ip") or "").strip()
+        if ip and not re.fullmatch(r"[A-Za-z0-9.\-]+", ip):
+            flash("That doesn't look like an IP address or hostname.", "error")
+            return redirect(url_for("admin_channels"))
+        _set_setting(db, "dm7_ip", ip or None)
+        db.commit()
+        flash(f"FOH console set to {ip}." if ip else "FOH console link off.", "success")
+        return redirect(url_for("admin_channels"))
 
     @app.route("/admin/channels", methods=["POST"])
     def admin_channels_create():

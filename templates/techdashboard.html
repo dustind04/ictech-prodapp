@@ -72,6 +72,19 @@
     <p class="bl-empty">No channels in inventory yet.</p>
     {% endif %}
 
+    <h2 class="bl-h">FOH CONSOLE <span id="con-status" class="bl-note"></span></h2>
+    {# dm7_live.py via /api/console every 2s. SHEET = this week's Input
+       List; BOARD = what the DM7 says right now. ⚠ = they disagree. #}
+    <table class="bl-table">
+      <thead><tr><th>CH</th><th>SHEET</th><th>BOARD</th><th>ON</th><th>GAIN</th><th>48V</th><th>LEVEL</th><th></th></tr></thead>
+      <tbody id="con-inputs"><tr><td colspan="8" class="bl-note">—</td></tr></tbody>
+    </table>
+    <h2 class="bl-h">IEM MIXES <span class="bl-note">(who's in whose ears)</span></h2>
+    <table class="bl-table">
+      <thead><tr><th>MIX</th><th>LEVEL</th><th>SENDS (dB, loudest first)</th></tr></thead>
+      <tbody id="con-iem"><tr><td colspan="3" class="bl-note">—</td></tr></tbody>
+    </table>
+
     <h2 class="bl-h">IEM RF</h2>
     <table class="bl-table">
       <thead><tr><th>IEM</th><th>RF</th><th>PATH</th><th>WEARER</th></tr></thead>
@@ -132,6 +145,40 @@
   }
   pollLive();
   setInterval(pollLive, 2000);
+
+  // FOH console: sheet vs board, IEM mix contents.
+  const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  async function pollConsole() {
+    try {
+      const res = await fetch('/api/console', { cache: 'no-store' });
+      if (!res.ok) return;
+      const d = await res.json();
+      const st = d.console || {};
+      document.getElementById('con-status').textContent = !st.configured ? '· not set up (Admin → Channels)'
+        : !st.online ? `· ${st.ip} OFFLINE`
+        : `· ${st.model || 'DM7'} ${st.name || ''} · ${st.ip}` +
+          (st.scene ? ` · scene ${st.scene.number} ${st.scene.name || ''}` : '');
+      const tb = document.getElementById('con-inputs');
+      tb.innerHTML = d.inputs.length ? d.inputs.map(r => {
+        const flag = (r.flags || []).map(f => ({name: '⚠ name', '48v': '⚠ 48V', clip: 'CLIP'}[f])).join(' ');
+        const ph = st.phantom_readable ? (r.phantom ? 'ON' : 'off') : (r.phantom_sheet ? '(X)' : '');
+        return `<tr class="${r.on === false ? 'bl-unpatched' : ''}">` +
+          `<td class="bl-num">${r.ch}</td><td class="bl-src">${esc(r.instrument)}</td>` +
+          `<td>${esc(r.name ?? '—')}</td><td>${r.on == null ? '—' : r.on ? 'ON' : 'OFF'}</td>` +
+          `<td class="bl-num">${r.gain == null ? '—' : r.gain + ' dB'}</td><td>${ph}</td>` +
+          `<td class="bl-num">${r.db == null ? '—' : r.db.toFixed(0) + ' dB'}</td><td>${flag}</td></tr>`;
+      }).join('') : '<tr><td colspan="8" class="bl-note">No FOH channels in this week\'s Input List.</td></tr>';
+      const iem = document.getElementById('con-iem');
+      iem.innerHTML = d.iem_mixes.length ? d.iem_mixes.map(m =>
+        `<tr class="${m.on === false ? 'bl-unpatched' : ''}"><td class="bl-src">${esc(m.name)}${m.on === false ? ' (OFF)' : ''}</td>` +
+        `<td class="bl-num">${m.db == null ? '—' : m.db.toFixed(0) + ' dB'}</td><td>` +
+        (m.sources.length ? m.sources.map(s => `${esc(s.name)} ${s.db > 0 ? '+' : ''}${s.db}`).join(' · ') : 'nothing sent') +
+        '</td></tr>').join('')
+        : `<tr><td colspan="3" class="bl-note">${st.online ? 'No console mixes named IEM / Ear / PSM.' : '—'}</td></tr>`;
+    } catch (e) { /* next tick */ }
+  }
+  pollConsole();
+  setInterval(pollConsole, 2000);
 
   setInterval(() => {
     const el = document.getElementById('bl-clock');

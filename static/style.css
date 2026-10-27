@@ -867,15 +867,31 @@ input:focus, select:focus {
 
 /* LIVE row: battery segments + RF bars + TX dot. Dormant = dim
    skeleton until receiver polling feeds mic_live. */
-.slot-row.row-live { min-height: calc(64 * var(--u)); }
+.slot-row.row-live { min-height: calc(54 * var(--u)); }
 .slot-live {
-  display: inline-flex !important;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: center;
-  gap: calc(5 * var(--u)) calc(8 * var(--u));
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--u));
   padding-top: calc(2 * var(--u));
 }
+.lv-line {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: calc(6 * var(--u));
+  min-height: calc(14 * var(--u));
+}
+.lv-words {
+  align-items: center;
+  font-size: calc(11 * var(--u));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #b8b8b2;
+  white-space: nowrap;
+}
+/* The live row is self-explanatory; its label line goes to the gauges. */
+.slot-row.row-live .row-label { display: none; }
 .lv-batt {
   display: inline-flex;
   align-items: center;
@@ -917,14 +933,13 @@ input:focus, select:focus {
    .live-txoff-go (20 min before service → end) makes it loud. */
 .lv-tx {
   align-self: center;
-  font-size: calc(10 * var(--u));
+  font-size: calc(9 * var(--u));
   font-weight: 800;
-  letter-spacing: 0.08em;
-  padding: calc(2 * var(--u)) calc(6 * var(--u));
+  letter-spacing: 0.04em;
+  padding: calc(2 * var(--u)) calc(4 * var(--u));
   border-radius: calc(3 * var(--u));
   background: #2c2c2c;
   color: #8a8a84;
-  min-width: calc(44 * var(--u));
   text-align: center;
   white-space: nowrap;
 }
@@ -933,12 +948,12 @@ input:focus, select:focus {
 .lv-tx.err { background: #5a2a2a; color: #F7F7F5; }
 .lv-alert {
   align-self: center;
-  font-size: calc(10 * var(--u));
+  font-size: calc(9 * var(--u));
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: calc(2 * var(--u)) calc(6 * var(--u));
+  padding: calc(1 * var(--u)) calc(4 * var(--u));
   border-radius: calc(3 * var(--u));
 }
 .lv-alert.warn { background: #EEC97F; color: #1F1F1F; }
@@ -955,6 +970,58 @@ input:focus, select:focus {
   .slot.live-txoff-go .lv-tx.off { animation: none; }
 }
 .slot-live.dormant { opacity: 0.45; }
+/* FOH console: channel up/down at the board + input meter. */
+.foh-chip {
+  align-self: center;
+  font-size: calc(9 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: calc(1 * var(--u)) calc(4 * var(--u));
+  border-radius: calc(3 * var(--u));
+  border: calc(1 * var(--u)) solid #4a4a4a;
+  color: #8a8a84;
+  white-space: nowrap;
+}
+.foh-chip.on  { border-color: var(--green); color: var(--green); }
+.foh-chip.off { border-color: #8a8a84; color: #b8b8b2; }
+.foh-meter {
+  align-self: center;
+  display: inline-flex;
+  flex-direction: column-reverse;
+  gap: calc(1 * var(--u));
+}
+.foh-meter i {
+  width: calc(8 * var(--u));
+  height: calc(2 * var(--u));
+  background: #333;
+}
+.foh-meter i.on { background: var(--green); }
+.foh-meter i.on:nth-child(5) { background: #EEC97F; }
+.foh-meter.clip i.on { background: #D64545; }
+.iem-mix {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: calc(9 * var(--u));
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.iem-mix.sig::before, .iem-mix.quiet::before {
+  content: '';
+  display: inline-block;
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  border-radius: 50%;
+  background: #333;
+}
+.iem-mix.sig::before { background: var(--green); box-shadow: 0 0 calc(6 * var(--u)) rgba(122, 182, 72, 0.6); }
+.iem-mix.off { color: #D64545; }
+.wall-scene {
+  font-size: 14px;
+  font-weight: 700;
+  color: #b8b8b2;
+  text-align: right;
+  min-height: 1em;
+}
 
 /* Locked rows: fixed anatomy at the bottom of every tile. The gray
    labels never move or disappear — they are the static frame; the

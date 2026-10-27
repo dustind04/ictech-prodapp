@@ -149,8 +149,8 @@ Install-day checklist:
 No rack handy? `python tools/fake_shure.py` (then a channel at
 `127.0.0.1`, ULXD4Q, ch 1–4) fakes a quad with one of each state.
 Thresholds (Low/Replace bars and minutes) are constants at the top of
-`shure_live.py`. Set `ICTECH_LIVE=0` to turn polling off (e.g. on the
-internet-facing Debian box, which can't reach the rack anyway).
+`shure_live.py`. Set `ICTECH_LIVE=0` to turn polling off — receivers and console —
+e.g. on the internet-facing Debian box, which can't reach the rack.
 
 ## Debian box (internet-facing demo via Cloudflare tunnel)
 
@@ -229,6 +229,38 @@ Admin → **Weekly import** → upload Dave's `<date> Input List.xlsx` →
 preview (person/mic/IEM/position/MyMix per slot, with warnings for
 anything that didn't match inventory) → **Apply to slots**. The sheet is
 the weekly truth: slots with no row that week are emptied.
+
+## FOH console link (Yamaha DM7, read-only)
+
+`dm7_live.py` holds one connection to the DM7's remote-control port
+(TCP 49280) and only ever *reads* — it refuses to send anything that
+could change the board. What shows up:
+
+- **Wall tiles:** `FOH ON / FOH OFF` (is this person's channel up at
+  the board) next to `TX ON/OFF`, plus a small input meter that flashes
+  red on clip. A band seat folds all its inputs (the whole kit) into
+  one. On the IEM row, a dot lights when the console mix feeding that
+  pack has signal; `MIX OFF` if it's muted.
+- **Wall header:** current scene number + name.
+- **`/techdashboard` → FOH CONSOLE:** each input from the week's Input
+  List next to what the board says (name, on, preamp gain, level), ⚠
+  when the sheet and the board disagree on the name. **IEM MIXES:** who
+  is in whose ears, loudest first.
+
+Setup: Admin → Channels → **FOH console IP** (the DM7's network IP,
+same VLAN as the Pi). Within ~15 s it shows Online with the scene.
+
+How tiles find their console channel: through that week's Input List
+(FOH ch column) — by the slot's mic ("Red HH"), else its MyMix name.
+No Input List imported = no FOH chips. IEM mixes match by name: name
+the DM7 mixes `IEM 1`, `IEM 2`, … (or `Ear 3`, `PSM 3`) and Pack 3's
+tile finds mix "IEM 3".
+
+Not verified on a real DM7 yet: the +48V read (column shows the
+sheet's `(X)` until the console answers it), and how many remote
+connections the DM7 allows next to DM7 Editor / StageMix / Companion.
+No console handy? `python tools/fake_dm7.py` and set the IP to
+`127.0.0.1`.
 
 ## Planning Center link (replaces the Tech Report PDF)
 

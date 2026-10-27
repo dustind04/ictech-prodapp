@@ -38,6 +38,7 @@
       <div class="wall-countdown" id="wall-countdown">—</div>
     </div>
     <div class="wall-meta" id="wall-meta">—</div>
+    <div class="wall-scene" id="wall-scene"></div>
   </div>
   {# Tech team strip: who's behind the controls, visible from stage.
      Lives INSIDE the header — all tech stays above the white line. #}
@@ -201,6 +202,21 @@
     return wait('1st service', nextDow(0, 9, 0));
   }
 
+  // FOH chip: the console channel(s) behind this tile — up or down at
+  // the board, plus a 5-segment input meter. Clip flashes the meter.
+  function fohMeter(f) {
+    if (!f) return '';
+    const sig = Number.isFinite(f.signal) ? f.signal : 0;
+    return '<span class="foh-meter' + (f.clip ? ' clip' : '') + '">' +
+      [1, 2, 3, 4, 5].map(i => `<i class="${i <= sig ? 'on' : ''}"></i>`).join('') + '</span>';
+  }
+  function fohChip(f) {
+    if (!f) return '';
+    const label = f.on === null ? 'FOH ?' : f.on ? 'FOH ON' : 'FOH OFF';
+    return `<span class="foh-chip ${f.on ? 'on' : f.on === false ? 'off' : ''}"` +
+      ` title="Console ch ${f.chs.join(', ')}">${label}</span>`;
+  }
+
   // Go time: from 20 min before a service/rehearsal until it ends —
   // when a switched-off transmitter stops being normal.
   function goTime() {
@@ -323,6 +339,10 @@
           '--tile-w', w > 0 ? w + 'px' : '');
       }
       renderLeader(data.leader || null);
+      const sc = document.getElementById('wall-scene');
+      const con = data.console || {};
+      if (sc) sc.textContent = con.online && con.scene
+        ? `Scene ${con.scene.number}${con.scene.name ? ' · ' + con.scene.name : ''}` : '';
       render(data.slots || [], data.leader || null, data.mixers || []);
     } catch (err) {
       // network blip; the next tick will retry
@@ -729,17 +749,28 @@
           : '<span class="lv-tx off">TX OFF</span>';
         const alert = (st === 'REPLACE' || st === 'LOW')
           ? `<span class="lv-alert ${st === 'REPLACE' ? 'crit' : 'warn'}">${lv.badge}</span>` : '';
+        // Three fixed lines so narrow tiles never overflow: gauges
+        // (battery, RF, FOH input meter) / go-no-go chips / words.
+        const words = [lv && lv.runtime_text, alert].filter(Boolean).join(' ');
         liveEl.innerHTML =
-          '<span class="lv-batt' + battCls + '">' +
+          '<span class="lv-line"><span class="lv-batt' + battCls + '">' +
           [1, 2, 3, 4, 5].map(i =>
             `<i class="${batt !== null && i <= batt ? 'on' : ''}"></i>`).join('') +
-          '</span>' +
-          (lv && lv.runtime_text ? `<span class="lv-time">${lv.runtime_text}</span>` : '') +
-          '<span class="lv-rf">' +
+          '</span><span class="lv-rf">' +
           [1, 2, 3, 4, 5].map(i =>
             `<i style="height:${28 + i * 14}%" class="${rf !== null && i <= rf ? 'on' : ''}"></i>`).join('') +
-          '</span>' + alert + chip;
-        liveEl.classList.toggle('dormant', !lv);
+          '</span>' + fohMeter(slot.foh) + '</span>' +
+          '<span class="lv-line">' + chip + fohChip(slot.foh) + '</span>' +
+          `<span class="lv-line lv-words">${words}</span>`;
+        liveEl.classList.toggle('dormant', !lv && !slot.foh);
+      }
+      // IEM row: is the console mix feeding this pack up and alive.
+      const iemEl = el.querySelector('.slot-iem');
+      if (iemEl && slot.iem_mix && slot.iem_label) {
+        const m = slot.iem_mix;
+        const cls = m.on === false ? 'off' : (m.signal || 0) > 0 ? 'sig' : 'quiet';
+        iemEl.insertAdjacentHTML('beforeend',
+          ` <span class="iem-mix ${cls}" title="${m.name || ''}">${m.on === false ? 'MIX OFF' : ''}</span>`);
       }
       el.classList.toggle('live-replace', !!lv && lv.status === 'REPLACE');
       el.classList.toggle('live-rxerr', !!lv && lv.status === 'RX_ERROR');
