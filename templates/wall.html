@@ -352,7 +352,8 @@
       const con = data.console || {};
       if (sc) sc.textContent = con.online && con.scene
         ? `Scene ${con.scene.number}${con.scene.name ? ' · ' + con.scene.name : ''}` : '';
-      render(data.slots || [], data.leader || null, data.mixers || []);
+      lastRender = [data.slots || [], data.leader || null, data.mixers || []];
+      render(...lastRender);
     } catch (err) {
       // network blip; the next tick will retry
     }
@@ -818,7 +819,25 @@
     }
   }
 
+  // Fast lane: receiver state (mute, audio, battery, TX) every 0.5 s
+  // from /api/live/fast, merged onto the last full /api/state snapshot.
+  let lastRender = null;
+  async function refreshLive() {
+    if (DEMO || !lastRender) return;
+    try {
+      const res = await fetch('/api/live/fast', { cache: 'no-store' });
+      if (!res.ok) return;
+      const live = await res.json();
+      for (const s of lastRender[0]) {
+        if (s.mic_channel_id != null && live[s.mic_channel_id]) s.mic_live = live[s.mic_channel_id];
+        if (s.iem_channel_id != null && live[s.iem_channel_id]) s.iem_live = live[s.iem_channel_id];
+      }
+      render(...lastRender);
+    } catch (err) { /* next tick */ }
+  }
+
   refresh();
   setInterval(refresh, 2000);
+  setInterval(refreshLive, 500);
 </script>
 {% endblock %}
