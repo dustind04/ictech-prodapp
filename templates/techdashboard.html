@@ -139,7 +139,7 @@
           : lv.battery + '/5' + (lv.runtime_text ? ' ' + lv.runtime_text : ''));
         set('rf', lv.rf_dbm == null ? '—' : lv.rf_dbm + ' dBm');
         set('audio', lv.audio == null ? '—' : lv.audio + '%');
-        set('tx', lv.status === 'OK' ? 'ON' : lv.badge.toUpperCase());
+        set('tx', lv.muted ? 'MUTED' : lv.status === 'OK' ? 'ON' : lv.badge.toUpperCase());
       }
     } catch (e) { /* next tick */ }
   }

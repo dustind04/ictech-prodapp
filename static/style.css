@@ -945,6 +945,8 @@ input:focus, select:focus {
 }
 .lv-tx:empty { visibility: hidden; }
 .lv-tx.on  { background: var(--green); color: #1F1F1F; }
+/* Switch on mute: on the air, no audio. Amber; red near go time. */
+.lv-tx.muted { background: #EEC97F; color: #1F1F1F; }
 .lv-tx.err { background: #5a2a2a; color: #F7F7F5; }
 .lv-alert {
   align-self: center;
@@ -960,6 +962,7 @@ input:focus, select:focus {
 .lv-alert.crit { background: #D64545; color: #F7F7F5; }
 .slot.live-replace { box-shadow: inset 0 0 0 calc(3 * var(--u)) #D64545; }
 .slot.live-rxerr   { box-shadow: inset 0 0 0 calc(2 * var(--u)) #7a3a3a; }
+.slot.live-muted-go .lv-tx.muted,
 .slot.live-txoff-go .lv-tx.off {
   background: #D64545;
   color: #F7F7F5;
@@ -967,7 +970,8 @@ input:focus, select:focus {
 }
 @keyframes lv-pulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) {
-  .slot.live-txoff-go .lv-tx.off { animation: none; }
+  .slot.live-muted-go .lv-tx.muted,
+.slot.live-txoff-go .lv-tx.off { animation: none; }
 }
 .slot-live.dormant { opacity: 0.45; }
 /* FOH console: channel up/down at the board + input meter. */
@@ -984,6 +988,20 @@ input:focus, select:focus {
 }
 .foh-chip.on  { border-color: var(--green); color: var(--green); }
 .foh-chip.off { border-color: #8a8a84; color: #b8b8b2; }
+.aud-meter {
+  align-self: center;
+  display: inline-flex;
+  flex-direction: column-reverse;
+  gap: calc(1 * var(--u));
+}
+.aud-meter i {
+  width: calc(12 * var(--u));
+  height: calc(3 * var(--u));
+  background: #333;
+  border-radius: calc(1 * var(--u));
+}
+.aud-meter i.on { background: #4A90D9; }
+.aud-meter i.on:nth-child(5) { background: #D64545; }
 .foh-meter {
   align-self: center;
   display: inline-flex;

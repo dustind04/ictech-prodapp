@@ -154,7 +154,7 @@
             <td>
               {% set lv = live.get(c.id) %}
               {% if lv %}
-                <span class="live-badge live-{{ lv.status | lower }}">{{ lv.badge }}</span>
+                <span class="live-badge live-{{ lv.status | lower }}">{{ lv.badge }}</span>{% if lv.muted %} <span class="live-badge live-low">Muted</span>{% endif %}
                 {% if lv.battery is not none %}<span class="muted">{{ lv.battery }}/5{% if lv.runtime_text %} · {{ lv.runtime_text }}{% endif %}</span>{% endif %}
               {% else %}<span class="muted">—</span>{% endif %}
             </td>

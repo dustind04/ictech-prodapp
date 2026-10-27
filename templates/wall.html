@@ -204,6 +204,15 @@
 
   // FOH chip: the console channel(s) behind this tile — up or down at
   // the board, plus a 5-segment input meter. Clip flashes the meter.
+  // Audio meter from the receiver (classic Micboard): 5 segments,
+  // only while the pack is on the air. Muted packs read flat.
+  function audMeter(lv) {
+    if (!lv || !lv.tx_on) return '';
+    const a = Number.isFinite(lv.audio) ? lv.audio : 0;
+    const seg = lv.muted ? 0 : [1, 20, 40, 60, 80].filter(t => a >= t).length;
+    return '<span class="aud-meter">' +
+      [1, 2, 3, 4, 5].map(i => `<i class="${i <= seg ? 'on' : ''}"></i>`).join('') + '</span>';
+  }
   function fohMeter(f) {
     if (!f) return '';
     const sig = Number.isFinite(f.signal) ? f.signal : 0;
@@ -745,6 +754,7 @@
         const chip = !lv ? '<span class="lv-tx"></span>'
           : (st === 'RX_ERROR' || st === 'UNMATCHED')
             ? `<span class="lv-tx err">${lv.badge}</span>`
+          : lv.tx_on && lv.muted ? '<span class="lv-tx muted">MUTED</span>'
           : lv.tx_on ? '<span class="lv-tx on">TX ON</span>'
           : '<span class="lv-tx off">TX OFF</span>';
         const alert = (st === 'REPLACE' || st === 'LOW')
@@ -759,7 +769,7 @@
           '</span><span class="lv-rf">' +
           [1, 2, 3, 4, 5].map(i =>
             `<i style="height:${28 + i * 14}%" class="${rf !== null && i <= rf ? 'on' : ''}"></i>`).join('') +
-          '</span>' + fohMeter(slot.foh) + '</span>' +
+          '</span>' + audMeter(lv) + fohMeter(slot.foh) + '</span>' +
           '<span class="lv-line">' + chip + fohChip(slot.foh) + '</span>' +
           `<span class="lv-line lv-words">${words}</span>`;
         liveEl.classList.toggle('dormant', !lv && !slot.foh);
@@ -778,6 +788,7 @@
       el.classList.toggle('live-replace', !!lv && lv.status === 'REPLACE');
       el.classList.toggle('live-rxerr', !!lv && lv.status === 'RX_ERROR');
       el.classList.toggle('live-txoff-go', !!lv && lv.status === 'TX_OFF' && goTime());
+      el.classList.toggle('live-muted-go', !!lv && lv.tx_on && lv.muted && goTime());
     }
 
     // Auto-collapse: hide unused tiles and reflow each zone to just its
