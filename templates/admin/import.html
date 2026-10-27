@@ -143,6 +143,12 @@
         {% for b in tplan.band %}
           <tr><td>{{ b.bank_order }} ({{ b.seat_label }})</td><td>{{ b.position }}</td><td>{{ b.person }}</td></tr>
         {% endfor %}
+        {% for v in tplan.vocals %}
+          <tr><td>Vocal tile <span class="muted">(next open)</span></td><td>{{ v.position }}</td><td>{{ v.person }}</td></tr>
+        {% endfor %}
+        {% for v in tplan.speakers %}
+          <tr><td>Speaker tile <span class="muted">(next open)</span></td><td>{{ v.position }}</td><td>{{ v.person }}</td></tr>
+        {% endfor %}
       </tbody>
     </table>
     {% if tplan.roles %}
