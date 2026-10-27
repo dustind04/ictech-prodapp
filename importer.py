@@ -453,7 +453,7 @@ TECH_CATEGORIES = {
 }
 # Position -> tech seat (bank_order), matched loosely.
 TECH_SEAT_MAP = [
-    (r"^sound$", 17), (r"backstage", 18), (r"service director", 19),
+    (r"^sound\b", 17),           # 'Sound', 'Sound (A1)'; not 'Sound Check' crew (r"backstage", 18), (r"service director", 19),
     (r"graphic", 20), (r"^lights?$", 21), (r"switcher|stream", 22),
 ]
 # Positions that imply a band seat, matched against seat labels.
@@ -555,7 +555,8 @@ def build_tech_plan(db, parsed: dict) -> dict:
         "SELECT id, bank_order, label FROM slot WHERE kind='band' AND archived=0").fetchall()
 
     plan = {"date": parsed.get("date"), "leader": None, "tech_seats": [],
-            "band": [], "roles": [], "info": [], "warnings": []}
+            "band": [], "vocals": [], "speakers": [], "roles": [], "info": [],
+            "warnings": []}
 
     for entry in parsed["positions"]:
         pos = entry["position"]
@@ -585,6 +586,12 @@ def build_tech_plan(db, parsed: dict) -> dict:
                 continue
 
             band_rx = next((brx for prx, brx in BAND_POS_MAP if re.search(prx, low)), None)
+            # Pure singers / speakers: they fill EMPTY rack tiles on
+            # apply (the Input List owns placement + mic when it's in).
+            if not band_rx and re.search(r"\bvocal", low):
+                plan["vocals"].append({"position": pos, **ref})
+            elif not band_rx and re.search(r"speaker|host|preach", low):
+                plan["speakers"].append({"position": pos, **ref})
             if band_rx:
                 slot = next((s for s in band_slots
                              if re.search(band_rx, (s["label"] or ""), re.I)), None)
@@ -608,6 +615,31 @@ def build_tech_plan(db, parsed: dict) -> dict:
     return plan
 
 
+def _fill_open_tiles(db, people: list, kind: str) -> None:
+    """Planning Center singers/speakers onto EMPTY vocal (paired) or
+    speaker (mic_only) tiles, in slot order. Tiles the Input List
+    placed (they carry a mic channel) are never touched; tiles this
+    filled last time (person, no mic) are cleared first so a dropped
+    singer doesn't linger."""
+    db.execute(f"UPDATE slot SET person_id=NULL, pc_role=NULL, updated_at=datetime('now') "
+               f"WHERE kind='{kind}' AND archived=0 AND mic_channel_id IS NULL "
+               f"AND iem_channel_id IS NULL AND position_id IS NULL")
+    seated = {r[0] for r in db.execute(
+        "SELECT person_id FROM slot WHERE kind IN ('paired','mic_only') "
+        "AND archived=0 AND person_id IS NOT NULL")}
+    for p in people:
+        pid = p.get("person_id")
+        if not pid or pid in seated:
+            continue
+        row = db.execute(f"SELECT id FROM slot WHERE kind='{kind}' AND archived=0 "
+                         f"AND person_id IS NULL ORDER BY bank_order LIMIT 1").fetchone()
+        if row is None:
+            return
+        db.execute("UPDATE slot SET person_id=?, pc_role=?, updated_at=datetime('now') "
+                   "WHERE id=?", (pid, p.get("position"), row[0]))
+        seated.add(pid)
+
+
 def apply_tech_plan(db, plan: dict) -> int:
     """Write tech seats, band assignments, weekly PC roles, the leader.
 
@@ -623,6 +655,7 @@ def apply_tech_plan(db, plan: dict) -> int:
     # name even if they hold several positions).
     created: dict = {}
     for entry in (plan.get("tech_seats", []) + plan.get("band", [])
+                  + plan.get("vocals", []) + plan.get("speakers", [])
                   + plan.get("roles", [])
                   + ([plan["leader"]] if plan.get("leader") else [])):
         if entry.get("person_id") is None and entry.get("person_create"):
@@ -639,6 +672,8 @@ def apply_tech_plan(db, plan: dict) -> int:
         db.execute("UPDATE slot SET person_id=?, pc_role=?, updated_at=datetime('now') "
                    "WHERE bank_order=?", (b["person_id"], b["position"], b["bank_order"]))
         changed += 1
+    _fill_open_tiles(db, plan.get("vocals", []), "paired")
+    _fill_open_tiles(db, plan.get("speakers", []), "mic_only")
     for r in plan.get("roles", []):
         db.execute("UPDATE slot SET pc_role=?, updated_at=datetime('now') "
                    "WHERE person_id=? AND kind != 'tech'", (r["role"], r["person_id"]))
