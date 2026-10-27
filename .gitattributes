@@ -1,0 +1,3 @@
+# Scripts run on Linux boxes: always LF, whatever core.autocrlf says.
+*.sh text eol=lf
+*.py text eol=lf
