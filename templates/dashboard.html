@@ -60,6 +60,19 @@
       el.textContent = chi.toLocaleDateString('en-US',
         { weekday: 'long', month: 'long', day: 'numeric' });
     }
+    // Service Live: time left in the current item (or time in, when
+    // the item has no planned length); over-time turns red.
+    for (const el of document.querySelectorAll('[data-svc-start]')) {
+      const end = +el.dataset.svcEnd, start = +el.dataset.svcStart;
+      const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+      if (end) {
+        const left = (end - now) / 1000;
+        el.textContent = left >= 0 ? `${mmss(left)} left` : `+${mmss(-left)} over`;
+        el.classList.toggle('over', left < 0);
+      } else {
+        el.textContent = `${mmss(Math.max(0, (now - start) / 1000))} in`;
+      }
+    }
     for (const el of document.querySelectorAll('[data-countdown]')) {
       const mode = el.dataset.mode, label = el.dataset.label;
       if (mode === 'wait' && el.dataset.target) {
@@ -74,6 +87,8 @@
 
   tick();
   setInterval(tick, 1000);
-  if (!PREVIEW) setInterval(swap, 10000);
+  // Faster re-render when a Service Live widget is on: item changes
+  // in Planning Center LIVE show within ~4 s.
+  if (!PREVIEW) setInterval(swap, document.querySelector('[data-pco-live]') ? 4000 : 10000);
 </script>
 {% endblock %}

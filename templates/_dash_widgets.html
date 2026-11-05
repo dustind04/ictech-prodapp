@@ -48,6 +48,35 @@
            data-start="{{ schedule.start_ms or '' }}">—</div>
     </div>
 
+  {% elif w.type == 'servicelive' %}
+    {# Planning Center Services LIVE. The countdown ticks locally
+       (dashboard.html); the canvas re-renders every 4 s with this on. #}
+    {% set L = pco_live or {} %}
+    <div class="dw-card dw-svc" data-pco-live>
+      {% if not L.configured %}
+        <div class="dw-caption">Service</div>
+        <div class="dw-muted">Planning Center isn't linked.</div>
+      {% elif L.error %}
+        <div class="dw-caption">Service</div>
+        <div class="dw-muted">{{ L.error }}</div>
+      {% elif not L.live %}
+        <div class="dw-caption">Service</div>
+        <div class="dw-big dw-muted">Not live</div>
+        <div class="dw-muted">Starts showing when someone runs Planning Center LIVE.</div>
+      {% else %}
+        <div class="dw-caption">Now <span class="dw-svc-live">● LIVE</span></div>
+        <div class="dw-svc-now">{{ L.now.title }}</div>
+        <div class="dw-svc-meta">{{ L.now.label }}
+          {% if L.now.start_ms %} · <span data-svc-start="{{ L.now.start_ms }}"
+                data-svc-end="{{ L.now.end_ms or '' }}">—</span>{% endif %}</div>
+        {% if L.next %}
+          <div class="dw-caption dw-svc-nextcap">Next</div>
+          <div class="dw-svc-next">{{ L.next.title }}
+            <span class="dw-muted">{{ L.next.label }}{% if L.next.length %} · {{ (L.next.length // 60) }}:{{ '%02d' % (L.next.length % 60) }}{% endif %}</span></div>
+        {% endif %}
+      {% endif %}
+    </div>
+
   {% elif w.type == 'clock' %}
     <div class="dw-card dw-center">
       <div class="dw-clock" data-clock>—</div>

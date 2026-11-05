@@ -1294,6 +1294,13 @@ input[type=file]::file-selector-button:hover {
 .dw-caption { font-size: 1.6vh; font-weight: 800; letter-spacing: 0.18em;
               text-transform: uppercase; color: var(--green); }
 .dw-big { font-size: 3.2vh; font-weight: 900; margin: 0.6vh 0; }
+.dw-svc { display: flex; flex-direction: column; justify-content: center; gap: 0.4vh; }
+.dw-svc-live { color: #D64545; margin-left: 0.6em; letter-spacing: 0.1em; }
+.dw-svc-now { font-size: 4.2vh; font-weight: 900; line-height: 1.1; }
+.dw-svc-meta { font-size: 2.2vh; font-weight: 700; color: #b8b8b2; font-variant-numeric: tabular-nums; }
+.dw-svc-meta .over { color: #D64545; }
+.dw-svc-nextcap { margin-top: 1.4vh; }
+.dw-svc-next { font-size: 2.6vh; font-weight: 800; }
 .dw-leader { color: #CFCFC9; font-size: 2vh; }
 .dw-countdown { display: inline-block; margin-top: 1vh; padding: 0.8vh 1.6vw;
                 border-radius: 999px; background: var(--green); color: #10230A;
