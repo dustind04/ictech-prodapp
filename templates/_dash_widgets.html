@@ -129,6 +129,32 @@
   {% elif w.type == 'stageplot' %}
     <img class="dw-stageplot" src="{{ url_for('stageplot_svg') }}" alt="Stage plot">
 
+  {% elif w.type == 'stageview' and stage_layout %}
+    {# Admin → Stage: the real photo, people on their assigned spots.
+       One SVG so pins stay locked to the photo at any widget size. #}
+    {% set vw = 1000 %}{% set vh = (1000 * stage_layout.ratio) | round(0) %}
+    <svg class="dw-stage-photo" viewBox="0 0 {{ vw }} {{ vh }}" preserveAspectRatio="xMidYMid meet">
+      <image href="{{ stage_layout.url }}" x="0" y="0" width="{{ vw }}" height="{{ vh }}" preserveAspectRatio="none"/>
+      {% for mk in stage_markers %}
+        {% set cx = mk.x * vw / 100 %}{% set cy = mk.y * vh / 100 %}
+        <g class="dw-spin">
+          <clipPath id="pc{{ loop.index }}-{{ w.id or loop.index0 }}"><circle cx="{{ cx }}" cy="{{ cy }}" r="24"/></clipPath>
+          <circle cx="{{ cx }}" cy="{{ cy }}" r="27" fill="#26262B" stroke="{{ mk.ring or '#7AB648' }}" stroke-width="5"/>
+          {% if mk.photo_url %}
+            <image href="{{ mk.photo_url }}" x="{{ cx - 24 }}" y="{{ cy - 24 }}" width="48" height="48"
+                   preserveAspectRatio="xMidYMid slice" clip-path="url(#pc{{ loop.index }}-{{ w.id or loop.index0 }})"/>
+          {% else %}
+            <text x="{{ cx }}" y="{{ cy + 8 }}" text-anchor="middle" font-size="21" font-weight="800" fill="#F4F4F2">{{ mk.name.split() | map('first') | join('') | upper }}</text>
+          {% endif %}
+          <text class="dw-spin-name" x="{{ cx }}" y="{{ cy + 48 }}" text-anchor="middle">{{ mk.name }}</text>
+          <text class="dw-spin-info" x="{{ cx }}" y="{{ cy + 66 }}" text-anchor="middle">{% if mk.mics %}{{ mk.mics | join(' · ') }}{% elif mk.instruments %}{{ mk.instruments | join(' · ') }}{% endif %}</text>
+        </g>
+      {% endfor %}
+    </svg>
+    {% if not stage_markers %}
+      <div class="dw-muted dw-stage-empty">Nobody on stage yet this week.</div>
+    {% endif %}
+
   {% elif w.type == 'stageview' %}
     {# Overhead outline, audience at the bottom. Markers are placed
        server-side in percent of the stage box (see _stageview_markers). #}

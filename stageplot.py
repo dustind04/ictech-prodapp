@@ -28,11 +28,52 @@ _BG_FILE = Path(__file__).parent / "static" / "stage-bg.jpg"
 _BG_RATIO = 534 / 952   # height / width of the photo
 
 
-def _bg_datauri():
+DEFAULT_BG_URL = "/static/stage-bg.jpg"
+_MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+         "webp": "image/webp", "gif": "image/gif"}
+
+
+def _bg_datauri(path: Path = _BG_FILE):
     try:
-        return "data:image/jpeg;base64," + base64.b64encode(_BG_FILE.read_bytes()).decode()
+        mime = _MIME.get(path.suffix.lstrip(".").lower(), "image/jpeg")
+        return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
     except OSError:
         return None
+
+
+def stage_layout(db, photo_dir) -> dict | None:
+    """The admin-assigned stage (Admin → Stage), or None for the
+    built-in layout. Spots are percent of the image; the image is the
+    uploaded one, or the built-in photo when only spots were set."""
+    spots = {r["label"].lower(): (r["x"], r["y"])
+             for r in db.execute("SELECT label, x, y FROM stage_spot")}
+    if not spots:
+        return None
+    s = {r["key"]: r["value"] for r in db.execute(
+        "SELECT key, value FROM app_setting WHERE key IN ('stage_image', 'stage_ratio')")}
+    url, path, ratio = DEFAULT_BG_URL, _BG_FILE, _BG_RATIO
+    if s.get("stage_image", "").startswith("/photos/"):
+        url = s["stage_image"]
+        path = Path(photo_dir) / url[len("/photos/"):]
+        try:
+            ratio = float(s.get("stage_ratio") or ratio)
+        except ValueError:
+            pass
+    return {"url": url, "path": path, "ratio": ratio, "spots": spots}
+
+
+def spot_for(pool, instruments, role, spots: dict):
+    """Where one person stands: their pool's spot, else their
+    instrument seat's, else Speaker / CS Pool for speakers and hosts."""
+    if pool and pool.lower() in spots:
+        return spots[pool.lower()]
+    for inst in instruments or []:
+        if inst.lower() in spots:
+            return spots[inst.lower()]
+    r = (role or "").lower()
+    if any(w in r for w in ("speaker", "host", "preach")) or "cs" in (pool or "").lower():
+        return spots.get("speaker") or spots.get("cs pool")
+    return None
 
 MIC_HEX = {
     "red": "#D64545", "wht": "#B9B9B4", "white": "#B9B9B4",
@@ -155,8 +196,10 @@ def _card(x, y, w, h, it):
     return "".join(lines)
 
 
-def build_stage_plot(db, service_label=None, generated=None):
+def build_stage_plot(db, service_label=None, generated=None, layout=None):
     people, techs = _gather(db)
+    if layout:
+        return _build_on_layout(people, techs, layout, service_label, generated)
 
     def poolnum(p):
         digits = "".join(c for c in (p or "") if c.isdigit())
@@ -234,6 +277,61 @@ def build_stage_plot(db, service_label=None, generated=None):
                    f'font-weight="700" fill="#1F1F1F">TECH — {escape(line)}</text>')
     svg.append(f'<text x="{W / 2}" y="{labels_y + 80}" text-anchor="middle" font-size="11" '
                f'fill="#9A9A94">Auto-generated from the weekly Input List + Tech Report imports '
+               f'· icTech Services</text>')
+    svg.append("</svg>")
+    return "".join(svg)
+
+
+def _build_on_layout(people, techs, layout, service_label, generated):
+    """Stage plot on the admin-assigned photo: each person's card sits
+    on their spot. Anyone without a spot lines up under the photo."""
+    W, SX, SW, SY = 1500, 40, 1420, 110
+    CW, CH = 190, 108
+    SH = round(SW * layout["ratio"])
+    placed, loose, seen = [], [], {}
+    for it in people:
+        xy = spot_for(it["pool"], it["instruments"], it["role"], layout["spots"])
+        if xy is None:
+            loose.append(it)
+            continue
+        key = (round(xy[0]), round(xy[1]))
+        bump = seen.get(key, 0)
+        seen[key] = bump + 1
+        cx = SX + xy[0] / 100 * SW + bump * (CW * 0.55)
+        cy = SY + xy[1] / 100 * SH + bump * 18
+        x = min(max(cx - CW / 2, SX), SX + SW - CW)
+        y = min(max(cy - CH / 2, SY), SY + SH - CH)
+        placed.append((x, y, it))
+    loose_y = SY + SH + 24
+    labels_y = loose_y + (CH + 40 if loose else 30)
+    H = labels_y + 130
+
+    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
+           f'font-family="Helvetica, Arial, sans-serif">',
+           f'<rect width="{W}" height="{H}" fill="#FFFFFF"/>',
+           f'<text x="40" y="52" font-size="30" font-weight="900" fill="#1F1F1F">'
+           f'STAGE PLOT<tspan fill="#7AB648">.</tspan></text>',
+           f'<text x="40" y="78" font-size="15" fill="#6B6B6B">Immanuel Church'
+           + (f' · Sunday: {escape(service_label)}' if service_label else '')
+           + (f' · generated {escape(generated)}' if generated else '') + '</text>']
+    bg = _bg_datauri(layout["path"])
+    if bg:
+        svg.append(f'<image x="{SX}" y="{SY}" width="{SW}" height="{SH}" '
+                   f'href="{bg}" preserveAspectRatio="none"/>')
+    svg.append(f'<rect x="{SX}" y="{SY}" width="{SW}" height="{SH}" rx="2" '
+               f'fill="none" stroke="#1F1F1F" stroke-width="2.5"/>')
+    for x, y, it in placed:
+        svg.append(_card(x, y, CW, CH, it))
+    if loose:
+        gap = (W - 120) / len(loose)
+        for i, it in enumerate(loose):
+            svg.append(_card(60 + i * gap + (gap - CW) / 2, loose_y, CW, CH, it))
+    if techs:
+        line = "   ·   ".join(f'{t["role"]}: {t["name"]}' for t in techs)
+        svg.append(f'<text x="{W / 2}" y="{labels_y + 50}" text-anchor="middle" font-size="14" '
+                   f'font-weight="700" fill="#1F1F1F">TECH — {escape(line)}</text>')
+    svg.append(f'<text x="{W / 2}" y="{labels_y + 80}" text-anchor="middle" font-size="11" '
+               f'fill="#9A9A94">Auto-generated from the weekly imports · stage from Admin → Stage '
                f'· icTech Services</text>')
     svg.append("</svg>")
     return "".join(svg)

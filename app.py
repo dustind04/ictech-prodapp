@@ -298,7 +298,8 @@ def register_display_routes(app: Flask) -> None:
                     db.execute("SELECT key, value FROM app_setting")}
         svg = stageplot.build_stage_plot(
             db, service_label=settings.get("import_source"),
-            generated=settings.get("import_at"))
+            generated=settings.get("import_at"),
+            layout=stageplot.stage_layout(db, app.config["PHOTO_DIR"]))
         return Response(svg, mimetype="image/svg+xml",
                         headers={"Cache-Control": "no-store"})
 
@@ -1086,6 +1087,79 @@ def register_admin_routes(app: Flask) -> None:
         flash("Applied " + " and ".join(done) + ".", "success")
         return redirect(url_for("admin_slots"))
 
+    # --- Stage: the photo + where each pool / seat is on it ---
+    @app.route("/admin/stage")
+    def admin_stage():
+        db = get_db(db_path)
+        st = _settings(db)
+        custom = st.get("stage_image", "")
+        image = custom if custom.startswith("/photos/") else stageplot.DEFAULT_BG_URL
+        try:
+            ratio = float(st.get("stage_ratio")) if custom else stageplot._BG_RATIO
+        except (TypeError, ValueError):
+            ratio = stageplot._BG_RATIO
+        spots = [dict(r) for r in db.execute("SELECT label, x, y FROM stage_spot")]
+        # Everything a person can be placed by: positions (pools), band
+        # seats, and Speaker for speakers/hosts without a pool.
+        labels, seen = [], set()
+        for lab in ([r["label"] for r in db.execute(
+                        "SELECT label FROM position WHERE archived=0 ORDER BY label")]
+                    + [r["label"] for r in db.execute(
+                        "SELECT label FROM slot WHERE kind='band' AND archived=0 "
+                        "AND label IS NOT NULL ORDER BY bank_order")]
+                    + ["Speaker"] + [sp["label"] for sp in spots]):
+            if lab and lab.lower() not in seen:
+                seen.add(lab.lower())
+                labels.append(lab)
+        return render_template("admin/stage.html", image=image, ratio=ratio,
+                               custom=bool(custom), spots=spots, labels=labels)
+
+    @app.route("/admin/stage", methods=["POST"])
+    def admin_stage_save():
+        """The editor posts everything at once: spots (JSON), and a new
+        image + its aspect when the photo was uploaded or rotated."""
+        import json as _json
+        db = get_db(db_path)
+        if request.form.get("action") == "reset_image":
+            old = _settings(db).get("stage_image")
+            _set_setting(db, "stage_image", None)
+            _set_setting(db, "stage_ratio", None)
+            db.commit()
+            if old:
+                _delete_managed_photo(app, old)
+            return jsonify({"ok": True})
+        try:
+            spots = _json.loads(request.form.get("spots") or "[]")
+            clean = [(str(sp["label"]).strip()[:60],
+                      min(max(float(sp["x"]), 0), 100), min(max(float(sp["y"]), 0), 100))
+                     for sp in spots if str(sp.get("label", "")).strip()]
+        except (ValueError, TypeError, KeyError):
+            return jsonify({"ok": False, "error": "Bad spot data."}), 400
+        f = request.files.get("image")
+        if f and f.filename:
+            if f.mimetype not in ALLOWED_PHOTO_MIMES:
+                return jsonify({"ok": False, "error": f"Unsupported image type {f.mimetype}."}), 400
+            try:
+                ratio = float(request.form.get("ratio") or "")
+                if not 0.05 < ratio < 20:
+                    raise ValueError
+            except ValueError:
+                return jsonify({"ok": False, "error": "Bad image size."}), 400
+            ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+                   "image/gif": "gif"}[f.mimetype]
+            name = f"{secrets.token_hex(20)}.{ext}"
+            Path(app.config["PHOTO_DIR"]).mkdir(parents=True, exist_ok=True)
+            f.save(str(Path(app.config["PHOTO_DIR"]) / name))
+            old = _settings(db).get("stage_image")
+            _set_setting(db, "stage_image", f"/photos/{name}")
+            _set_setting(db, "stage_ratio", f"{ratio:.5f}")
+            if old:
+                _delete_managed_photo(app, old)
+        db.execute("DELETE FROM stage_spot")
+        db.executemany("INSERT OR REPLACE INTO stage_spot (label, x, y) VALUES (?, ?, ?)", clean)
+        db.commit()
+        return jsonify({"ok": True, "spots": len(clean)})
+
     @app.route("/admin/export/stageplot.svg")
     def admin_stageplot():
         """Dave's stage plot, auto-recreated from the week's imports.
@@ -1097,6 +1171,7 @@ def register_admin_routes(app: Flask) -> None:
             db,
             service_label=settings.get("import_source"),
             generated=settings.get("import_at"),
+            layout=stageplot.stage_layout(db, app.config["PHOTO_DIR"]),
         )
         resp = Response(svg, mimetype="image/svg+xml")
         if request.args.get("download"):
@@ -1123,6 +1198,7 @@ def register_admin_routes(app: Flask) -> None:
             "wireless_model": rows("wireless_model"),
             "capsule_model": rows("capsule_model"),
             "asset": rows("asset"),
+            "stage_spot": rows("stage_spot"),
         })
 
     # --- Positions ---
@@ -1875,7 +1951,7 @@ def _dash_slug(db, name: str) -> str:
     return slug
 
 
-def _stageview_markers(db) -> list:
+def _stageview_markers(db, layout=None) -> list:
     """People placed on the overhead stage, one marker per person
     (roles folded), positions in percent of the stage box. Same spatial
     model as the printed stage plot: audience at the bottom, pools 1-6
@@ -1914,6 +1990,9 @@ def _stageview_markers(db) -> list:
         if r["kind"] == "band" and r["slot_label"] and \
                 r["slot_label"] not in it["instruments"]:
             it["instruments"].append(r["slot_label"])
+
+    if layout:
+        return _markers_on_layout(people, layout)
 
     # Instrument home spots (percent of stage box; y grows downstage).
     BAND_SPOTS = [("drum", (16, 22)), ("bass", (34, 30)), ("synth", (50, 18)),
@@ -1956,6 +2035,26 @@ def _stageview_markers(db) -> list:
     return sorted(markers, key=lambda mk: mk["y"])
 
 
+def _markers_on_layout(people: dict, layout: dict) -> list:
+    """Admin-assigned stage: everyone on their pool / seat / Speaker
+    spot (percent of the photo); anyone unplaced lines the top edge."""
+    markers, loose, seen = [], [], {}
+    for p in people.values():
+        info = {**p, "ring": stageplot._mic_hex(p["mics"][0] if p["mics"] else None)}
+        xy = stageplot.spot_for(p["pool"], p["instruments"], p["role"], layout["spots"])
+        if xy is None:
+            loose.append(info)
+            continue
+        key = (round(xy[0]), round(xy[1]))
+        bump = seen.get(key, 0)
+        seen[key] = bump + 1
+        markers.append({**info, "x": xy[0] + bump * 7, "y": xy[1] - bump * 4})
+    for i, p in enumerate(loose):
+        markers.append({**p, "x": 10 + i * (80 / max(len(loose) - 1, 1)) if len(loose) > 1 else 50,
+                        "y": 8, "unplaced": True})
+    return sorted(markers, key=lambda mk: mk["y"])
+
+
 def _dashboard_context(db, config: dict) -> dict:
     """Everything the used widgets need, queried once per render."""
     types = {w["type"] for w in config.get("widgets", [])}
@@ -1986,7 +2085,10 @@ def _dashboard_context(db, config: dict) -> dict:
         ctx["schedule"] = _schedule_status()
         ctx["service_date"] = _service_sunday().strftime("%A, %B %-d")
     if "stageview" in types:
-        ctx["stage_markers"] = _stageview_markers(db)
+        from flask import current_app
+        layout = stageplot.stage_layout(db, current_app.config["PHOTO_DIR"])
+        ctx["stage_layout"] = layout
+        ctx["stage_markers"] = _stageview_markers(db, layout)
     return ctx
 
 
