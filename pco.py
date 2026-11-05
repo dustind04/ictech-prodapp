@@ -181,3 +181,87 @@ def fingerprint(parsed: dict) -> str:
     plan actually changed, so hand edits on the Slots page survive
     until Planning Center says something new."""
     return hashlib.sha256(json.dumps(parsed, sort_keys=True).encode()).hexdigest()[:16]
+
+
+# ------------------------------------------------------------------
+# Services LIVE: where we are in the service right now.
+# ------------------------------------------------------------------
+# GET .../plans/{id}/live?include=current_item_time,next_item_time
+# gives the item TIMES (when the operator advanced, planned length);
+# which ITEM each time belongs to comes from the plan's items with
+# their item_times. Items change rarely, so they're cached a minute;
+# the live pointer is cheap and re-read on every (cached) call.
+_items_cache: dict = {}            # plan_id -> (fetched_at, {item_time_id: item})
+_plan_cache: dict = {}             # (st, day) -> (fetched_at, plan)
+ITEM_TYPES = {"song": "Song", "header": "Section", "media": "Media", "item": "Item"}
+
+
+def _iso_ms(v):
+    from datetime import datetime
+    if not v:
+        return None
+    try:
+        return int(datetime.fromisoformat(v.replace("Z", "+00:00")).timestamp() * 1000)
+    except ValueError:
+        return None
+
+
+def _items_by_time(st: str, plan_id: str, need: set, now: float) -> dict:
+    hit = _items_cache.get(plan_id)
+    if hit and now - hit[0] < 60 and need <= set(hit[1]):
+        return hit[1]
+    data, _ = _get_all(f"/service_types/{st}/plans/{plan_id}/items", {"include": "item_times"})
+    by_time = {}
+    for it in data:
+        a = it["attributes"]
+        info = {"title": (a.get("title") or "").strip(), "type": a.get("item_type") or "item",
+                "length": a.get("length") or 0, "sequence": a.get("sequence"),
+                "position": a.get("service_position")}
+        for t in ((it.get("relationships", {}).get("item_times") or {}).get("data") or []):
+            by_time[t["id"]] = info
+    _items_cache[plan_id] = (now, by_time)
+    return by_time
+
+
+def live_now(service_type_id: str, service_day: date) -> dict:
+    """{live, plan, now, next}; now/next = {title, type, label,
+    length (s), start_ms, end_ms}. live False when nobody is running
+    Services LIVE for this week's plan."""
+    import time as _time
+    now = _time.time()
+    key = (service_type_id, service_day.isoformat())
+    hit = _plan_cache.get(key)
+    if not hit or now - hit[0] > 300:
+        hit = (now, plan_for(service_type_id, service_day))
+        _plan_cache[key] = hit
+    plan = hit[1]
+    if plan is None:
+        return {"live": False, "plan": None, "now": None, "next": None}
+    body = _get(f"/service_types/{service_type_id}/plans/{plan['id']}/live",
+                {"include": "current_item_time,next_item_time"})
+    rel = (body.get("data") or {}).get("relationships") or {}
+    times = {i["id"]: i for i in body.get("included", []) if i.get("type") == "ItemTime"}
+
+    def ref(name):
+        d = (rel.get(name) or {}).get("data")
+        return d.get("id") if isinstance(d, dict) else None
+
+    cur_id, next_id = ref("current_item_time"), ref("next_item_time")
+    need = {i for i in (cur_id, next_id) if i}
+    items = _items_by_time(service_type_id, plan["id"], need, now) if need else {}
+
+    def entry(tid):
+        if not tid:
+            return None
+        it = items.get(tid) or {}
+        t = (times.get(tid) or {}).get("attributes") or {}
+        length = int(t.get("length") or it.get("length") or 0)
+        start = _iso_ms(t.get("live_start_at"))
+        return {"title": it.get("title") or "—", "type": it.get("type"),
+                "label": ITEM_TYPES.get(it.get("type"), "Item"), "length": length,
+                "start_ms": start,
+                "end_ms": start + length * 1000 if start and length else None}
+
+    return {"live": cur_id is not None,
+            "plan": {"title": plan.get("title"), "dates": plan.get("dates")},
+            "now": entry(cur_id), "next": entry(next_id)}

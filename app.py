@@ -121,6 +121,7 @@ DASH_WIDGETS = {
     "stageplot":  ("Stage plot", "This week's auto-drawn plot"),
     "stageview":  ("Stage view", "Overhead outline, people at their spots"),
     "notes":      ("Notes", "Free text — announcements, reminders"),
+    "servicelive": ("Service Live", "Planning Center LIVE: now, time left, next"),
 }
 # Layout canvas: widgets carry x/y/w/h on a 24x12 grid over the TV's
 # screen, so a dashboard lays out EXACTLY as designed at that aspect
@@ -133,7 +134,7 @@ DASH_DEFAULT_SIZES = {
     "vocals": (24, 5), "band": (24, 5), "speakers": (16, 5),
     "techcrew": (12, 2), "patch": (12, 10), "iemrf": (8, 4),
     "mymixlegend": (24, 3), "mixers": (6, 4), "stageplot": (10, 7),
-    "stageview": (24, 10), "notes": (6, 3),
+    "stageview": (24, 10), "notes": (6, 3), "servicelive": (8, 4),
 }
 
 # ---------------------------------------------------------------
@@ -508,6 +509,11 @@ def register_api_routes(app: Flask) -> None:
                         "version": os.environ.get("ICTECH_VERSION", "unknown"),
                         "settings": {"micboard_col_width":
                                      width["value"] if width else None}})
+
+    @app.route("/api/pco/live")
+    def api_pco_live():
+        """Where we are in the service (Planning Center Services LIVE)."""
+        return jsonify(_pco_live_cached())
 
     @app.route("/api/live/fast")
     def api_live_fast():
@@ -1883,6 +1889,37 @@ def _pco_autosync_start(db_path: str) -> None:
         _pco_thread.start()
 
 
+_PCO_LIVE = {"at": 0.0, "data": None}
+_PCO_LIVE_LOCK = threading.Lock()
+
+
+def _pco_live_cached() -> dict:
+    """Services LIVE status, shared by every open TV: one Planning
+    Center call per 4 s at most (their limit is 100 per 20 s)."""
+    from flask import current_app
+    with _PCO_LIVE_LOCK:
+        if _PCO_LIVE["data"] is not None and time.time() - _PCO_LIVE["at"] < 4:
+            return _PCO_LIVE["data"]
+        out = {"configured": pco.configured()}
+        st = None
+        if out["configured"]:
+            conn = sqlite3.connect(current_app.config["DATABASE_PATH"], timeout=5)
+            conn.row_factory = sqlite3.Row
+            try:
+                st = _settings(conn).get("pco_service_type_id")
+            finally:
+                conn.close()
+        if out["configured"] and not st:
+            out["error"] = "Pick a service type in Admin → Import → Planning Center."
+        elif out["configured"]:
+            try:
+                out.update(pco.live_now(st, _service_sunday().date()))
+            except pco.PCOError as exc:
+                out["error"] = str(exc)
+        _PCO_LIVE.update(at=time.time(), data=out)
+        return out
+
+
 def _service_sunday(now=None) -> datetime:
     """The Sunday this week's data is for (rolls over after 12:30 PM)."""
     now = now or datetime.now(CHURCH_TZ)
@@ -2081,6 +2118,8 @@ def _dashboard_context(db, config: dict) -> dict:
         ctx["leader"] = _current_leader(db)
         ctx["schedule"] = _schedule_status()
         ctx["service_date"] = _service_sunday().strftime("%A, %B %-d")
+    if "servicelive" in types:
+        ctx["pco_live"] = _pco_live_cached()
     if "stageview" in types:
         from flask import current_app
         layout = stageplot.stage_layout(db, current_app.config["PHOTO_DIR"])
