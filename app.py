@@ -2037,21 +2037,18 @@ def _stageview_markers(db, layout=None) -> list:
 
 def _markers_on_layout(people: dict, layout: dict) -> list:
     """Admin-assigned stage: everyone on their pool / seat / Speaker
-    spot (percent of the photo); anyone unplaced lines the top edge."""
-    markers, loose, seen = [], [], {}
+    spot (percent of the photo). No saved spot for their slot = not
+    shown."""
+    markers, seen = [], {}
     for p in people.values():
         info = {**p, "ring": stageplot._mic_hex(p["mics"][0] if p["mics"] else None)}
         xy = stageplot.spot_for(p["pool"], p["instruments"], p["role"], layout["spots"])
         if xy is None:
-            loose.append(info)
             continue
         key = (round(xy[0]), round(xy[1]))
         bump = seen.get(key, 0)
         seen[key] = bump + 1
         markers.append({**info, "x": xy[0] + bump * 7, "y": xy[1] - bump * 4})
-    for i, p in enumerate(loose):
-        markers.append({**p, "x": 10 + i * (80 / max(len(loose) - 1, 1)) if len(loose) > 1 else 50,
-                        "y": 8, "unplaced": True})
     return sorted(markers, key=lambda mk: mk["y"])
 
 

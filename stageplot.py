@@ -284,15 +284,15 @@ def build_stage_plot(db, service_label=None, generated=None, layout=None):
 
 def _build_on_layout(people, techs, layout, service_label, generated):
     """Stage plot on the admin-assigned photo: each person's card sits
-    on their spot. Anyone without a spot lines up under the photo."""
+    on their spot. Anyone whose pool / seat has no saved spot is left
+    off — the plot shows where people stand, not who exists."""
     W, SX, SW, SY = 1500, 40, 1420, 110
     CW, CH = 190, 108
     SH = round(SW * layout["ratio"])
-    placed, loose, seen = [], [], {}
+    placed, seen = [], {}
     for it in people:
         xy = spot_for(it["pool"], it["instruments"], it["role"], layout["spots"])
         if xy is None:
-            loose.append(it)
             continue
         key = (round(xy[0]), round(xy[1]))
         bump = seen.get(key, 0)
@@ -302,8 +302,7 @@ def _build_on_layout(people, techs, layout, service_label, generated):
         x = min(max(cx - CW / 2, SX), SX + SW - CW)
         y = min(max(cy - CH / 2, SY), SY + SH - CH)
         placed.append((x, y, it))
-    loose_y = SY + SH + 24
-    labels_y = loose_y + (CH + 40 if loose else 30)
+    labels_y = SY + SH + 54
     H = labels_y + 130
 
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
@@ -322,10 +321,6 @@ def _build_on_layout(people, techs, layout, service_label, generated):
                f'fill="none" stroke="#1F1F1F" stroke-width="2.5"/>')
     for x, y, it in placed:
         svg.append(_card(x, y, CW, CH, it))
-    if loose:
-        gap = (W - 120) / len(loose)
-        for i, it in enumerate(loose):
-            svg.append(_card(60 + i * gap + (gap - CW) / 2, loose_y, CW, CH, it))
     if techs:
         line = "   ·   ".join(f'{t["role"]}: {t["name"]}' for t in techs)
         svg.append(f'<text x="{W / 2}" y="{labels_y + 50}" text-anchor="middle" font-size="14" '
