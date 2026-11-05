@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Stage — icTech Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Stage</h1>
+    <p class="page-lead">The stage photo behind the live stage view and the printed stage plot,
+      and where each pool and band seat is on it.</p>
+  </div>
+  <a class="btn-secondary" href="{{ url_for('admin_index') }}">← Admin</a>
+</div>
+
+<section class="form-card">
+  <div class="stage-tools">
+    <input id="st-file" type="file" accept="image/jpeg,image/png,image/webp" style="display:none">
+    <button type="button" class="btn-secondary" onclick="document.getElementById('st-file').click()">Upload new photo…</button>
+    <button type="button" class="btn-secondary" data-tx="cw">Rotate 90° ↻</button>
+    <button type="button" class="btn-secondary" data-tx="r180">Rotate 180°</button>
+    <button type="button" class="btn-secondary" data-tx="mirror">Mirror ⇆</button>
+    {% if custom %}<button type="button" class="btn-secondary" id="st-reset">Back to built-in photo</button>{% endif %}
+    <button type="button" class="btn-primary" id="st-save" style="margin-left:auto">Save stage</button>
+  </div>
+  <p class="muted" id="st-msg" style="margin:0 0 10px">
+    Pick a label on the right, then tap where it is on the photo. Drag a pin to move it.
+    Rotating or mirroring moves the pins with the photo. Nothing changes on the displays until you save.
+  </p>
+  <div class="stage-editor">
+    <div class="stage-canvas" id="st-canvas"><img id="st-img" src="{{ image }}" alt="Stage photo"></div>
+    <div class="stage-labels" id="st-labels"></div>
+  </div>
+</section>
+
+<script>
+(() => {
+  const LABELS = {{ labels | tojson }};
+  const spots = {};                                   // label -> {x, y} in %
+  for (const s of {{ spots | tojson }}) spots[s.label] = { x: s.x, y: s.y };
+  let sel = LABELS.find(l => !spots[l]) || LABELS[0] || null;
+  let newImage = null;                                // Blob when the photo changed
+  const img = document.getElementById('st-img');
+  const canvas = document.getElementById('st-canvas');
+  const list = document.getElementById('st-labels');
+  const msg = document.getElementById('st-msg');
+
+  function renderList() {
+    list.innerHTML = '';
+    for (const lab of LABELS) {
+      const row = document.createElement('div');
+      row.className = 'stage-label' + (lab === sel ? ' sel' : '');
+      const name = document.createElement('span'); name.textContent = lab;
+      const st = document.createElement('span');
+      st.className = 'st' + (spots[lab] ? ' ok' : '');
+      st.textContent = spots[lab] ? '✓ placed' : 'not placed';
+      row.append(name, st);
+      if (spots[lab]) {
+        const del = document.createElement('button');
+        del.type = 'button'; del.title = 'Remove'; del.textContent = '✕';
+        del.onclick = e => { e.stopPropagation(); delete spots[lab]; render(); };
+        row.append(del);
+      }
+      row.onclick = () => { sel = lab; render(); };
+      list.append(row);
+    }
+  }
+  function renderPins() {
+    canvas.querySelectorAll('.stage-pin').forEach(p => p.remove());
+    for (const [lab, p] of Object.entries(spots)) {
+      const pin = document.createElement('div');
+      pin.className = 'stage-pin' + (lab === sel ? ' sel' : '');
+      pin.textContent = lab;
+      pin.style.left = p.x + '%'; pin.style.top = p.y + '%';
+      pin.onpointerdown = e => {
+        e.preventDefault(); sel = lab; pin.setPointerCapture(e.pointerId);
+        pin.onpointermove = ev => { const q = pct(ev); spots[lab] = q;
+          pin.style.left = q.x + '%'; pin.style.top = q.y + '%'; };
+        pin.onpointerup = () => { pin.onpointermove = null; render(); };
+      };
+      canvas.append(pin);
+    }
+  }
+  function render() { renderList(); renderPins(); }
+  function pct(e) {
+    const r = img.getBoundingClientRect();
+    const c = v => Math.round(Math.min(Math.max(v, 0), 100) * 10) / 10;
+    return { x: c((e.clientX - r.left) / r.width * 100), y: c((e.clientY - r.top) / r.height * 100) };
+  }
+  img.addEventListener('click', e => {
+    if (!sel) return;
+    spots[sel] = pct(e);
+    sel = LABELS.find(l => !spots[l]) || sel;          // next unplaced label
+    render();
+  });
+
+  // Rotate / mirror the photo in the browser; pins move with it.
+  function redraw(transform, mapPoint) {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const cv = document.createElement('canvas');
+    const turn = transform === 'cw';
+    cv.width = turn ? h : w; cv.height = turn ? w : h;
+    const ctx = cv.getContext('2d');
+    if (transform === 'cw') { ctx.translate(cv.width, 0); ctx.rotate(Math.PI / 2); }
+    if (transform === 'r180') { ctx.translate(w, h); ctx.rotate(Math.PI); }
+    if (transform === 'mirror') { ctx.translate(w, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(img, 0, 0);
+    for (const k in spots) spots[k] = mapPoint(spots[k]);
+    setImageFrom(cv);
+  }
+  function setImageFrom(cv) {
+    cv.toBlob(b => { newImage = b; img.src = URL.createObjectURL(b); img.onload = render; }, 'image/jpeg', 0.9);
+  }
+  const MAPS = {
+    cw: p => ({ x: 100 - p.y, y: p.x }),
+    r180: p => ({ x: 100 - p.x, y: 100 - p.y }),
+    mirror: p => ({ x: 100 - p.x, y: p.y }),
+  };
+  document.querySelectorAll('[data-tx]').forEach(b => b.onclick = () => {
+    if (!img.complete || !img.naturalWidth) return;
+    redraw(b.dataset.tx, MAPS[b.dataset.tx]);
+  });
+
+  // New photo: downscale to a sane size; pins keep their relative spots.
+  document.getElementById('st-file').onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 2400 / Math.max(im.width, im.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k);
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      setImageFrom(cv);
+      msg.textContent = 'New photo loaded — check every pin, then Save stage.';
+    };
+    im.src = URL.createObjectURL(f);
+  };
+
+  document.getElementById('st-save').onclick = async () => {
+    const fd = new FormData();
+    fd.append('spots', JSON.stringify(Object.entries(spots).map(([label, p]) => ({ label, ...p }))));
+    if (newImage) {
+      fd.append('image', newImage, 'stage.jpg');
+      fd.append('ratio', String(img.naturalHeight / img.naturalWidth));
+    }
+    msg.textContent = 'Saving…';
+    const res = await fetch('{{ url_for("admin_stage_save") }}', { method: 'POST', body: fd });
+    const out = await res.json().catch(() => ({}));
+    msg.textContent = res.ok && out.ok
+      ? `Saved — ${out.spots} spot(s). The stage view and stage plot use it now.`
+      : 'Not saved: ' + (out.error || res.status);
+    if (res.ok) newImage = null;
+  };
+  const reset = document.getElementById('st-reset');
+  if (reset) reset.onclick = async () => {
+    if (!confirm('Go back to the built-in stage photo? Your pins stay.')) return;
+    const fd = new FormData(); fd.append('action', 'reset_image');
+    await fetch('{{ url_for("admin_stage_save") }}', { method: 'POST', body: fd });
+    location.reload();
+  };
+  img.complete ? render() : (img.onload = render);
+})();
+</script>
+{% endblock %}

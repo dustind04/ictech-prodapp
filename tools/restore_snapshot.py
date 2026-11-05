@@ -22,7 +22,8 @@ import os
 import sqlite3
 import sys
 
-TABLES = ["slot", "asset", "channel", "person", "position", "wireless_model", "capsule_model"]
+TABLES = ["slot", "asset", "channel", "person", "position", "wireless_model", "capsule_model",
+          "stage_spot"]
 # ^ delete order: slot/asset reference the others. Insert happens reversed.
 CATALOGS = {"wireless_model", "capsule_model"}   # seeded by migrations: merged
 # Dangling references to clear when the referencing table wasn't restored.
