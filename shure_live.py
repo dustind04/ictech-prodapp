@@ -40,9 +40,9 @@ log = logging.getLogger("ictech.live")
 PORT = 2202
 POLL_TARGETS_EVERY = 15      # s — pick up admin edits without a restart
 QUERY_EVERY = 10             # s — re-ask battery/runtime (keepalive too)
-FAST_EVERY = 1.0             # s — re-ask mute: ULX-D doesn't push it
+FAST_EVERY = 0.25            # s — re-ask mute: ULX-D doesn't push it
 METER_MS = 200               # receiver SAMPLE rate (audio + RF)
-AUDIO_HOLD = 0.6             # s peak hold, so a 0.5 s wall poll sees peaks
+AUDIO_HOLD = 0.4             # s peak hold, so a 0.25 s wall poll sees peaks
 OFFLINE_AFTER = 25           # s of silence → receiver is "RX error"
 RECONNECT_EVERY = 10         # s between connection attempts
 CONNECT_TIMEOUT = 2.0
@@ -522,7 +522,9 @@ class LiveTelemetry:
         if not socks:
             time.sleep(0.5)
             return
-        r, w, _ = select.select(list(socks), writers, [], 0.5)
+        # Short wait: the 0.25 s mute query must go out on time even
+        # when no meter traffic is arriving (all packs off).
+        r, w, _ = select.select(list(socks), writers, [], 0.1)
         with self.lock:
             for s in w:
                 socks[s].flush()
