@@ -570,6 +570,13 @@
     }
   }
 
+  // Only touch the DOM when a tile's markup really changed: the fast
+  // lane renders 4x/s, and rewriting unchanged HTML would restart the
+  // MUTED / TX OFF / no-sign pulse before it ever completes a cycle.
+  function setHTML(el, html) {
+    if (el._html !== html) { el.innerHTML = html; el._html = html; }
+  }
+
   function render(slots, leader, mixers) {
     const grid = document.getElementById('slot-grid');
     if (!grid) return;
@@ -701,9 +708,9 @@
       // for the band; both when someone wears two hats.
       const gearEl = el.querySelector('.slot-gear');
       if (gearEl) {
-        gearEl.innerHTML = gearHTML(slot,
+        setHTML(gearEl, gearHTML(slot,
           slot.kind !== 'band' && slot.person_id
-            ? (bandSeatsByPerson[slot.person_id] || []) : []);
+            ? (bandSeatsByPerson[slot.person_id] || []) : []));
       }
 
       // Locked rows: the gray labels are the static frame; values are
@@ -779,7 +786,7 @@
         // Three fixed lines so narrow tiles never overflow: gauges
         // (battery, RF, FOH input meter) / go-no-go chips / words.
         const words = [lv && lv.runtime_text, alert].filter(Boolean).join(' ');
-        liveEl.innerHTML =
+        setHTML(liveEl,
           '<span class="lv-line"><span class="lv-batt' + battCls + '">' +
           [1, 2, 3, 4, 5].map(i =>
             `<i class="${batt !== null && i <= batt ? 'on' : ''}"></i>`).join('') +
@@ -788,7 +795,7 @@
             `<i style="height:${28 + i * 14}%" class="${rf !== null && i <= rf ? 'on' : ''}"></i>`).join('') +
           '</span>' + audMeter(lv) + fohMeter(slot.foh) + '</span>' +
           '<span class="lv-line">' + chip + fohChip(slot.foh) + '</span>' +
-          `<span class="lv-line lv-words">${words}</span>`;
+          `<span class="lv-line lv-words">${words}</span>`);
         liveEl.classList.toggle('dormant', !lv && !slot.foh);
       }
       // MyMix row: is this person's own feed into the MyMix system
@@ -835,7 +842,7 @@
     }
   }
 
-  // Fast lane: receiver state (mute, audio, battery, TX) every 0.5 s
+  // Fast lane: receiver state (mute, audio, battery, TX) every 0.25 s
   // from /api/live/fast, merged onto the last full /api/state snapshot.
   let lastRender = null;
   async function refreshLive() {
@@ -854,6 +861,6 @@
 
   refresh();
   setInterval(refresh, 2000);
-  setInterval(refreshLive, 500);
+  setInterval(refreshLive, 250);
 </script>
 {% endblock %}
