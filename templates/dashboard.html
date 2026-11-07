@@ -36,9 +36,40 @@
         if (!window._bootVersion) window._bootVersion = v;
         else if (v !== window._bootVersion) { location.reload(); return; }
       }
-      document.getElementById('dash-root').innerHTML = await res.text();
+      patchCanvas(document.getElementById('dash-root'), await res.text());
       tick();  // repaint clocks immediately, no 1s flash of '—'
     } catch (e) { /* network blip; next swap retries */ }
+  }
+
+  // Replace only the widgets whose HTML changed: a live NDI tile's
+  // markup never changes, so its video stream keeps running.
+  function patchCanvas(root, html) {
+    const t = document.createElement('template');
+    t.innerHTML = html;
+    const fresh = [...t.content.children], cur = [...root.children];
+    if (fresh.length !== cur.length) { root.innerHTML = html; startNdi(); return; }
+    fresh.forEach((el, i) => {
+      if (cur[i]._src !== el.outerHTML) { cur[i]._src = el.outerHTML; cur[i].replaceWith(el); el._src = el.outerHTML; }
+    });
+    startNdi();
+  }
+
+  // NDI tiles: MJPEG from the bridge on this same host, port 8060.
+  function startNdi() {
+    for (const box of document.querySelectorAll('[data-ndi-src]')) {
+      const img = box.querySelector('img');
+      if (!img || img.dataset.on) continue;
+      img.dataset.on = '1';
+      const msg = box.querySelector('.dw-ndi-msg');
+      img.onload = () => { if (msg) msg.style.display = 'none'; };
+      img.onerror = () => {
+        if (msg) { msg.style.display = '';
+          msg.textContent = 'NDI bridge not reachable — it runs on the Pi, church network / Tailscale only.'; }
+        delete img.dataset.on;                 // the next refresh retries
+      };
+      img.src = `${location.protocol}//${location.hostname}:8060/stream?src=` +
+                encodeURIComponent(box.dataset.ndiSrc) + `&q=${box.dataset.ndiQ || 'low'}`;
+    }
   }
 
   function fmt(secs) {
@@ -85,6 +116,8 @@
     }
   }
 
+  for (const el of document.getElementById('dash-root').children) el._src = el.outerHTML;
+  startNdi();
   tick();
   setInterval(tick, 1000);
   // Faster re-render when a Service Live widget is on: item changes

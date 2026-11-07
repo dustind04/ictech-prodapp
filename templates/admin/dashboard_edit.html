@@ -203,6 +203,32 @@
       };
       controls.querySelector('#opt-title').onchange = push;
       controls.querySelector('#opt-text').onchange = push;
+    } else if (wd.type === 'ndi') {
+      // Sources come from the Pi's NDI bridge (same host, port 8060).
+      controls.innerHTML = `
+        <input id="opt-src" list="ndi-sources" placeholder="NDI source name"
+               value="${(wd.opts.source || '').replace(/"/g, '&quot;')}">
+        <datalist id="ndi-sources"></datalist>
+        <select id="opt-q">
+          <option value="low" ${wd.opts.quality !== 'high' ? 'selected' : ''}>Preview quality (light, recommended)</option>
+          <option value="high" ${wd.opts.quality === 'high' ? 'selected' : ''}>Full quality (heavy on Wi-Fi)</option>
+        </select>
+        <span class="muted" id="opt-ndi-status">Looking for NDI sources…</span>`;
+      fetch(`${location.protocol}//${location.hostname}:8060/sources`)
+        .then(r => r.json()).then(list => {
+          const dl = controls.querySelector('#ndi-sources');
+          for (const n of list) { const o = document.createElement('option'); o.value = n; dl.append(o); }
+          controls.querySelector('#opt-ndi-status').textContent = list.length
+            ? `${list.length} source(s) on the network — click the box to pick.` : 'No NDI sources found on the network.';
+        }).catch(() => { controls.querySelector('#opt-ndi-status').textContent =
+            'NDI bridge not reachable from here — type the source name exactly.'; });
+      const push = () => {
+        wd.opts.source = controls.querySelector('#opt-src').value.trim();
+        wd.opts.quality = controls.querySelector('#opt-q').value;
+        refreshPreview();
+      };
+      controls.querySelector('#opt-src').onchange = push;
+      controls.querySelector('#opt-q').onchange = push;
     } else {
       controls.innerHTML = '<span class="muted">No options for this widget.</span>';
     }
