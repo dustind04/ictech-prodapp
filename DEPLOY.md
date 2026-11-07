@@ -275,6 +275,22 @@ connections the DM7 allows next to DM7 Editor / StageMix / Companion.
 No console handy? `python tools/fake_dm7.py` and set the IP to
 `127.0.0.1`.
 
+## NDI video on dashboards
+
+The Pi runs a small bridge (`ndi/bridge.py`, container `ictech_ndi`,
+port 8060) that receives NDI sources and re-serves them as MJPEG for
+the **NDI video** dashboard widget. Admin → Dashboards → drop **NDI
+video** → pick the source (the builder lists what the bridge sees) →
+**Preview quality** unless the Pi is wired to the NDI network.
+
+- Discovery is mDNS, so it finds senders on the Pi's own subnet. Senders
+  elsewhere: put their machines' IPs in `.env` as
+  `NDI_EXTRA_IPS=10.111.1.50,10.111.1.51` and re-run `pi-update.sh`.
+- The video comes straight from the Pi on port 8060, so it plays on the
+  church network and over Tailscale, not through the Cloudflare tunnel.
+- Uses the NDI runtime bundled in the `ndi-python` wheel; NDI® is a
+  trademark of Vizrt NDI AB, used under the NDI license.
+
 ## Planning Center link (replaces the Tech Report PDF)
 
 Crew seats, band seats, weekly roles and the music leader come straight

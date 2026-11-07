@@ -21,3 +21,15 @@ services:
       SNAP_BASE: http://127.0.0.1:8058
   cloudflared:
     network_mode: host
+  # NDI -> MJPEG bridge for the dashboards' "NDI video" widget
+  # (ndi/bridge.py, port 8060). Host network for NDI's mDNS discovery;
+  # NDI_EXTRA_IPS in .env (comma-separated) reaches senders on other
+  # subnets.
+  ndi:
+    build: ./ndi
+    image: ictech-ndi:local
+    container_name: ictech_ndi
+    network_mode: host
+    environment:
+      NDI_EXTRA_IPS: ${NDI_EXTRA_IPS:-}
+    restart: unless-stopped

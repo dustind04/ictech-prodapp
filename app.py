@@ -122,6 +122,7 @@ DASH_WIDGETS = {
     "stageview":  ("Stage view", "Overhead outline, people at their spots"),
     "notes":      ("Notes", "Free text — announcements, reminders"),
     "servicelive": ("Service Live", "Planning Center LIVE: now, time left, next"),
+    "ndi":        ("NDI video", "A live NDI source — camera, ProPresenter, program"),
 }
 # Layout canvas: widgets carry x/y/w/h on a 24x12 grid over the TV's
 # screen, so a dashboard lays out EXACTLY as designed at that aspect
@@ -135,6 +136,7 @@ DASH_DEFAULT_SIZES = {
     "techcrew": (12, 2), "patch": (12, 10), "iemrf": (8, 4),
     "mymixlegend": (24, 3), "mixers": (6, 4), "stageplot": (10, 7),
     "stageview": (24, 10), "notes": (6, 3), "servicelive": (8, 4),
+    "ndi": (8, 5),
 }
 
 # ---------------------------------------------------------------
@@ -1973,7 +1975,7 @@ def _parse_dash_config(raw: str) -> dict:
         widgets.append({
             "type": w["type"], "x": x, "y": y, "w": ww, "h": hh,
             "opts": {k: v for k, v in opts.items()
-                     if k in ("title", "text", "occupied_only") and
+                     if k in ("title", "text", "occupied_only", "source", "quality") and
                      isinstance(v, (str, bool))},
         })
     return {"screen": {"w": sw, "h": sh}, "widgets": widgets}

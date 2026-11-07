@@ -77,6 +77,21 @@
       {% endif %}
     </div>
 
+  {% elif w.type == 'ndi' %}
+    {# NDI via the Pi's bridge sidecar (ndi/bridge.py, port 8060). The
+       <img> src is set by dashboard.html from the page's own host, and
+       the canvas refresh leaves this section alone so video never
+       restarts. #}
+    <div class="dw-ndi" data-ndi-src="{{ w.opts.get('source', '') }}"
+         data-ndi-q="{{ w.opts.get('quality', 'low') }}">
+      {% if w.opts.get('source') %}
+        <img alt="{{ w.opts.source }}">
+        <div class="dw-ndi-msg dw-muted">Connecting to {{ w.opts.source }}…</div>
+      {% else %}
+        <div class="dw-ndi-msg dw-muted">Pick an NDI source in the dashboard builder.</div>
+      {% endif %}
+    </div>
+
   {% elif w.type == 'clock' %}
     <div class="dw-card dw-center">
       <div class="dw-clock" data-clock>—</div>
